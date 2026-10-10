@@ -812,13 +812,14 @@ Business settings ที่ไม่ลับ (แยกจาก Script Propert
 ผู้ปกครอง (หนึ่งคนดูแลนักเรียนได้หลายคน)
 
 - kind: **ENTITY** · partition: **NONE** · sensitivity: **PERSONAL** · retention: `ENROLLMENT_PLUS_5Y`
-- unique: —
-- lookup/index (access pattern): search_name
+- unique: (school_id, external_ref)
+- lookup/index (access pattern): external_ref, search_name
 
 | คอลัมน์ | ชนิด | required | ข้อจำกัด | คำอธิบาย |
 |---|---|---|---|---|
 | id | uuid | ✔ | PK | รหัสภายใน (UUID) |
 | school_id | uuid | ✔ | FK → Schools.id |  |
+| external_ref | string(40) |  | pattern `^[0-9A-Za-z_-]{1,40}$` | รหัสผู้ปกครองที่โรงเรียนรับรอง (ใช้รวมข้อมูลพี่น้อง) — ห้ามรวมด้วยชื่อเหมือนกัน |
 | prefix_th | string(30) |  |  |  |
 | first_name_th | string(100) | ✔ |  |  |
 | last_name_th | string(100) | ✔ |  |  |
@@ -1544,6 +1545,7 @@ Audit (append-only) ใคร ทำอะไร เมื่อใด เหต
 |---|---|---|---|---|
 | id | uuid | ✔ | PK | รหัสภายใน (UUID) |
 | import_batch_id | uuid | ✔ | FK → ImportBatches.id |  |
+| attempt_no | int | ✔ | ≥ 1 | ครั้งที่ตรวจ (dry-run) ของชุดนำเข้า |
 | row_no | int | ✔ | ≥ 1 |  |
 | column_name | string(100) |  |  |  |
 | error_code | string(60) | ✔ |  |  |

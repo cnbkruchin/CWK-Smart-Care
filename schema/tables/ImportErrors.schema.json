@@ -8,6 +8,7 @@
   "required": [
     "id",
     "import_batch_id",
+    "attempt_no",
     "row_no",
     "column_name",
     "error_code",
@@ -25,6 +26,11 @@
     "import_batch_id": {
       "type": "string",
       "format": "uuid"
+    },
+    "attempt_no": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "ครั้งที่ตรวจ (dry-run) ของชุดนำเข้า"
     },
     "row_no": {
       "type": "integer",

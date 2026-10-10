@@ -193,9 +193,10 @@ export const TABLES = [
   {
     name: 'Guardians', group: 'Student', kind: 'ENTITY', partition: 'NONE', sensitivity: 'PERSONAL', retention: 'ENROLLMENT_PLUS_5Y',
     description_th: 'ผู้ปกครอง (หนึ่งคนดูแลนักเรียนได้หลายคน)',
-    columns: [id(), fk('school_id', 'Schools', R), str('prefix_th', 30), str('first_name_th', 100, R), str('last_name_th', 100, R),
+    columns: [id(), fk('school_id', 'Schools', R), str('external_ref', 40, { pattern: '^[0-9A-Za-z_-]{1,40}$', description_th: 'รหัสผู้ปกครองที่โรงเรียนรับรอง (ใช้รวมข้อมูลพี่น้อง) — ห้ามรวมด้วยชื่อเหมือนกัน' }),
+      str('prefix_th', 30), str('first_name_th', 100, R), str('last_name_th', 100, R),
       str('search_name', 300, { derived: true }), en('status', 'RecordStatus', R), ...ENTITY_META],
-    indexes: [['search_name']],
+    unique: [['school_id', 'external_ref']], lookup: ['external_ref'], indexes: [['search_name']],
   },
   {
     name: 'StudentGuardians', group: 'Student', kind: 'ENTITY', partition: 'NONE', sensitivity: 'PERSONAL', retention: 'ENROLLMENT_PLUS_5Y',
@@ -465,7 +466,7 @@ export const TABLES = [
   {
     name: 'ImportErrors', group: 'Operations', kind: 'EVENT', partition: 'NONE', sensitivity: 'PERSONAL', retention: '1Y',
     description_th: 'ข้อผิดพลาดรายแถวของการนำเข้า',
-    columns: [id(), fk('import_batch_id', 'ImportBatches', R), int('row_no', { ...R, min: 1 }), str('column_name', 100), str('error_code', 60, R), str('message_th', 500, R),
+    columns: [id(), fk('import_batch_id', 'ImportBatches', R), int('attempt_no', { ...R, min: 1, description_th: 'ครั้งที่ตรวจ (dry-run) ของชุดนำเข้า' }), int('row_no', { ...R, min: 1 }), str('column_name', 100), str('error_code', 60, R), str('message_th', 500, R),
       str('raw_value_redacted', 200), ...EVENT_META],
     lookup: ['import_batch_id'],
   },

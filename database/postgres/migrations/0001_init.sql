@@ -570,6 +570,7 @@ ALTER TABLE enrollments ADD CONSTRAINT enrollments_no_overlap EXCLUDE USING gist
 CREATE TABLE guardians (
   id uuid NOT NULL PRIMARY KEY,
   school_id uuid NOT NULL,
+  external_ref text,
   prefix_th text,
   first_name_th text NOT NULL,
   last_name_th text NOT NULL,
@@ -580,19 +581,24 @@ CREATE TABLE guardians (
   updated_at timestamptz NOT NULL,
   updated_by uuid NOT NULL,
   version integer NOT NULL,
-  CONSTRAINT guardians_ck1 CHECK (char_length(prefix_th) <= 30),
-  CONSTRAINT guardians_ck2 CHECK (prefix_th <> ''),
-  CONSTRAINT guardians_ck3 CHECK (char_length(first_name_th) <= 100),
-  CONSTRAINT guardians_ck4 CHECK (first_name_th <> ''),
-  CONSTRAINT guardians_ck5 CHECK (char_length(last_name_th) <= 100),
-  CONSTRAINT guardians_ck6 CHECK (last_name_th <> ''),
-  CONSTRAINT guardians_ck7 CHECK (char_length(search_name) <= 300),
-  CONSTRAINT guardians_ck8 CHECK (search_name <> ''),
-  CONSTRAINT guardians_ck9 CHECK (status IN ('ACTIVE', 'INACTIVE')),
-  CONSTRAINT guardians_ck10 CHECK (version >= 1)
+  CONSTRAINT guardians_ck1 CHECK (char_length(external_ref) <= 40),
+  CONSTRAINT guardians_ck2 CHECK (external_ref <> ''),
+  CONSTRAINT guardians_ck3 CHECK (external_ref ~ '^[0-9A-Za-z_-]{1,40}$'),
+  CONSTRAINT guardians_ck4 CHECK (char_length(prefix_th) <= 30),
+  CONSTRAINT guardians_ck5 CHECK (prefix_th <> ''),
+  CONSTRAINT guardians_ck6 CHECK (char_length(first_name_th) <= 100),
+  CONSTRAINT guardians_ck7 CHECK (first_name_th <> ''),
+  CONSTRAINT guardians_ck8 CHECK (char_length(last_name_th) <= 100),
+  CONSTRAINT guardians_ck9 CHECK (last_name_th <> ''),
+  CONSTRAINT guardians_ck10 CHECK (char_length(search_name) <= 300),
+  CONSTRAINT guardians_ck11 CHECK (search_name <> ''),
+  CONSTRAINT guardians_ck12 CHECK (status IN ('ACTIVE', 'INACTIVE')),
+  CONSTRAINT guardians_ck13 CHECK (version >= 1)
 );
-CREATE INDEX guardians_ix1 ON guardians (search_name);
-CREATE INDEX guardians_ix2 ON guardians (school_id);
+CREATE UNIQUE INDEX guardians_uq1 ON guardians (school_id, external_ref);
+CREATE INDEX guardians_ix1 ON guardians (external_ref);
+CREATE INDEX guardians_ix2 ON guardians (search_name);
+CREATE INDEX guardians_ix3 ON guardians (school_id);
 
 -- StudentGuardians: ความสัมพันธ์นักเรียน-ผู้ปกครองที่เจ้าหน้าที่ยืนยัน พร้อมสิทธิ์และช่วงเวลาที่มีผล
 CREATE TABLE student_guardians (
@@ -1649,6 +1655,7 @@ CREATE INDEX import_batches_ix2 ON import_batches (job_id);
 CREATE TABLE import_errors (
   id uuid NOT NULL PRIMARY KEY,
   import_batch_id uuid NOT NULL,
+  attempt_no integer NOT NULL,
   row_no integer NOT NULL,
   column_name text,
   error_code text NOT NULL,
@@ -1656,15 +1663,16 @@ CREATE TABLE import_errors (
   raw_value_redacted text,
   created_at timestamptz NOT NULL,
   created_by uuid NOT NULL,
-  CONSTRAINT import_errors_ck1 CHECK (row_no >= 1),
-  CONSTRAINT import_errors_ck2 CHECK (char_length(column_name) <= 100),
-  CONSTRAINT import_errors_ck3 CHECK (column_name <> ''),
-  CONSTRAINT import_errors_ck4 CHECK (char_length(error_code) <= 60),
-  CONSTRAINT import_errors_ck5 CHECK (error_code <> ''),
-  CONSTRAINT import_errors_ck6 CHECK (char_length(message_th) <= 500),
-  CONSTRAINT import_errors_ck7 CHECK (message_th <> ''),
-  CONSTRAINT import_errors_ck8 CHECK (char_length(raw_value_redacted) <= 200),
-  CONSTRAINT import_errors_ck9 CHECK (raw_value_redacted <> '')
+  CONSTRAINT import_errors_ck1 CHECK (attempt_no >= 1),
+  CONSTRAINT import_errors_ck2 CHECK (row_no >= 1),
+  CONSTRAINT import_errors_ck3 CHECK (char_length(column_name) <= 100),
+  CONSTRAINT import_errors_ck4 CHECK (column_name <> ''),
+  CONSTRAINT import_errors_ck5 CHECK (char_length(error_code) <= 60),
+  CONSTRAINT import_errors_ck6 CHECK (error_code <> ''),
+  CONSTRAINT import_errors_ck7 CHECK (char_length(message_th) <= 500),
+  CONSTRAINT import_errors_ck8 CHECK (message_th <> ''),
+  CONSTRAINT import_errors_ck9 CHECK (char_length(raw_value_redacted) <= 200),
+  CONSTRAINT import_errors_ck10 CHECK (raw_value_redacted <> '')
 );
 CREATE TRIGGER import_errors_append_only BEFORE UPDATE OR DELETE ON import_errors FOR EACH ROW EXECUTE FUNCTION cwk_forbid_mutation();
 CREATE INDEX import_errors_ix1 ON import_errors (import_batch_id);

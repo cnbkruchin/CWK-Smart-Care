@@ -49,7 +49,7 @@
 | Acknowledgements | ต่อภาคเรียน | Notify/term | 10,220 | 12 | 122,640 |
 | WebhookInbox | ต่อภาคเรียน | Notify/term | 12,775 | 16 | 204,400 |
 | Students | ต่อปี | Master | 525 | 20 | 10,500 |
-| Guardians | ต่อปี | Master | 840 | 12 | 10,080 |
+| Guardians | ต่อปี | Master | 840 | 13 | 10,920 |
 | StudentGuardians | ต่อปี | Master | 840 | 20 | 16,800 |
 | Users | ต่อปี | Master | 682 | 18 | 12,276 |
 | IdentityLinks | ต่อปี | Master | 682 | 17 | 11,594 |
@@ -76,9 +76,9 @@
 | Daily/term | 5,100,000 | 51.0% | เฝ้าระวัง — แยก workbook/partition เพิ่ม |
 | Ops/term | 3,783,742 | 37.8% | เหลือพื้นที่ |
 | Notify/term | 2,255,498 | 22.6% | เหลือพื้นที่ |
-| Master/year | 1,139,545 | 11.4% | เหลือพื้นที่ |
+| Master/year | 1,140,385 | 11.4% | เหลือพื้นที่ |
 
-Master workbook สะสม 5 ปี ≈ 5,697,725 เซลล์ (57.0%) — ตาราง Leave*/Cases*/ContactLogs เติบโตตามปี ควร archive ตาม retention (docs/OPERATIONS_TH.md); Jobs ล้างตาม retention 90 วันจึงไม่นับสะสม
+Master workbook สะสม 5 ปี ≈ 5,701,925 เซลล์ (57.0%) — ตาราง Leave*/Cases*/ContactLogs เติบโตตามปี ควร archive ตาม retention (docs/OPERATIONS_TH.md); Jobs ล้างตาม retention 90 วันจึงไม่นับสะสม
 
 ## ภาระงานและโควตาที่เกี่ยวข้อง (ประมาณการ)
 

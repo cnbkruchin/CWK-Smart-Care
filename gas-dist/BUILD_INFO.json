@@ -1,0 +1,11 @@
+{
+  "app_version": "0.2.0",
+  "build_hash": "5e7b33a64bb32068",
+  "files": [
+    "App.html",
+    "Code.js",
+    "Entrypoints.js",
+    "appsscript.json"
+  ],
+  "note": "Copy every .js/.html file and appsscript.json into the Apps Script project (clasp: rootDir=gas-dist)."
+}

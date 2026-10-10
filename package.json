@@ -1,6 +1,6 @@
 {
   "name": "cwk-smart-care",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "CWK Smart Care — ระบบแจ้งลา ลงเวลาสาย ติดตามการมาเรียน และดูแลช่วยเหลือนักเรียน โรงเรียนจุนวิทยาคม",
   "type": "module",

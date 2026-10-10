@@ -8,6 +8,7 @@
   "required": [
     "id",
     "school_id",
+    "external_ref",
     "prefix_th",
     "first_name_th",
     "last_name_th",
@@ -28,6 +29,15 @@
     "school_id": {
       "type": "string",
       "format": "uuid"
+    },
+    "external_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 40,
+      "pattern": "^[0-9A-Za-z_-]{1,40}$",
+      "description": "รหัสผู้ปกครองที่โรงเรียนรับรอง (ใช้รวมข้อมูลพี่น้อง) — ห้ามรวมด้วยชื่อเหมือนกัน"
     },
     "prefix_th": {
       "type": [
@@ -96,7 +106,16 @@
     "primary_key": [
       "id"
     ],
-    "unique": [],
+    "unique": [
+      {
+        "columns": [
+          "school_id",
+          "external_ref"
+        ],
+        "where": null,
+        "nullsNotDistinct": false
+      }
+    ],
     "foreign_keys": [
       {
         "column": "school_id",

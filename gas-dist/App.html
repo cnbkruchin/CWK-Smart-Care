@@ -1,0 +1,1866 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CWK Smart Care</title>
+<style>/* CWK Smart Care — mobile-first, red/white/gray. #B91C1C is an example brand red (configurable),
+   not a certified school identity color. Status is never conveyed by color alone (icon + text). */
+:root {
+  --brand: #B91C1C; --brand-dark: #7F1D1D; --brand-soft: #FEE2E2;
+  --bg: #F5F5F5; --card: #FFFFFF; --text: #1F2937; --muted: #4B5563; --line: #D1D5DB;
+  --ok: #166534; --ok-bg: #DCFCE7; --warn: #92400E; --warn-bg: #FEF3C7; --danger: #991B1B; --danger-bg: #FEE2E2; --info: #1E3A8A; --info-bg: #DBEAFE;
+  --radius: 10px; --tap: 44px;
+  font-family: "Sarabun", "Noto Sans Thai", "Leelawadee UI", "Tahoma", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 16px; line-height: 1.55; }
+a { color: var(--brand-dark); }
+:focus-visible { outline: 3px solid #1D4ED8; outline-offset: 2px; }
+.skip { position: absolute; left: -9999px; top: 0; }
+.skip:focus { left: 8px; top: 8px; background: #fff; padding: 8px; z-index: 100; }
+.boot { padding: 24px; }
+.muted { color: var(--muted); }
+.small { font-size: .875rem; }
+.row { display: flex; flex-wrap: wrap; align-items: center; }
+.gap { gap: 8px; }
+
+.layout { min-height: 100vh; display: flex; flex-direction: column; }
+.topbar { background: var(--brand); color: #fff; padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.topbar .muted { color: #FECACA; }
+.topbar .btn-link { color: #fff; }
+.nav { background: #fff; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.nav ul { list-style: none; margin: 0; padding: 0 8px; display: flex; gap: 4px; }
+.nav a { display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 12px; text-decoration: none; color: var(--text); border-bottom: 3px solid transparent; white-space: nowrap; }
+.nav a.active { border-bottom-color: var(--brand); font-weight: 700; }
+main { padding: 12px; max-width: 1200px; width: 100%; margin: 0 auto; }
+h1 { font-size: 1.4rem; margin: 8px 0 12px; }
+h2 { font-size: 1.15rem; margin: 0 0 8px; }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; margin: 12px 0; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.tile { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 96px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); text-decoration: none; color: var(--text); text-align: center; padding: 8px; }
+.tile-icon { font-size: 1.8rem; }
+
+.btn { min-height: var(--tap); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--text); font: inherit; cursor: pointer; }
+.btn-primary { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 700; }
+.btn-primary:hover { background: var(--brand-dark); }
+.btn-secondary { background: #fff; border-color: var(--brand); color: var(--brand-dark); }
+.btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+.btn-link { background: none; border: none; color: var(--brand-dark); text-decoration: underline; padding: 8px; }
+.btn-lg { min-height: 56px; font-size: 1.15rem; padding: 12px 24px; }
+.btn[disabled] { opacity: .6; cursor: progress; }
+
+.form { display: block; }
+.form-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.field { margin: 8px 0; }
+.field label { display: block; font-weight: 600; margin-bottom: 4px; }
+.req { color: var(--danger); }
+.input { width: 100%; min-height: var(--tap); padding: 8px 10px; border: 1px solid #9CA3AF; border-radius: 8px; font: inherit; background: #fff; color: var(--text); }
+.input[aria-invalid="true"] { border-color: var(--danger); background: var(--danger-bg); }
+.input.code { font-family: ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; }
+.hint { color: var(--muted); font-size: .875rem; }
+.field-error { color: var(--danger); font-size: .9rem; min-height: 0; }
+.field-error:not(:empty)::before { content: "✖ "; }
+.check { display: inline-flex; align-items: center; gap: 6px; min-height: var(--tap); margin-right: 12px; }
+fieldset { border: 1px solid var(--line); border-radius: 8px; }
+.grid3 { display: grid; grid-template-columns: 1fr; gap: 0 12px; }
+@media (min-width: 720px) { .grid3 { grid-template-columns: repeat(3, 1fr); } }
+
+.state { padding: 12px; border-radius: 8px; margin: 8px 0; }
+.state-loading { color: var(--muted); }
+.state-empty { background: #fff; border: 1px dashed var(--line); color: var(--muted); }
+.state-error { background: var(--danger-bg); color: var(--danger); }
+.state-success { background: var(--ok-bg); color: var(--ok); }
+.spinner { display: inline-block; width: 1em; height: 1em; border: 2px solid var(--line); border-top-color: var(--brand); border-radius: 50%; animation: spin 1s linear infinite; vertical-align: -2px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+.alert { padding: 10px 12px; border-radius: 8px; margin: 8px 0; }
+.alert-info { background: var(--info-bg); color: var(--info); }
+.alert-warn { background: var(--warn-bg); color: var(--warn); }
+.alert-danger { background: var(--danger-bg); color: var(--danger); }
+.alert-ok { background: var(--ok-bg); color: var(--ok); }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: .85rem; border: 1px solid transparent; }
+.badge-ok { background: var(--ok-bg); color: var(--ok); }
+.badge-warn { background: var(--warn-bg); color: var(--warn); }
+.badge-danger { background: var(--danger-bg); color: var(--danger); }
+.badge-neutral { background: #E5E7EB; color: var(--text); }
+.badge-info { background: var(--info-bg); color: var(--info); }
+
+.table-wrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; background: #fff; }
+.table th, .table td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.table th { background: #F3F4F6; font-weight: 700; }
+.table tr.clickable { cursor: pointer; }
+.table tr.clickable:hover, .table tr.clickable:focus { background: var(--brand-soft); }
+@media (max-width: 640px) {
+  .table thead { display: none; }
+  .table tr { display: block; border-bottom: 2px solid var(--line); }
+  .table td { display: flex; gap: 8px; border: none; }
+  .table td::before { content: attr(data-label); font-weight: 700; min-width: 40%; color: var(--muted); }
+}
+.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin: 8px 0; }
+.stat { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; text-align: center; }
+.stat-n { font-size: 1.6rem; font-weight: 700; }
+.stat-l { color: var(--muted); font-size: .9rem; }
+.checklist { padding-left: 18px; }
+
+.modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 12px; }
+.modal { background: #fff; border-radius: var(--radius); padding: 16px; max-width: 480px; width: 100%; }
+.toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); padding: 10px 16px; border-radius: 8px; z-index: 60; }
+.toast-ok { background: var(--ok); color: #fff; }
+.toast-warn { background: var(--warn); color: #fff; }
+.toast-danger { background: var(--danger); color: #fff; }
+
+.login { display: flex; justify-content: center; padding: 16px; }
+.login-card { background: #fff; border: 1px solid var(--line); border-top: 6px solid var(--brand); border-radius: var(--radius); padding: 16px; max-width: 460px; width: 100%; }
+
+/* gate check-in */
+.gate-input { font-size: 1.6rem; min-height: 64px; text-align: center; letter-spacing: .05em; }
+.gate-card { display: grid; grid-template-columns: 96px 1fr; gap: 12px; align-items: center; }
+.gate-photo { width: 96px; height: 120px; object-fit: cover; border-radius: 8px; background: #E5E7EB; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+.gate-result { font-size: 1.3rem; font-weight: 700; padding: 12px; border-radius: 8px; }
+.timeline { list-style: none; padding: 0; }
+.timeline li { border-left: 3px solid var(--line); padding: 4px 0 8px 12px; margin-left: 6px; }
+.timeline li.kind-late { border-left-color: var(--warn); }
+.timeline li.kind-leave { border-left-color: var(--info); }
+.timeline li.kind-absent { border-left-color: var(--danger); }
+.mark-group { display: flex; flex-wrap: wrap; gap: 4px; }
+.mark-group label { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-height: var(--tap); display: inline-flex; align-items: center; gap: 4px; }
+@media print { .nav, .topbar, .form-actions, .btn { display: none !important; } main { max-width: none; } }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+<div id="app"><div class="boot" role="status">กำลังโหลด CWK Smart Care…</div></div>
+<script>window.__CWK_BOOT__ = /*__CWK_BOOT__*/null;</script>
+<script>var CWKApp = (() => {
+  var __defProp = Object.defineProperty;
+  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+  var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __export = (target, all) => {
+    for (var name in all)
+      __defProp(target, name, { get: all[name], enumerable: true });
+  };
+  var __copyProps = (to, from, except, desc) => {
+    if (from && typeof from === "object" || typeof from === "function") {
+      for (let key of __getOwnPropNames(from))
+        if (!__hasOwnProp.call(to, key) && key !== except)
+          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+    }
+    return to;
+  };
+  var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+  // frontend/src/main.js
+  var main_exports = {};
+  __export(main_exports, {
+    start: () => start
+  });
+
+  // frontend/src/lib/dom.js
+  var SAFE_URL = /^(https?:|mailto:|tel:|#|\/|blob:)/i;
+  function h(tag, props, ...children) {
+    const el = document.createElement(tag);
+    if (props) {
+      for (const [k, v] of Object.entries(props)) {
+        if (v === void 0 || v === null || v === false) continue;
+        if (k === "class") el.className = Array.isArray(v) ? v.filter(Boolean).join(" ") : v;
+        else if (k === "dataset") Object.assign(el.dataset, v);
+        else if (k.startsWith("on") && typeof v === "function") el.addEventListener(k.slice(2).toLowerCase(), v);
+        else if (k === "style" && typeof v === "object") Object.assign(el.style, v);
+        else if ((k === "href" || k === "src") && !SAFE_URL.test(String(v))) continue;
+        else if (k === "value") el.value = v;
+        else if (k === "checked" || k === "disabled" || k === "selected" || k === "required" || k === "autofocus" || k === "multiple" || k === "readOnly") el[k] = !!v;
+        else el.setAttribute(k, v === true ? "" : String(v));
+      }
+    }
+    append(el, children);
+    return el;
+  }
+  function append(el, children) {
+    for (const c of children.flat(Infinity)) {
+      if (c === null || c === void 0 || c === false || c === true) continue;
+      el.appendChild(c instanceof Node ? c : document.createTextNode(String(c)));
+    }
+    return el;
+  }
+  function mount(el, ...children) {
+    while (el.firstChild) el.removeChild(el.firstChild);
+    return append(el, children);
+  }
+  var idSeq = 0;
+  function uid(prefix = "f") {
+    idSeq += 1;
+    return `${prefix}-${idSeq}`;
+  }
+
+  // frontend/src/api.js
+  var ApiError = class extends Error {
+    constructor(e2, requestId) {
+      super(e2.message_th || e2.code);
+      this.code = e2.code;
+      this.message_th = e2.message_th;
+      this.retryable = !!e2.retryable;
+      this.field_errors = e2.field_errors || [];
+      this.details = e2.details || null;
+      this.request_id = requestId || null;
+    }
+  };
+  function uuid() {
+    if (globalThis.crypto && crypto.randomUUID) return crypto.randomUUID();
+    const b = new Uint8Array(16);
+    crypto.getRandomValues(b);
+    b[6] = b[6] & 15 | 64;
+    b[8] = b[8] & 63 | 128;
+    const hx = [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
+    return `${hx.slice(0, 8)}-${hx.slice(8, 12)}-${hx.slice(12, 16)}-${hx.slice(16, 20)}-${hx.slice(20)}`;
+  }
+  var ApiClient = class {
+    constructor({ transport, getCredential, onUnauthenticated, deviceId: deviceId2 }) {
+      this.transport = transport;
+      this.getCredential = getCredential;
+      this.onUnauthenticated = onUnauthenticated || (() => {
+      });
+      this.deviceId = deviceId2 || null;
+      this.generations = /* @__PURE__ */ new Map();
+    }
+    /**
+     * @param {string} operation
+     * @param {object} payload
+     * @param {{mutation?:boolean, idempotencyKey?:string, expectedVersion?:number|null, channel?:string}} opts
+     *   channel: responses for an older request on the same channel are discarded (StaleResponse)
+     */
+    async call(operation, payload = {}, opts = {}) {
+      var _a;
+      const gen = opts.channel ? (this.generations.get(opts.channel) || 0) + 1 : 0;
+      if (opts.channel) this.generations.set(opts.channel, gen);
+      const credential = await this.getCredential();
+      const env = {
+        api_version: "v1",
+        request_id: uuid(),
+        operation,
+        payload,
+        credential: credential || null,
+        idempotency_key: opts.mutation ? opts.idempotencyKey || uuid() : null,
+        expected_version: (_a = opts.expectedVersion) != null ? _a : null,
+        client: this.deviceId ? { device_id: this.deviceId } : null
+      };
+      let res;
+      let attempt = 0;
+      for (; ; ) {
+        res = await this.transport.send(env);
+        if (!res.ok && res.error && ["LOCK_TIMEOUT", "STORAGE_UNAVAILABLE"].includes(res.error.code) && attempt < 1) {
+          attempt++;
+          await new Promise((r) => setTimeout(r, 800 + Math.random() * 600));
+          continue;
+        }
+        break;
+      }
+      if (opts.channel && this.generations.get(opts.channel) !== gen) {
+        const stale = new Error("stale response discarded");
+        stale.code = "STALE_RESPONSE";
+        throw stale;
+      }
+      if (!res.ok) {
+        const err = new ApiError(res.error || { code: "INTERNAL_ERROR" }, res.meta && res.meta.request_id);
+        if (err.code === "UNAUTHENTICATED") this.onUnauthenticated(err);
+        throw err;
+      }
+      return { data: res.data, meta: res.meta };
+    }
+    async get(operation, payload, opts) {
+      return (await this.call(operation, payload, opts)).data;
+    }
+    async mutate(operation, payload, opts = {}) {
+      return (await this.call(operation, payload, { ...opts, mutation: true })).data;
+    }
+  };
+  var GasRpcTransport = class {
+    send(envelope) {
+      return new Promise((resolve) => {
+        google.script.run.withSuccessHandler((s) => {
+          try {
+            resolve(JSON.parse(s));
+          } catch (_) {
+            resolve({ ok: false, error: { code: "INTERNAL_ERROR", message_th: "คำตอบจากเซิร์ฟเวอร์ไม่ถูกต้อง", retryable: true } });
+          }
+        }).withFailureHandler(() => resolve({ ok: false, error: { code: "STORAGE_UNAVAILABLE", message_th: "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ข้อมูลยังไม่ถูกบันทึก กรุณาลองใหม่", retryable: true } })).rpc(JSON.stringify(envelope));
+      });
+    }
+  };
+  var HttpTransport = class {
+    constructor(baseUrl) {
+      this.baseUrl = baseUrl.replace(/\/$/, "");
+    }
+    async send(envelope) {
+      const { credential, ...body } = envelope;
+      try {
+        const r = await fetch(`${this.baseUrl}/v1/rpc`, {
+          method: "POST",
+          headers: { "content-type": "application/json", ...credential ? { authorization: `Bearer ${credential}` } : {} },
+          body: JSON.stringify(body),
+          credentials: "omit"
+        });
+        return await r.json();
+      } catch (_) {
+        return { ok: false, error: { code: "STORAGE_UNAVAILABLE", message_th: "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ข้อมูลยังไม่ถูกบันทึก", retryable: true } };
+      }
+    }
+  };
+
+  // frontend/src/auth.js
+  var FIREBASE_VERSION = "10.14.1";
+  var FIREBASE_BASE = `https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}`;
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = src;
+      s.async = false;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error(`โหลด ${src} ไม่สำเร็จ`));
+      document.head.appendChild(s);
+    });
+  }
+  var FirebaseAuth = class {
+    constructor(cfg, persistence = "SESSION") {
+      this.cfg = cfg;
+      this.persistence = persistence;
+      this.user = null;
+      this.listeners = [];
+    }
+    async init() {
+      if (!globalThis.firebase) {
+        await loadScript(`${FIREBASE_BASE}/firebase-app-compat.js`);
+        await loadScript(`${FIREBASE_BASE}/firebase-auth-compat.js`);
+      }
+      const fb = globalThis.firebase;
+      this.app = fb.apps.length ? fb.app() : fb.initializeApp({ apiKey: this.cfg.apiKey, authDomain: this.cfg.authDomain, projectId: this.cfg.projectId });
+      this.auth = fb.auth();
+      if (this.cfg.tenantId) this.auth.tenantId = this.cfg.tenantId;
+      this.auth.languageCode = "th";
+      const P = fb.auth.Auth.Persistence;
+      await this.auth.setPersistence({ LOCAL: P.LOCAL, NONE: P.NONE }[this.persistence] || P.SESSION);
+      await new Promise((resolve) => {
+        const off = this.auth.onAuthStateChanged((u) => {
+          this.user = u;
+          off();
+          resolve();
+        });
+      });
+      this.auth.onAuthStateChanged((u) => {
+        this.user = u;
+        this.listeners.forEach((f) => f(u));
+      });
+    }
+    onChange(f) {
+      this.listeners.push(f);
+    }
+    get signedIn() {
+      return !!this.user;
+    }
+    get email() {
+      return this.user ? this.user.email : null;
+    }
+    get emailVerified() {
+      return !!(this.user && this.user.emailVerified);
+    }
+    async credential() {
+      return this.user ? this.user.getIdToken() : null;
+    }
+    async refresh() {
+      if (this.user) {
+        await this.user.reload();
+        await this.user.getIdToken(true);
+      }
+    }
+    signIn(email, password) {
+      return this.auth.signInWithEmailAndPassword(email, password);
+    }
+    async signUp(email, password) {
+      const cred = await this.auth.createUserWithEmailAndPassword(email, password);
+      await cred.user.sendEmailVerification();
+      return cred;
+    }
+    sendVerification() {
+      return this.user ? this.user.sendEmailVerification() : Promise.resolve();
+    }
+    resetPassword(email) {
+      return this.auth.sendPasswordResetEmail(email);
+    }
+    signOut() {
+      return this.auth.signOut();
+    }
+  };
+  function firebaseErrorTh(e2) {
+    const code = e2 && e2.code || "";
+    if (/wrong-password|user-not-found|invalid-credential|invalid-login/.test(code)) return "อีเมลหรือรหัสผ่านไม่ถูกต้อง";
+    if (/too-many-requests/.test(code)) return "พยายามเข้าสู่ระบบหลายครั้งเกินไป กรุณารอสักครู่";
+    if (/email-already-in-use/.test(code)) return "อีเมลนี้มีบัญชีอยู่แล้ว ให้เข้าสู่ระบบหรือรีเซ็ตรหัสผ่าน";
+    if (/weak-password/.test(code)) return "รหัสผ่านสั้นเกินไป (อย่างน้อย 8 ตัวอักษร แนะนำให้ผสมตัวเลข)";
+    if (/invalid-email/.test(code)) return "รูปแบบอีเมลไม่ถูกต้อง";
+    if (/network-request-failed/.test(code)) return "เชื่อมต่ออินเทอร์เน็ตไม่ได้";
+    if (/popup|operation-not-allowed/.test(code)) return "วิธีเข้าสู่ระบบนี้ยังไม่เปิดใช้งาน";
+    return "เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่";
+  }
+  var DemoAuth = class {
+    constructor() {
+      this.userId = null;
+      this.passphrase = null;
+      this.listeners = [];
+    }
+    async init() {
+    }
+    onChange(f) {
+      this.listeners.push(f);
+    }
+    get signedIn() {
+      return !!this.userId;
+    }
+    get email() {
+      return null;
+    }
+    get emailVerified() {
+      return true;
+    }
+    async credential() {
+      return this.userId ? `demo:${this.userId}:${this.passphrase}` : null;
+    }
+    async refresh() {
+    }
+    signInDemo(userId, passphrase) {
+      this.userId = userId;
+      this.passphrase = passphrase;
+      this.listeners.forEach((f) => f(true));
+    }
+    async signOut() {
+      this.userId = null;
+      this.passphrase = null;
+      this.listeners.forEach((f) => f(null));
+    }
+  };
+
+  // src/schema/enums.js
+  var e = (labels) => Object.freeze({ values: Object.freeze(Object.keys(labels)), th: Object.freeze(labels) });
+  var ENUMS = Object.freeze({
+    Role: e({
+      SYSTEM_ADMIN: "ผู้ดูแลระบบ (งานเทคนิค)",
+      STUDENT_AFFAIRS: "กลุ่มบริหารงานกิจการนักเรียน",
+      EXECUTIVE: "ผู้บริหาร",
+      HOMEROOM_TEACHER: "ครูที่ปรึกษา",
+      SUBJECT_TEACHER: "ครูประจำวิชา",
+      DUTY_TEACHER: "ครูเวร",
+      GATE_STAFF: "เจ้าหน้าที่ประตู",
+      GUARDIAN: "ผู้ปกครอง",
+      STUDENT: "นักเรียน"
+    }),
+    UserType: e({ STAFF: "บุคลากร", GUARDIAN: "ผู้ปกครอง", STUDENT: "นักเรียน", SYSTEM: "ระบบ" }),
+    UserStatus: e({ INVITED: "รอเปิดใช้งาน", ACTIVE: "ใช้งาน", DISABLED: "ระงับ" }),
+    RecordStatus: e({ ACTIVE: "ใช้งาน", INACTIVE: "ไม่ใช้งาน" }),
+    YearStatus: e({ PLANNED: "วางแผน", ACTIVE: "ใช้งาน", CLOSED: "ปิดแล้ว" }),
+    DayType: e({ SCHOOL_DAY: "วันเรียน", HOLIDAY: "วันหยุด", NO_SCHOOL: "งดการเรียน", EXAM_DAY: "วันสอบ", ACTIVITY_DAY: "วันกิจกรรม" }),
+    DaySession: e({ AM: "ช่วงเช้า", PM: "ช่วงบ่าย" }),
+    RuleType: e({
+      SCHOOL_LATENESS: "เกณฑ์มาสายเข้าโรงเรียน",
+      PERIOD_LATENESS: "เกณฑ์สายเข้าคาบ (โมดูลต่อยอด)",
+      FOLLOWUP_LATE_COUNT: "เกณฑ์ติดตามจากจำนวนครั้งที่สาย",
+      FOLLOWUP_ABSENCE_COUNT: "เกณฑ์ติดตามจากจำนวนวันขาดที่ยืนยัน",
+      LEAVE_ROUTING: "เส้นทางอนุมัติใบลา",
+      ABSENCE_VERIFICATION: "เวลาตรวจสอบการขาดเรียน",
+      NOTIFICATION_POLICY: "นโยบายการแจ้งเตือน"
+    }),
+    RuleStatus: e({ DRAFT: "ร่าง", ACTIVE: "ใช้งาน", RETIRED: "เลิกใช้" }),
+    StorageStatus: e({ ACTIVE: "ใช้งาน", READONLY: "อ่านอย่างเดียว", ARCHIVED: "จัดเก็บถาวร" }),
+    IdentityProvider: e({ firebase: "Firebase Authentication / Identity Platform", "google-workspace": "Google Workspace (ยังไม่เปิดใช้)", demo: "บัญชีทดสอบ (DEV เท่านั้น)" }),
+    LinkStatus: e({ ACTIVE: "ใช้งาน", REVOKED: "เพิกถอน" }),
+    LinkedVia: e({ INVITATION: "คำเชิญ", BOOTSTRAP: "ติดตั้งระบบ", ADMIN: "ผู้ดูแลผูกบัญชี", DEMO_SEED: "ข้อมูลทดสอบ" }),
+    AssignmentType: e({ HOMEROOM: "ครูที่ปรึกษา", DUTY: "เวรประจำจุด", TEACHING: "สอนประจำวิชา", DELEGATE: "ผู้รักษาการแทน" }),
+    InvitationType: e({ STAFF: "บุคลากร", GUARDIAN: "ผู้ปกครอง", STUDENT: "นักเรียน" }),
+    InvitationStatus: e({ PENDING: "รอใช้งาน", REDEEMED: "ใช้แล้ว", EXPIRED: "หมดอายุ", REVOKED: "ยกเลิก", LOCKED: "ล็อกเพราะกรอกผิดหลายครั้ง" }),
+    StationType: e({ GATE: "ประตู/จุดลงเวลา", OFFICE: "ห้องกิจการนักเรียน", CLASSROOM: "ห้องเรียน" }),
+    StudentStatus: e({ ACTIVE: "กำลังศึกษา", TRANSFERRED_OUT: "ย้ายออก", GRADUATED: "จบการศึกษา", WITHDRAWN: "พ้นสภาพ/ลาออก", SUSPENDED: "พักการเรียน" }),
+    Gender: e({ MALE: "ชาย", FEMALE: "หญิง", OTHER: "อื่น ๆ", UNSPECIFIED: "ไม่ระบุ" }),
+    GradeLevel: e({ M1: "ม.1", M2: "ม.2", M3: "ม.3", M4: "ม.4", M5: "ม.5", M6: "ม.6" }),
+    EnrollmentEndReason: e({ CLASS_CHANGE: "ย้ายห้อง", PROMOTION: "เลื่อนชั้น", TRANSFER_OUT: "ย้ายออก", GRADUATION: "จบการศึกษา", WITHDRAWAL: "พ้นสภาพ/ลาออก", CORRECTION: "แก้ไขข้อมูลผิด" }),
+    Relationship: e({ FATHER: "บิดา", MOTHER: "มารดา", GRANDPARENT: "ปู่ย่าตายาย", SIBLING: "พี่น้อง", RELATIVE: "ญาติ", LEGAL_GUARDIAN: "ผู้ปกครองตามกฎหมาย", OTHER: "อื่น ๆ" }),
+    GuardianLinkStatus: e({ PENDING_VERIFICATION: "รอเจ้าหน้าที่ยืนยัน", ACTIVE: "ยืนยันแล้ว", ENDED: "สิ้นสุด" }),
+    VerificationMethod: e({ IN_PERSON: "พบตัวที่โรงเรียน", DOCUMENT: "ตรวจเอกสาร", PHONE_CALLBACK: "โทรกลับยืนยันเบอร์ที่โรงเรียนมี", SCHOOL_RECORD: "ทะเบียนนักเรียน" }),
+    GuardianPermission: e({
+      VIEW_ATTENDANCE: "ดูการมาเรียน",
+      SUBMIT_LEAVE: "แจ้งลา",
+      CONFIRM_LEAVE: "ยืนยันใบลา",
+      RECEIVE_NOTIFICATIONS: "รับการแจ้งเตือน",
+      VIEW_CASE_SUMMARY: "ดูสรุปการติดตาม",
+      VIEW_DOCUMENTS: "ดูเอกสารที่ตนส่ง"
+    }),
+    ContactOwnerType: e({ GUARDIAN: "ผู้ปกครอง", STAFF: "บุคลากร", STUDENT: "นักเรียน" }),
+    ContactChannel: e({ PHONE: "โทรศัพท์", EMAIL: "อีเมล", LINE: "LINE", SMS: "SMS", IN_PERSON: "พบตัว", OTHER: "อื่น ๆ" }),
+    AttendanceEventType: e({
+      GATE_ARRIVAL: "ลงเวลามาถึงโรงเรียน",
+      CLASSROOM_ENTERED: "เข้าห้องเรียน",
+      ROLL_CALL_PRESENT: "เช็กชื่อ: มา",
+      ROLL_CALL_ABSENT: "เช็กชื่อ: ไม่พบตัว",
+      ROLL_CALL_LATE: "เช็กชื่อ: มาสาย (ไม่มีบันทึกที่ประตู)",
+      ROLL_CALL_LEAVE_REPORTED: "เช็กชื่อ: แจ้งลาด้วยวาจา รอใบลา",
+      ABSENCE_CONFIRMED: "ยืนยันขาดเรียน",
+      LATENESS_EXEMPTED: "ยกเว้นการนับสาย",
+      EVENT_VOIDED: "ยกเลิกรายการ (แก้ไข)"
+    }),
+    AttendanceSource: e({
+      SCAN_KEYBOARD: "เครื่องสแกนแบบคีย์บอร์ด",
+      SCAN_CAMERA: "สแกนด้วยกล้อง",
+      SEARCH_CODE: "ค้นหารหัส",
+      SEARCH_NAME: "ค้นหาชื่อ",
+      MANUAL_TIME: "ครูระบุเวลาเอง",
+      QUEUE_BATCH: "เวลามาถึงของแถวรอ",
+      OFFLINE_SYNC: "บันทึกขณะออฟไลน์",
+      ROLL_CALL: "การเช็กชื่อ",
+      IMPORT: "นำเข้า",
+      CORRECTION: "การแก้ไข",
+      SYSTEM: "ระบบ"
+    }),
+    PresenceStatus: e({
+      PRESENT: "มาเรียน",
+      ABSENT_CONFIRMED: "ขาดเรียน (ยืนยันแล้ว)",
+      ON_LEAVE_FULL_DAY: "ลาทั้งวัน",
+      UNKNOWN: "รอตรวจสอบ",
+      NOT_ELIGIBLE: "ไม่อยู่ในทะเบียนวันนั้น",
+      NON_SCHOOL_DAY: "ไม่ใช่วันเรียน"
+    }),
+    VerificationLevel: e({ NONE: "ยังไม่มีหลักฐาน", GATE_RECORD: "บันทึกที่ประตู", ROLL_CALL: "ครูเช็กชื่อ", VERIFIED: "ครูยืนยันแล้ว" }),
+    RollCallMark: e({ PRESENT: "มา", ABSENT: "ไม่พบตัว", LATE: "มาสาย", LEAVE_REPORTED: "แจ้งลา", NOT_MARKED: "ยังไม่เช็กชื่อ" }),
+    RollCallStatus: e({ OPEN: "กำลังเช็กชื่อ", SUBMITTED: "ส่งแล้ว", VERIFIED: "ยืนยันแล้ว" }),
+    CorrectionType: e({ VOID_EVENT: "ยกเลิกรายการ", AMEND_ARRIVAL_TIME: "แก้เวลามาถึง", ADD_ARRIVAL: "เพิ่มรายการมาถึง", CHANGE_ROLL_CALL_MARK: "แก้ผลเช็กชื่อ", EXEMPT_LATENESS: "ยกเว้นการนับสาย" }),
+    CorrectionStatus: e({ PENDING: "รอพิจารณา", APPLIED: "แก้ไขแล้ว", REJECTED: "ไม่อนุมัติ" }),
+    ReconciliationTaskType: e({
+      UNKNOWN_STATUS: "นักเรียนยังไม่ทราบสถานะ",
+      CONFLICT_LEAVE_PRESENCE: "มีใบลาแต่พบการมาเรียน",
+      CONFLICT_ROLLCALL_GATE: "เช็กชื่อไม่พบตัวแต่มีบันทึกประตู",
+      OFFLINE_REVIEW: "ตรวจรายการออฟไลน์",
+      IMPORT_REVIEW: "ตรวจข้อมูลนำเข้า",
+      LEAVE_REPORTED_NO_REQUEST: "แจ้งลาด้วยวาจาแต่ยังไม่มีใบลา",
+      DATA_QUALITY: "คุณภาพข้อมูล"
+    }),
+    TaskStatus: e({ OPEN: "รอดำเนินการ", RESOLVED: "แก้ไขแล้ว", DISMISSED: "ไม่ต้องดำเนินการ" }),
+    LeaveType: e({ SICK: "ลาป่วย", PERSONAL: "ลากิจ", SCHOOL_ACTIVITY: "กิจกรรมโรงเรียน (ไม่นับเป็นการลาส่วนตัว)", OTHER: "อื่น ๆ" }),
+    LeaveUnit: e({ FULL_DAY: "ทั้งวัน", HALF_DAY_AM: "ครึ่งวันเช้า", HALF_DAY_PM: "ครึ่งวันบ่าย", PERIODS: "บางคาบ" }),
+    LeaveStatus: e({
+      DRAFT: "ร่าง",
+      SUBMITTED: "ส่งแล้ว",
+      PENDING_GUARDIAN: "รอผู้ปกครองยืนยัน",
+      PENDING_SCHOOL: "รอโรงเรียนอนุมัติ",
+      RETURNED: "ส่งกลับแก้ไข",
+      APPROVED: "อนุมัติ",
+      PARTIALLY_APPROVED: "อนุมัติบางช่วง",
+      REJECTED: "ไม่อนุมัติ",
+      WITHDRAWN: "ถอนคำขอ",
+      CANCELLATION_REQUESTED: "ขอยกเลิก",
+      CANCELLED: "ยกเลิกแล้ว"
+    }),
+    GuardianConfirmation: e({ NOT_REQUIRED: "ไม่ต้องยืนยัน", PENDING: "รอยืนยัน", CONFIRMED: "ยืนยันแล้ว", DECLINED: "ผู้ปกครองไม่ยืนยัน" }),
+    SchoolApproval: e({ NOT_STARTED: "ยังไม่เริ่ม", PENDING: "รออนุมัติ", APPROVED: "อนุมัติ", PARTIALLY_APPROVED: "อนุมัติบางช่วง", REJECTED: "ไม่อนุมัติ", RETURNED: "ส่งกลับแก้ไข" }),
+    RequesterType: e({ GUARDIAN: "ผู้ปกครอง", STUDENT: "นักเรียน", STAFF: "บุคลากรแจ้งแทน" }),
+    SegmentStatus: e({ REQUESTED: "ขอลา", APPROVED: "อนุมัติ", REJECTED: "ไม่อนุมัติ", WITHDRAWN: "ถอน", CANCELLED: "ยกเลิก" }),
+    SegmentUsage: e({ NOT_EVALUATED: "ยังไม่ประเมิน", USED: "ใช้ตามคำขอ", ATTENDED_ANYWAY: "มีหลักฐานว่ามาเรียน", PARTIALLY_USED: "ใช้บางส่วน" }),
+    LeaveAction: e({
+      CREATE: "สร้าง",
+      SUBMIT: "ส่งคำขอ",
+      GUARDIAN_CONFIRM: "ผู้ปกครองยืนยัน",
+      GUARDIAN_DECLINE: "ผู้ปกครองไม่ยืนยัน",
+      APPROVE: "อนุมัติ",
+      PARTIAL_APPROVE: "อนุมัติบางช่วง",
+      REJECT: "ไม่อนุมัติ",
+      RETURN: "ส่งกลับแก้ไข",
+      RESUBMIT: "ส่งใหม่หลังแก้ไข",
+      WITHDRAW: "ถอนคำขอ",
+      CANCEL_REQUEST: "ขอยกเลิก",
+      CANCEL_APPROVE: "อนุมัติการยกเลิก",
+      CANCEL_REJECT: "ไม่อนุมัติการยกเลิก",
+      REROUTE: "เปลี่ยนผู้พิจารณา"
+    }),
+    ApprovalStepType: e({ GUARDIAN_CONFIRMATION: "ผู้ปกครองยืนยัน", SCHOOL_APPROVAL: "โรงเรียนอนุมัติ", CANCELLATION_DECISION: "พิจารณาการยกเลิก" }),
+    ApprovalDecision: e({ CONFIRMED: "ยืนยัน", DECLINED: "ไม่ยืนยัน", APPROVED: "อนุมัติ", PARTIALLY_APPROVED: "อนุมัติบางช่วง", REJECTED: "ไม่อนุมัติ", RETURNED: "ส่งกลับแก้ไข" }),
+    CaseType: e({ RULE_LATE_COUNT: "สายเกินเกณฑ์", RULE_ABSENCE_COUNT: "ขาดเกินเกณฑ์", MANUAL: "เปิดโดยครู", CALLBACK_REQUEST: "ผู้ปกครองขอให้ติดต่อกลับ", ACK_TIMEOUT: "ไม่ได้รับการรับทราบตามเวลา" }),
+    CaseStatus: e({ OPEN: "เปิด", IN_PROGRESS: "กำลังดำเนินการ", WAITING_RESPONSE: "รอการตอบกลับ", RESOLVED: "แก้ไขแล้ว (รอปิด)", CLOSED: "ปิดเรื่อง" }),
+    Priority: e({ LOW: "ต่ำ", NORMAL: "ปกติ", HIGH: "สูง", URGENT: "เร่งด่วน" }),
+    CaseEventType: e({
+      OPENED: "เปิดเรื่อง",
+      ASSIGNED: "มอบหมาย",
+      NOTE: "บันทึก",
+      CONTACT_LOGGED: "บันทึกการติดต่อ",
+      APPOINTMENT_SET: "นัดหมาย",
+      STATUS_CHANGED: "เปลี่ยนสถานะ",
+      TRANSFERRED: "ส่งต่อ",
+      CLOSED: "ปิดเรื่อง",
+      REOPENED: "เปิดใหม่",
+      CALLBACK_REQUESTED: "ขอให้ติดต่อกลับ"
+    }),
+    ContactDirection: e({ OUTBOUND: "โรงเรียนติดต่อ", INBOUND: "ผู้ปกครองติดต่อมา" }),
+    ContactOutcome: e({
+      REACHED: "ติดต่อได้",
+      NO_ANSWER: "ติดต่อไม่ได้",
+      ACKNOWLEDGED: "ผู้ปกครองรับทราบแล้ว",
+      APPOINTMENT_MADE: "นัดหมายแล้ว",
+      FOLLOW_UP_NEEDED: "ต้องติดตามต่อ",
+      WRONG_CONTACT: "ข้อมูลติดต่อไม่ถูกต้อง",
+      ASSISTANCE_PROVIDED: "ให้ความช่วยเหลือแล้ว"
+    }),
+    AppointmentStatus: e({ SCHEDULED: "นัดแล้ว", COMPLETED: "พบแล้ว", NO_SHOW: "ไม่มาตามนัด", CANCELLED: "ยกเลิก", RESCHEDULED: "เลื่อนนัด" }),
+    FileClassification: e({ GENERAL: "ทั่วไป", MEDICAL: "เอกสารสุขภาพ (อ่อนไหว)", PHOTO: "รูปถ่ายนักเรียน", REPORT: "รายงาน", EXPORT: "ไฟล์ส่งออก", IMPORT_SOURCE: "ไฟล์นำเข้า" }),
+    FileStatus: e({ STAGED: "อัปโหลดแล้วยังไม่ผูก", ACTIVE: "ใช้งาน", DELETED: "ลบแล้ว", QUARANTINED: "กักตรวจ" }),
+    EntityType: e({
+      STUDENT: "นักเรียน",
+      LEAVE_REQUEST: "ใบลา",
+      CASE: "เรื่องติดตาม",
+      CONTACT_LOG: "บันทึกการติดต่อ",
+      IMPORT_BATCH: "ชุดนำเข้า",
+      REPORT_RUN: "รายงาน",
+      ATTENDANCE_CORRECTION: "คำขอแก้ไขการมาเรียน",
+      SCHOOL: "โรงเรียน",
+      MIGRATION_RUN: "งานย้ายข้อมูล",
+      BACKUP_RUN: "การสำรองข้อมูล"
+    }),
+    StorageProvider: e({ GOOGLE_DRIVE: "Google Drive", FILESYSTEM: "ระบบไฟล์ (ทดสอบ)", OBJECT_STORAGE: "Object storage" }),
+    NotificationType: e({
+      LEAVE_NEW: "ใบลาใหม่",
+      LEAVE_PENDING_GUARDIAN: "ใบลารอผู้ปกครองยืนยัน",
+      LEAVE_PENDING_SCHOOL: "ใบลารออนุมัติ",
+      LEAVE_DECIDED: "ผลพิจารณาใบลา",
+      LATE_CONFIRMED: "มาสาย",
+      ABSENCE_CONFIRMED: "ขาดเรียน (ยืนยันแล้ว)",
+      CASE_NEW: "งานติดตามใหม่",
+      CASE_OVERDUE: "งานติดตามเกินกำหนด",
+      CALLBACK_REQUESTED: "ขอให้ติดต่อกลับ",
+      DATA_CORRECTED: "แจ้งการแก้ไขข้อมูลสำคัญ",
+      ROLL_CALL_REMINDER: "เตือนตรวจสอบการมาเรียน",
+      SYSTEM: "แจ้งจากระบบ"
+    }),
+    Urgency: e({ NORMAL: "ปกติ", URGENT: "เร่งด่วน" }),
+    InAppState: e({ UNREAD: "ยังไม่อ่าน", READ: "เปิดอ่านในแอปแล้ว" }),
+    AckState: e({ NOT_REQUIRED: "ไม่ต้องรับทราบ", PENDING_ACK: "รอรับทราบ", ACKNOWLEDGED: "รับทราบแล้ว", FOLLOW_UP_REQUIRED: "ต้องติดตาม" }),
+    Channel: e({ EMAIL: "อีเมล", LINE: "LINE", SMS: "SMS" }),
+    DeliveryState: e({
+      QUEUED: "รอส่ง",
+      PROCESSING: "กำลังส่ง",
+      PROVIDER_ACCEPTED: "ผู้ให้บริการรับคำขอแล้ว (ไม่ใช่การอ่าน)",
+      RETRY_WAIT: "รอส่งซ้ำ",
+      FAILED_FINAL: "ส่งไม่สำเร็จ",
+      CANCELLED: "ยกเลิกการส่ง"
+    }),
+    AttemptResult: e({ ACCEPTED: "รับคำขอแล้ว", DUPLICATE_ACCEPTED: "คำขอเดิมเคยรับแล้ว (409)", RETRYABLE_ERROR: "ผิดพลาดชั่วคราว", FINAL_ERROR: "ผิดพลาดถาวร", OUTCOME_UNKNOWN: "ไม่ทราบผล", SKIPPED: "ข้ามการส่ง" }),
+    AckAction: e({ ACKNOWLEDGED: "รับทราบ", CALLBACK_REQUESTED: "ขอให้ติดต่อกลับ" }),
+    AckChannel: e({ IN_APP: "ในแอป", LINE: "LINE" }),
+    BindingStatus: e({ PENDING: "รอยืนยัน", ACTIVE: "ใช้งาน", REVOKED: "ยกเลิก" }),
+    BindingVerifiedVia: e({ LINE_ACCOUNT_LINK: "LINE account link", IDP_VERIFIED_EMAIL: "อีเมลที่ผู้ให้บริการยืนยันตัวตนยืนยันแล้ว", STAFF_VERIFIED: "เจ้าหน้าที่ยืนยัน" }),
+    WebhookStatus: e({ RECEIVED: "รับแล้ว", PROCESSED: "ประมวลผลแล้ว", IGNORED: "ไม่ต้องประมวลผล", FAILED: "ล้มเหลว" }),
+    JournalStatus: e({ PREPARED: "เตรียมบันทึก", COMMITTED: "บันทึกครบ", RECOVERY_REQUIRED: "ต้องกู้คืนด้วยผู้ดูแล", ABORTED: "ยกเลิก" }),
+    JobStatus: e({ QUEUED: "รอทำงาน", RUNNING: "กำลังทำงาน", PAUSED: "หยุดชั่วคราว", SUCCEEDED: "สำเร็จ", FAILED: "ล้มเหลว", CANCELLED: "ยกเลิก" }),
+    ImportType: e({ STUDENTS: "นักเรียน", CLASSES: "ห้องเรียน", ENROLLMENTS: "การลงทะเบียนห้อง", GUARDIANS: "ผู้ปกครองและความสัมพันธ์", STAFF: "บุคลากรและบทบาท", CALENDAR: "ปฏิทินโรงเรียน" }),
+    SourceFormat: e({ CSV: "CSV", XLSX: "XLSX" }),
+    ImportStatus: e({ UPLOADED: "อัปโหลดแล้ว", PREVIEWED: "ดูตัวอย่างแล้ว", VALIDATED: "ตรวจแล้ว", APPLYING: "กำลังนำเข้า", APPLIED: "นำเข้าแล้ว", FAILED: "ล้มเหลว", CANCELLED: "ยกเลิก" }),
+    MigrationRunType: e({ EXPORT: "ส่งออก", VALIDATE: "ตรวจ package", IMPORT_SHEETS: "นำเข้า Sheets ชุดใหม่", IMPORT_POSTGRES: "นำเข้า PostgreSQL", RECONCILE: "กระทบยอด", CUTOVER: "สลับระบบ", ROLLBACK: "ย้อนกลับ" }),
+    MigrationMode: e({ FULL_SNAPSHOT: "ภาพรวมทั้งระบบ (freeze)", PARTIAL: "บางส่วน (ใช้ย้ายระบบทั้งชุดไม่ได้)", REPORT_EXPORT: "ส่งออกเพื่อรายงาน", REHEARSAL: "ซ้อมย้าย" }),
+    MigrationState: e({
+      PLANNED: "วางแผน",
+      SNAPSHOTTING: "กำลังส่งออก",
+      EXPORTED: "ส่งออกแล้ว",
+      VALIDATED: "ตรวจผ่าน",
+      STAGED: "นำเข้าพื้นที่พักแล้ว",
+      RECONCILED: "กระทบยอดผ่าน",
+      CUTOVER_READY: "พร้อมสลับระบบ",
+      ACTIVE: "ระบบใหม่ใช้งาน",
+      ROLLED_BACK: "ย้อนกลับแล้ว",
+      FAILED: "ล้มเหลว",
+      CANCELLED: "ยกเลิก"
+    }),
+    Completeness: e({ COMPLETE: "ครบถ้วน", PARTIAL: "ไม่ครบ", FAILED: "ล้มเหลว" }),
+    BackupType: e({ NIGHTLY_SNAPSHOT: "สำรองประจำคืน", MANUAL: "สำรองด้วยผู้ดูแล" }),
+    RunStatus: e({ RUNNING: "กำลังทำงาน", SUCCEEDED: "สำเร็จ", FAILED: "ล้มเหลว" }),
+    ReportCode: e({
+      R01: "การมาเรียนประจำวัน",
+      R02: "มาสาย",
+      R03: "การลา",
+      R04: "ประวัติรายบุคคล",
+      R05: "ผู้เรียนที่ควรติดตาม",
+      R06: "การติดต่อผู้ปกครอง",
+      R07: "แนวโน้ม",
+      R08: "งานค้าง/คุณภาพข้อมูล",
+      R09: "การแจ้งเตือน",
+      R10: "แบบฟอร์มรายกรณี",
+      R11: "Audit",
+      R12: "การสำรอง/ย้ายข้อมูล"
+    }),
+    ReportStatus: e({ QUEUED: "รอสร้าง", RUNNING: "กำลังสร้าง", READY: "พร้อม", FAILED: "ล้มเหลว", SUPERSEDED: "ถูกแทนที่ด้วยฉบับใหม่" }),
+    OutputFormat: e({ JSON: "แสดงบนจอ", CSV: "CSV", XLSX: "XLSX", PDF: "PDF" }),
+    AuditChannel: e({ APP: "แอป", JOB: "งานเบื้องหลัง", WEBHOOK: "Webhook", EDITOR: "Apps Script Editor", MIGRATION: "ย้ายข้อมูล", API: "REST API" }),
+    SchemaComponent: e({ SHEETS: "Google Sheets", POSTGRES: "PostgreSQL" })
+  });
+
+  // frontend/src/ui.js
+  function enumLabel(name, value) {
+    return ENUMS[name] && ENUMS[name].th[value] || value || "—";
+  }
+  function enumOptions(name, { empty: empty2 = null } = {}) {
+    const opts = ENUMS[name].values.map((v) => h("option", { value: v }, ENUMS[name].th[v]));
+    return empty2 ? [h("option", { value: "" }, empty2), ...opts] : opts;
+  }
+  var STATUS_ICON = { OK: "✔", WARN: "⚠", FAIL: "✖", REQUIRED_SETUP: "⚙", INFO: "ℹ" };
+  function badge(text, kind = "neutral", icon = null) {
+    return h("span", { class: `badge badge-${kind}` }, icon ? `${icon} ` : "", text);
+  }
+  function statusBadge(status) {
+    const kind = { OK: "ok", WARN: "warn", FAIL: "danger", REQUIRED_SETUP: "warn" }[status] || "neutral";
+    return badge(status, kind, STATUS_ICON[status] || null);
+  }
+  function loading(text = "กำลังโหลด…") {
+    return h("div", { class: "state state-loading", role: "status" }, h("span", { class: "spinner", "aria-hidden": "true" }), " ", text);
+  }
+  function empty(text = "ไม่มีข้อมูล") {
+    return h("div", { class: "state state-empty" }, "ℹ ", text);
+  }
+  function errorState(err, retry) {
+    const msg = err && (err.message_th || err.message) || "เกิดข้อผิดพลาด";
+    return h(
+      "div",
+      { class: "state state-error", role: "alert" },
+      h("p", null, "✖ ", msg),
+      err && err.request_id ? h("p", { class: "muted small" }, `รหัสอ้างอิง: ${err.request_id}`) : null,
+      retry ? h("button", { type: "button", class: "btn", onclick: retry }, "ลองใหม่") : null
+    );
+  }
+  function success(text) {
+    return h("div", { class: "state state-success", role: "status" }, "✔ ", text);
+  }
+  function alertBox(kind, text) {
+    const icon = { info: "ℹ", warn: "⚠", danger: "✖", ok: "✔" }[kind] || "ℹ";
+    return h("div", { class: `alert alert-${kind}`, role: kind === "danger" ? "alert" : "status" }, `${icon} `, text);
+  }
+  function field(label, control, { hint = null, required = false } = {}) {
+    const id = control.id || uid("fld");
+    control.id = id;
+    if (required) control.required = true;
+    const err = h("div", { class: "field-error", id: `${id}-err`, role: "alert" });
+    control.setAttribute("aria-describedby", `${id}-err`);
+    return h(
+      "div",
+      { class: "field", dataset: { field: control.name || "" } },
+      h("label", { for: id }, label, required ? h("span", { class: "req", "aria-hidden": "true" }, " *") : null),
+      control,
+      hint ? h("div", { class: "hint" }, hint) : null,
+      err
+    );
+  }
+  function input(name, props = {}) {
+    return h("input", { name, type: "text", class: "input", ...props });
+  }
+  function select(name, options, props = {}) {
+    return h("select", { name, class: "input", ...props }, options);
+  }
+  function textarea(name, props = {}) {
+    return h("textarea", { name, class: "input", rows: 3, ...props });
+  }
+  function showFieldErrors(form2, fieldErrors = []) {
+    form2.querySelectorAll(".field-error").forEach((e2) => {
+      e2.textContent = "";
+    });
+    form2.querySelectorAll("[aria-invalid]").forEach((e2) => e2.removeAttribute("aria-invalid"));
+    const unmatched = [];
+    for (const fe of fieldErrors) {
+      const name = String(fe.field).split(/[.[]/)[0];
+      const ctl = form2.querySelector(`[name="${CSS.escape(name)}"]`);
+      if (ctl) {
+        ctl.setAttribute("aria-invalid", "true");
+        const box = form2.querySelector(`#${CSS.escape(ctl.id)}-err`);
+        if (box) box.textContent = fe.message_th;
+      } else unmatched.push(fe.message_th);
+    }
+    return unmatched;
+  }
+  function actionButton(label, action, { variant = "primary", type = "button", confirmText = null, large = false } = {}) {
+    const btn = h("button", { type, class: `btn btn-${variant}${large ? " btn-lg" : ""}` }, label);
+    let busy = false;
+    btn.addEventListener("click", async (ev) => {
+      if (type === "submit") return;
+      ev.preventDefault();
+      if (busy) return;
+      if (confirmText && !await confirmDialog(confirmText)) return;
+      busy = true;
+      btn.disabled = true;
+      btn.setAttribute("aria-busy", "true");
+      try {
+        await action();
+      } finally {
+        busy = false;
+        btn.disabled = false;
+        btn.removeAttribute("aria-busy");
+      }
+    });
+    return btn;
+  }
+  function form(children, onSubmit, { submitLabel = "บันทึก", confirmText = null, large = false } = {}) {
+    const status = h("div", { class: "form-status", "aria-live": "polite" });
+    const submit = h("button", { type: "submit", class: `btn btn-primary${large ? " btn-lg" : ""}` }, submitLabel);
+    const el = h("form", { class: "form", novalidate: true }, children, h("div", { class: "form-actions" }, submit), status);
+    let busy = false;
+    el.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      if (busy) return;
+      if (confirmText && !await confirmDialog(typeof confirmText === "function" ? confirmText() : confirmText)) return;
+      busy = true;
+      submit.disabled = true;
+      submit.setAttribute("aria-busy", "true");
+      mount(status, loading("กำลังบันทึก…"));
+      try {
+        const msg = await onSubmit(new FormData(el), el);
+        showFieldErrors(el, []);
+        mount(status, msg === false ? "" : success(msg || "บันทึกแล้ว"));
+      } catch (err) {
+        const rest = showFieldErrors(el, err.field_errors || []);
+        mount(status, errorState({ ...err, message_th: [err.message_th || err.message, ...rest].filter(Boolean).join(" · ") }));
+      } finally {
+        busy = false;
+        submit.disabled = false;
+        submit.removeAttribute("aria-busy");
+      }
+    });
+    return el;
+  }
+  function confirmDialog(text, { okLabel = "ยืนยัน", cancelLabel = "ยกเลิก" } = {}) {
+    return new Promise((resolve) => {
+      const prev = document.activeElement;
+      const close = (v) => {
+        overlay.remove();
+        if (prev && prev.focus) prev.focus();
+        resolve(v);
+      };
+      const ok = h("button", { type: "button", class: "btn btn-primary", onclick: () => close(true) }, okLabel);
+      const cancel = h("button", { type: "button", class: "btn", onclick: () => close(false) }, cancelLabel);
+      const overlay = h(
+        "div",
+        { class: "modal-overlay", role: "presentation" },
+        h("div", { class: "modal", role: "dialog", "aria-modal": "true", "aria-label": "ยืนยัน" }, h("p", null, text), h("div", { class: "form-actions" }, cancel, ok))
+      );
+      overlay.addEventListener("keydown", (e2) => {
+        if (e2.key === "Escape") close(false);
+      });
+      document.body.appendChild(overlay);
+      cancel.focus();
+    });
+  }
+  function toast(text, kind = "ok") {
+    const t = h("div", { class: `toast toast-${kind}`, role: "status" }, text);
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 4e3);
+  }
+  function table(columns, rows, { caption = null, onRow = null } = {}) {
+    return h("div", { class: "table-wrap" }, h(
+      "table",
+      { class: "table" },
+      caption ? h("caption", null, caption) : null,
+      h("thead", null, h("tr", null, columns.map((c) => h("th", { scope: "col" }, c.label)))),
+      h("tbody", null, rows.map((r) => h(
+        "tr",
+        onRow ? { tabindex: 0, class: "clickable", onclick: () => onRow(r), onkeydown: (e2) => {
+          if (e2.key === "Enter") onRow(r);
+        } } : null,
+        columns.map((c) => {
+          var _a;
+          return h("td", { "data-label": c.label }, c.render ? c.render(r) : (_a = r[c.key]) != null ? _a : "—");
+        })
+      )))
+    ));
+  }
+  function section(title, ...children) {
+    return h("section", { class: "card" }, h("h2", null, title), children);
+  }
+  function pager(nextCursor, load) {
+    if (!nextCursor) return null;
+    return actionButton("โหลดเพิ่ม", () => load(nextCursor), { variant: "secondary" });
+  }
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result).split(",")[1] || "");
+      r.onerror = () => reject(new Error("อ่านไฟล์ไม่สำเร็จ"));
+      r.readAsDataURL(file);
+    });
+  }
+  function downloadBlob(filename, content, mime) {
+    const blob = content instanceof Blob ? content : new Blob([content], { type: mime || "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const a = h("a", { href: url, download: filename });
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+      a.remove();
+    }, 1e3);
+  }
+  function askText(question, { label = "เหตุผล", okLabel = "บันทึก", multiline = false } = {}) {
+    return new Promise((resolve) => {
+      const prev = document.activeElement;
+      const ctl = multiline ? h("textarea", { class: "input", rows: 3 }) : h("input", { class: "input", type: "text" });
+      const close = (v) => {
+        overlay.remove();
+        if (prev && prev.focus) prev.focus();
+        resolve(v);
+      };
+      const ok = h("button", { type: "button", class: "btn btn-primary", onclick: () => close(ctl.value.trim() || null) }, okLabel);
+      const cancel = h("button", { type: "button", class: "btn", onclick: () => close(null) }, "ยกเลิก");
+      const overlay = h(
+        "div",
+        { class: "modal-overlay", role: "presentation" },
+        h("div", { class: "modal", role: "dialog", "aria-modal": "true", "aria-label": question }, h("p", null, question), field(label, ctl), h("div", { class: "form-actions" }, cancel, ok))
+      );
+      overlay.addEventListener("keydown", (e2) => {
+        if (e2.key === "Escape") close(null);
+      });
+      document.body.appendChild(overlay);
+      ctl.focus();
+    });
+  }
+
+  // frontend/src/app.js
+  var App = class {
+    constructor({ root, api, auth, publicConfig, routes, boot }) {
+      Object.assign(this, { root, api, auth, publicConfig, routes, boot });
+      this.session = null;
+      this.drafts = /* @__PURE__ */ new Map();
+      this.current = null;
+      window.addEventListener("hashchange", () => this.render());
+    }
+    can(action) {
+      return !!(this.session && this.session.actions && this.session.actions.includes(action));
+    }
+    canAny(actions) {
+      return actions.some((a) => this.can(a));
+    }
+    visibleRoutes() {
+      return this.routes.filter((r) => !r.hidden && (!r.anyOf || this.canAny(r.anyOf)));
+    }
+    parseHash() {
+      const raw = (location.hash || "").replace(/^#\/?/, "");
+      const [path, query] = raw.split("?");
+      const params = {};
+      for (const kv of (query || "").split("&").filter(Boolean)) {
+        const [k, v] = kv.split("=");
+        params[decodeURIComponent(k)] = decodeURIComponent(v || "");
+      }
+      return { path: path || null, params };
+    }
+    go(path, params = {}) {
+      const q = Object.entries(params).filter(([, v]) => v !== void 0 && v !== null && v !== "").map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&");
+      const next = `#/${path}${q ? `?${q}` : ""}`;
+      if (location.hash === next) this.render();
+      else location.hash = next;
+    }
+    async loadSession() {
+      this.session = await this.api.get("auth.getCurrentUser", {});
+      return this.session;
+    }
+    shell(content) {
+      const pc = this.publicConfig || {};
+      const school = pc.school && pc.school.name_th || "CWK Smart Care";
+      const nav = h(
+        "nav",
+        { class: "nav", "aria-label": "เมนูหลัก" },
+        h("ul", null, this.visibleRoutes().map((r) => h(
+          "li",
+          null,
+          h("a", { href: `#/${r.path}`, class: this.current === r.path ? "active" : null, "aria-current": this.current === r.path ? "page" : null }, `${r.icon || ""} ${r.title_th}`)
+        )))
+      );
+      const header = h(
+        "header",
+        { class: "topbar" },
+        h("div", { class: "brand" }, h("strong", null, "CWK Smart Care"), h("span", { class: "muted small" }, ` · ${school}`)),
+        pc.env && pc.env !== "PROD" ? badge(`สภาพแวดล้อม ${pc.env} — ข้อมูลทดสอบ`, "warn", "⚠") : null,
+        pc.system_mode === "READ_ONLY" ? badge("โหมดอ่านอย่างเดียว", "warn", "🔒") : null,
+        h(
+          "div",
+          { class: "who" },
+          this.session && this.session.user ? this.session.user.display_name : "",
+          h("button", { type: "button", class: "btn btn-link", onclick: () => this.logout() }, "ออกจากระบบ")
+        )
+      );
+      return h("div", { class: "layout" }, header, nav, h("main", { id: "main", tabindex: "-1" }, content));
+    }
+    async logout() {
+      try {
+        await this.api.get("auth.logout", {});
+      } catch (_) {
+      }
+      await this.auth.signOut();
+      this.session = null;
+      this.drafts.clear();
+      location.hash = "#/";
+      this.onLoggedOut && this.onLoggedOut();
+    }
+    async render() {
+      if (!this.session || !this.session.linked) return;
+      const { path, params } = this.parseHash();
+      const routes = this.visibleRoutes();
+      const route = routes.find((r) => r.path === path) || this.routes.find((r) => r.path === path && r.hidden && (!r.anyOf || this.canAny(r.anyOf))) || routes[0];
+      if (!route) {
+        mount(this.root, this.shell(errorState({ message_th: "บัญชีนี้ยังไม่มีเมนูที่ใช้งานได้ กรุณาติดต่อผู้ดูแลระบบ" })));
+        return;
+      }
+      this.current = route.path;
+      const container = h("div", { class: "screen" }, h("h1", null, route.title_th), loading());
+      mount(this.root, this.shell(container));
+      try {
+        const node = await route.render(this, params);
+        mount(container, h("h1", null, route.title_th), node);
+      } catch (err) {
+        mount(container, h("h1", null, route.title_th), errorState(err, () => this.render()));
+      }
+      const main = document.getElementById("main");
+      if (main) main.focus({ preventScroll: true });
+    }
+  };
+
+  // frontend/src/screens/home.js
+  async function renderHome(app) {
+    const s = app.session;
+    const tiles = app.visibleRoutes().filter((r) => r.path !== "home").map((r) => h("a", { class: "tile", href: `#/${r.path}` }, h("span", { class: "tile-icon", "aria-hidden": "true" }, r.icon || "•"), h("span", null, r.title_th)));
+    const out = [h("p", null, `สวัสดี ${s.user.display_name} · บทบาท: ${s.roles.join(", ") || "—"}`)];
+    if (!s.roles.length) out.push(alertBox("warn", "บัญชีนี้ยังไม่มีบทบาทที่มีผลวันนี้ กรุณาติดต่อผู้ดูแลระบบ"));
+    out.push(h("div", { class: "tiles" }, tiles));
+    if (app.can("system.health")) {
+      try {
+        const health = await app.api.get("system.health", {}, { channel: "home-health" });
+        const bad = health.checks.filter((c) => c.status !== "OK");
+        if (bad.length) {
+          out.push(section("สิ่งที่ต้องตั้งค่า/ตรวจสอบ", h("ul", { class: "checklist" }, bad.map((c) => h("li", null, statusBadge(c.status), " ", c.detail_th)))));
+        }
+      } catch (_) {
+      }
+    }
+    return h("div", null, out);
+  }
+
+  // frontend/src/screens/students.js
+  async function renderStudents(app, params) {
+    const root = h("div");
+    const results = h("div", { "aria-live": "polite" });
+    if (app.can("student.search")) {
+      const classes = (await app.api.get("class.list", {})).items;
+      const draft = app.drafts.get("students.search") || {};
+      const q = input("q", { value: draft.q || params.q || "", placeholder: "รหัสหรือชื่อ", autocomplete: "off" });
+      const cls = select("class_id", [h("option", { value: "" }, "ทุกห้อง (ตามสิทธิ์)"), ...classes.map((c) => h("option", { value: c.id, selected: c.id === draft.class_id }, c.name_th))]);
+      const status = select("status", enumOptions("StudentStatus", { empty: "ทุกสถานะ" }));
+      let rows = [];
+      const run = async (cursor = null) => {
+        app.drafts.set("students.search", { q: q.value, class_id: cls.value });
+        if (!cursor) {
+          rows = [];
+          mount(results, loading());
+        }
+        try {
+          const r = await app.api.get("student.search", { q: q.value || null, class_id: cls.value || null, status: status.value || null, cursor, limit: 30 }, { channel: "student-search" });
+          rows = rows.concat(r.items);
+          mount(results, rows.length ? table([
+            { label: "รหัส", key: "student_code" },
+            { label: "ชื่อ-สกุล", render: (s) => `${s.prefix_th || ""}${s.first_name_th} ${s.last_name_th}` },
+            { label: "ห้อง", key: "class_name_th" },
+            { label: "สถานะ", render: (s) => enumLabel("StudentStatus", s.status) }
+          ], rows, { onRow: (s) => app.go("profile", { id: s.id }) }) : empty("ไม่พบนักเรียนตามเงื่อนไข"), pager(r.next_cursor, run));
+        } catch (e2) {
+          if (e2.code !== "STALE_RESPONSE") mount(results, errorState(e2, () => run()));
+        }
+      };
+      root.appendChild(form([h("div", { class: "grid3" }, field("ค้นหา", q), field("ห้อง", cls), field("สถานะ", status))], async () => {
+        await run();
+        return false;
+      }, { submitLabel: "ค้นหา" }));
+      root.appendChild(results);
+      run();
+    } else {
+      const mine = await app.api.get("student.listMine", {});
+      root.appendChild(mine.items.length ? table([
+        { label: "รหัส", key: "student_code" },
+        { label: "ชื่อ-สกุล", render: (s) => `${s.prefix_th || ""}${s.first_name_th} ${s.last_name_th}` },
+        { label: "ห้อง", key: "class_name_th" }
+      ], mine.items, { onRow: (s) => app.go("profile", { id: s.id }) }) : empty("ยังไม่มีนักเรียนที่เชื่อมกับบัญชีนี้ (โรงเรียนต้องยืนยันความสัมพันธ์ก่อน)"));
+    }
+    if (app.can("student.manage")) root.appendChild(await addStudentForm(app));
+    return root;
+  }
+  async function addStudentForm(app) {
+    const classes = (await app.api.get("class.list", {})).items;
+    const f = {
+      student_code: input("student_code", { inputmode: "numeric", autocomplete: "off" }),
+      prefix_th: input("prefix_th"),
+      first_name_th: input("first_name_th"),
+      last_name_th: input("last_name_th"),
+      nickname: input("nickname"),
+      gender: select("gender", enumOptions("Gender", { empty: "—" })),
+      birth_date: input("birth_date", { type: "date" }),
+      class_id: select("class_id", classes.map((c) => h("option", { value: c.id }, c.name_th))),
+      effective_from: input("effective_from", { type: "date" }),
+      roll_no: input("roll_no", { type: "number", min: 1, max: 200 })
+    };
+    return section(
+      "เพิ่มนักเรียนรายคน",
+      alertBox("info", "นำเข้าจำนวนมากใช้ศูนย์นำเข้าข้อมูล (CSV/XLSX) พร้อม dry-run"),
+      form(
+        [h(
+          "div",
+          { class: "grid3" },
+          field("รหัสนักเรียน", f.student_code, { required: true, hint: "เก็บเป็นข้อความ เลข 0 นำหน้าไม่หาย" }),
+          field("คำนำหน้า", f.prefix_th),
+          field("ชื่อ", f.first_name_th, { required: true }),
+          field("นามสกุล", f.last_name_th, { required: true }),
+          field("ชื่อเล่น", f.nickname),
+          field("เพศ", f.gender),
+          field("วันเกิด (ไม่บังคับ)", f.birth_date),
+          field("ห้อง", f.class_id, { required: true }),
+          field("วันที่มีผล", f.effective_from, { required: true }),
+          field("เลขที่", f.roll_no)
+        )],
+        async () => {
+          const r = await app.api.mutate("student.create", {
+            student_code: f.student_code.value.trim(),
+            prefix_th: f.prefix_th.value || null,
+            first_name_th: f.first_name_th.value,
+            last_name_th: f.last_name_th.value,
+            nickname: f.nickname.value || null,
+            gender: f.gender.value || null,
+            birth_date: f.birth_date.value || null,
+            class_id: f.class_id.value,
+            effective_from: f.effective_from.value,
+            roll_no: f.roll_no.value ? Number(f.roll_no.value) : null
+          });
+          return `เพิ่มนักเรียนแล้ว (รหัสอ้างอิง ${r.student_id.slice(0, 8)})`;
+        }
+      )
+    );
+  }
+
+  // frontend/src/screens/users.js
+  var STAFF_ROLES = ["SYSTEM_ADMIN", "STUDENT_AFFAIRS", "EXECUTIVE", "HOMEROOM_TEACHER", "SUBJECT_TEACHER", "DUTY_TEACHER", "GATE_STAFF"];
+  async function renderUsers(app, params) {
+    if (params.id) return renderUserDetail(app, params.id);
+    const root = h("div");
+    const list = h("div");
+    const q = input("q", { placeholder: "ชื่อ รหัส หรืออีเมล" });
+    const type = select("user_type", enumOptions("UserType", { empty: "ทุกประเภท" }));
+    let rows = [];
+    const load = async (cursor = null) => {
+      if (!cursor) {
+        rows = [];
+        mount(list, loading());
+      }
+      try {
+        const r = await app.api.get("user.list", { q: q.value || null, user_type: type.value || null, cursor, limit: 50 }, { channel: "users" });
+        rows = rows.concat(r.items);
+        mount(list, rows.length ? table([
+          { label: "ชื่อ", key: "display_name" },
+          { label: "ประเภท", render: (u) => enumLabel("UserType", u.user_type) },
+          { label: "สถานะ", render: (u) => badge(enumLabel("UserStatus", u.status), u.status === "ACTIVE" ? "ok" : u.status === "DISABLED" ? "danger" : "warn") },
+          { label: "บทบาท", render: (u) => u.roles.map((r2) => enumLabel("Role", r2)).join(", ") || "—" }
+        ], rows, { onRow: (u) => app.go("users", { id: u.id }) }) : empty(), pager(r.next_cursor, load));
+      } catch (e2) {
+        if (e2.code !== "STALE_RESPONSE") mount(list, errorState(e2, () => load()));
+      }
+    };
+    root.appendChild(form([h("div", { class: "grid3" }, field("ค้นหา", q), field("ประเภท", type))], async () => {
+      await load();
+      return false;
+    }, { submitLabel: "ค้นหา" }));
+    root.appendChild(list);
+    load();
+    if (app.can("user.manage")) {
+      const name = input("display_name");
+      const email = input("contact_email", { type: "email" });
+      const code = input("staff_code");
+      const from = input("effective_from", { type: "date" });
+      const roleBoxes = STAFF_ROLES.map((r) => h("label", { class: "check" }, h("input", { type: "checkbox", name: "roles", value: r }), ` ${ENUMS.Role.th[r]}`));
+      root.appendChild(section(
+        "เพิ่มบัญชีบุคลากร",
+        alertBox("info", 'บัญชีจะอยู่ในสถานะ "รอเปิดใช้งาน" จนกว่าเจ้าของบัญชีจะใช้รหัสคำเชิญ; ไม่มีรหัสผ่านเริ่มต้น'),
+        form([
+          h("div", { class: "grid3" }, field("ชื่อ-สกุล", name, { required: true }), field("อีเมลติดต่อ", email), field("รหัสบุคลากร", code), field("วันที่บทบาทมีผล", from, { required: true })),
+          h("fieldset", null, h("legend", null, "บทบาท"), roleBoxes)
+        ], async (fd) => {
+          const r = await app.api.mutate("user.createStaff", { display_name: name.value, contact_email: email.value || null, staff_code: code.value || null, roles: fd.getAll("roles"), effective_from: from.value });
+          app.go("users", { id: r.user_id });
+          return false;
+        })
+      ));
+    }
+    return root;
+  }
+  async function renderUserDetail(app, id) {
+    const d = await app.api.get("user.get", { user_id: id });
+    const u = d.user;
+    const root = h("div", null, h("p", null, h("a", { href: "#/users" }, "← กลับรายการผู้ใช้")));
+    root.appendChild(section(
+      u.display_name,
+      h("p", null, `${enumLabel("UserType", u.user_type)} · สถานะ ${enumLabel("UserStatus", u.status)}${u.contact_email ? ` · ${u.contact_email}` : ""}`),
+      app.can("user.manage") && u.user_type === "STAFF" ? actionButton(u.status === "DISABLED" ? "เปิดใช้งานบัญชี" : "ระงับบัญชี", async () => {
+        const reason = await askText("เหตุผลการเปลี่ยนสถานะ (บันทึกใน audit)");
+        if (!reason) return;
+        await app.api.mutate("user.setStatus", { user_id: u.id, status: u.status === "DISABLED" ? "ACTIVE" : "DISABLED", reason }, { expectedVersion: u.version });
+        toast("บันทึกแล้ว");
+        app.render();
+      }, { variant: u.status === "DISABLED" ? "secondary" : "danger", confirmText: "ยืนยันการเปลี่ยนสถานะบัญชี (มีผลทันทีกับคำขอถัดไป)" }) : null
+    ));
+    root.appendChild(section(
+      "บทบาท",
+      d.roles.length ? table([
+        { label: "บทบาท", render: (r) => enumLabel("Role", r.role) },
+        { label: "เริ่ม", key: "effective_from" },
+        { label: "สิ้นสุด (ไม่รวม)", render: (r) => r.effective_to || "—" },
+        { label: "สถานะ", render: (r) => r.revoked_at ? badge("เพิกถอนแล้ว", "danger") : badge("มีผล", "ok") },
+        { label: "", render: (r) => !r.revoked_at && app.can("role.assign") ? actionButton("เพิกถอน", async () => {
+          const reason = await askText("เหตุผลการเพิกถอนบทบาท");
+          if (!reason) return;
+          await app.api.mutate("role.revoke", { user_role_id: r.id, reason });
+          toast("เพิกถอนแล้ว");
+          app.render();
+        }, { variant: "link", confirmText: "เพิกถอนบทบาทนี้ (มีผลทันที)?" }) : "" }
+      ], d.roles) : empty("ยังไม่มีบทบาท"),
+      app.can("role.assign") && u.user_type === "STAFF" ? (() => {
+        const role = select("role", STAFF_ROLES.map((r) => h("option", { value: r }, ENUMS.Role.th[r])));
+        const from = input("effective_from", { type: "date" });
+        const to = input("effective_to", { type: "date" });
+        const reason = input("reason");
+        return form([h("div", { class: "grid3" }, field("บทบาท", role), field("เริ่ม", from, { required: true }), field("สิ้นสุด (ไม่บังคับ)", to), field("เหตุผล", reason, { required: true }))], async () => {
+          await app.api.mutate("role.grant", { user_id: u.id, role: role.value, effective_from: from.value, effective_to: to.value || null, reason: reason.value });
+          app.render();
+          return false;
+        }, { submitLabel: "เพิ่มบทบาท" });
+      })() : null
+    ));
+    root.appendChild(section("ขอบเขตงาน (ครูที่ปรึกษา/เวร/สอน/รักษาการแทน)", d.assignments.length ? table([
+      { label: "ประเภท", render: (a) => enumLabel("AssignmentType", a.assignment_type) },
+      { label: "เริ่ม", key: "effective_from" },
+      { label: "สิ้นสุด", render: (a) => a.effective_to || "—" }
+    ], d.assignments) : empty(), (app.can("user.manage") || app.can("settings.business")) && u.user_type === "STAFF" ? await assignmentForm(app, u) : null));
+    const codeBox = h("div", { "aria-live": "polite" });
+    root.appendChild(section(
+      "คำเชิญและการเชื่อมบัญชี",
+      d.identity_links.length ? table([
+        { label: "ผู้ให้บริการ", key: "provider" },
+        { label: "อีเมลขณะเชื่อม", render: (l) => l.email_at_link || "—" },
+        { label: "สถานะ", key: "status" },
+        { label: "", render: (l) => l.status === "ACTIVE" && app.can("user.manage") ? actionButton("ยกเลิกการเชื่อม", async () => {
+          const reason = await askText("เหตุผลการยกเลิกการเชื่อมบัญชี (เช่น บัญชีถูกยึด)");
+          if (!reason) return;
+          await app.api.mutate("identity.unlink", { identity_link_id: l.id, reason });
+          app.render();
+        }, { variant: "link", confirmText: "ยกเลิกการเชื่อมบัญชีนี้?" }) : "" }
+      ], d.identity_links) : empty("ยังไม่ได้เชื่อมบัญชีผู้ให้บริการยืนยันตัวตน"),
+      d.invitations.length ? table([{ label: "สถานะ", render: (i) => enumLabel("InvitationStatus", i.status) }, { label: "หมดอายุ", key: "expires_at" }, { label: "อีเมลที่ผูก", render: (i) => i.bound_email || "—" }], d.invitations) : null,
+      u.status !== "DISABLED" ? (() => {
+        const bound = input("bound_email", { type: "email", value: u.contact_email || "" });
+        return form([field("ผูกกับอีเมล (แนะนำ)", bound, { hint: "ผู้รับต้องยืนยันอีเมลนี้กับผู้ให้บริการก่อนใช้รหัส" })], async () => {
+          const r = await app.api.mutate("invitation.create", { user_id: u.id, bound_email: bound.value || null });
+          mount(codeBox, r.code ? alertBox("ok", `รหัสคำเชิญ (แสดงครั้งเดียว): ${r.code} — หมดอายุ ${r.expires_at}`) : alertBox("warn", r.note_th));
+          return false;
+        }, { submitLabel: "ออกรหัสคำเชิญใหม่ (ยกเลิกรหัสเดิม)" });
+      })() : null,
+      codeBox
+    ));
+    return root;
+  }
+  async function assignmentForm(app, u) {
+    const classes = (await app.api.get("class.list", {})).items;
+    const stations = (await app.api.get("station.list", {})).items;
+    const type = select("assignment_type", enumOptions("AssignmentType"));
+    const cls = select("class_id", [h("option", { value: "" }, "—"), ...classes.map((c) => h("option", { value: c.id }, c.name_th))]);
+    const st = select("station_id", [h("option", { value: "" }, "—"), ...stations.map((s) => h("option", { value: s.id }, s.name_th))]);
+    const delegateFor = input("delegate_for_user_id", { placeholder: "UUID ผู้ใช้ที่รักษาการแทน" });
+    const from = input("effective_from", { type: "date" });
+    const to = input("effective_to", { type: "date" });
+    return form([h("div", { class: "grid3" }, field("ประเภท", type), field("ห้อง", cls), field("จุดลงเวลา", st), field("รักษาการแทน (UUID)", delegateFor), field("เริ่ม", from, { required: true }), field("สิ้นสุด", to))], async () => {
+      await app.api.mutate("assignment.create", { user_id: u.id, assignment_type: type.value, class_id: cls.value || null, station_id: st.value || null, delegate_for_user_id: delegateFor.value || null, effective_from: from.value, effective_to: to.value || null });
+      app.render();
+      return false;
+    }, { submitLabel: "เพิ่มขอบเขตงาน" });
+  }
+
+  // src/shared/errors.js
+  var ERROR_CODES = Object.freeze({
+    UNAUTHENTICATED: { retryable: false, th: "กรุณาเข้าสู่ระบบใหม่" },
+    ACCOUNT_NOT_LINKED: { retryable: false, th: "บัญชีนี้ยังไม่ได้เชื่อมกับผู้ใช้ในระบบ กรุณาใช้รหัสคำเชิญจากโรงเรียน" },
+    ACCOUNT_DISABLED: { retryable: false, th: "บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อโรงเรียน" },
+    FORBIDDEN: { retryable: false, th: "คุณไม่มีสิทธิ์ทำรายการนี้" },
+    NOT_FOUND: { retryable: false, th: "ไม่พบข้อมูลที่ต้องการ หรือคุณไม่มีสิทธิ์เข้าถึง" },
+    VALIDATION_ERROR: { retryable: false, th: "ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบช่องที่แจ้งเตือน" },
+    CONFLICT: { retryable: false, th: "ข้อมูลถูกแก้ไขโดยผู้อื่นแล้ว กรุณาโหลดข้อมูลล่าสุดก่อนทำรายการอีกครั้ง" },
+    UNIQUE_VIOLATION: { retryable: false, th: "มีข้อมูลนี้อยู่แล้วในระบบ" },
+    INVALID_STATE: { retryable: false, th: "ไม่สามารถทำรายการนี้ได้ในสถานะปัจจุบัน" },
+    DUPLICATE_REQUEST_MISMATCH: { retryable: false, th: "คำขอซ้ำใช้รหัสอ้างอิงเดิมแต่ข้อมูลต่างกัน ระบบไม่บันทึกซ้ำ" },
+    MAINTENANCE_MODE: { retryable: true, th: "ระบบอยู่ระหว่างปรับปรุง (อ่านอย่างเดียว) กรุณาลองใหม่ภายหลัง" },
+    RATE_LIMITED: { retryable: true, th: "มีการเรียกใช้งานถี่เกินไป กรุณารอสักครู่" },
+    QUOTA_EXCEEDED: { retryable: true, th: "ระบบใช้โควตาบริการเกินกำหนด กรุณาลองใหม่ภายหลัง" },
+    STORAGE_UNAVAILABLE: { retryable: true, th: "ระบบจัดเก็บข้อมูลไม่พร้อมใช้งานชั่วคราว ข้อมูลยังไม่ถูกบันทึก" },
+    LOCK_TIMEOUT: { retryable: true, th: "มีผู้ใช้งานพร้อมกันจำนวนมาก ข้อมูลยังไม่ถูกบันทึก กรุณาลองใหม่" },
+    CONFIGURATION_REQUIRED: { retryable: false, th: "ระบบยังตั้งค่าไม่ครบ กรุณาติดต่อผู้ดูแลระบบ" },
+    FEATURE_DISABLED: { retryable: false, th: "ฟังก์ชันนี้ยังไม่เปิดใช้งาน" },
+    PAYLOAD_TOO_LARGE: { retryable: false, th: "ข้อมูลหรือไฟล์มีขนาดเกินกำหนด" },
+    UNSUPPORTED_OPERATION: { retryable: false, th: "ไม่รองรับคำสั่งนี้" },
+    UNSUPPORTED_SCHEMA: { retryable: false, th: "รูปแบบข้อมูลหรือเวอร์ชัน schema ไม่รองรับ" },
+    INTEGRITY_ERROR: { retryable: false, th: "ข้อมูลไม่สมบูรณ์หรือ checksum ไม่ตรงกัน" },
+    EXTERNAL_SERVICE_ERROR: { retryable: true, th: "บริการภายนอกขัดข้อง ระบบจะลองใหม่อัตโนมัติ" },
+    INTERNAL_ERROR: { retryable: true, th: "เกิดข้อผิดพลาดภายในระบบ กรุณาลองใหม่ หากยังพบปัญหาให้แจ้งรหัสอ้างอิงต่อผู้ดูแลระบบ" }
+  });
+
+  // src/shared/time.js
+  var TZ_OFFSETS_MINUTES = Object.freeze({ "Asia/Bangkok": 420, UTC: 0 });
+
+  // src/shared/thai-format.js
+  var THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+  var THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+  function toBuddhistYear(ceYear) {
+    return Number(ceYear) + 543;
+  }
+  function formatThaiDate(isoDate, opts = {}) {
+    if (!isoDate || typeof isoDate !== "string") return "";
+    const [y, m, d] = isoDate.slice(0, 10).split("-").map(Number);
+    if (!y || !m || !d) return "";
+    const months = opts.long ? THAI_MONTHS : THAI_MONTHS_SHORT;
+    return `${d} ${months[m - 1]} ${toBuddhistYear(y)}`;
+  }
+
+  // frontend/src/screens/settings.js
+  async function renderSettings(app) {
+    const o = await app.api.get("settings.overview", {});
+    const canEdit = app.can("settings.business");
+    const root = h("div");
+    root.appendChild(alertBox("info", "ค่าในหน้านี้เป็นค่าธุรกิจที่ไม่ลับ ค่าติดตั้ง/รหัสลับตั้งใน Script Properties ของ Apps Script เท่านั้น"));
+    const s = o.school;
+    if (s) {
+      const name = input("name_th", { value: s.name_th });
+      const unit = input("unit_th", { value: s.unit_th || "" });
+      const color = input("brand_color", { value: s.brand_color || "#B91C1C", type: "color" });
+      root.appendChild(section("โรงเรียน", canEdit ? form([h("div", { class: "grid3" }, field("ชื่อโรงเรียน", name, { required: true }), field("หน่วยงาน", unit), field("สีหลัก (ตัวอย่าง ปรับได้)", color))], async () => {
+        await app.api.mutate("school.update", { name_th: name.value, unit_th: unit.value || null, brand_color: color.value }, { expectedVersion: s.version });
+        return "บันทึกแล้ว";
+      }) : h("p", null, s.name_th)));
+    }
+    root.appendChild(section(
+      "ปีการศึกษาและภาคเรียน",
+      o.academic_years.length ? table([{ label: "ปีการศึกษา", key: "label_th" }, { label: "เริ่ม", render: (y) => formatThaiDate(y.start_date) }, { label: "สิ้นสุด (ไม่รวม)", render: (y) => formatThaiDate(y.end_date) }], o.academic_years) : empty("ยังไม่มีปีการศึกษา"),
+      o.terms.length ? table([{ label: "ภาคเรียน", key: "code" }, { label: "เริ่ม", render: (t) => formatThaiDate(t.start_date) }, { label: "สิ้นสุด (ไม่รวม)", render: (t) => formatThaiDate(t.end_date) }], o.terms) : empty("ยังไม่มีภาคเรียน — ข้อมูลรายวันจะถูกเก็บใน partition ชั่วคราว"),
+      canEdit ? yearTermForms(app, o) : null
+    ));
+    root.appendChild(section(
+      "ปฏิทิน (วันหยุด/วันพิเศษ)",
+      alertBox("info", "ค่าเริ่มต้น: จันทร์–ศุกร์ในภาคเรียนเป็นวันเรียน กำหนดเฉพาะวันที่ต่างจากค่าเริ่มต้น"),
+      o.calendar.length ? table([{ label: "วันที่", render: (c) => formatThaiDate(c.calendar_date) }, { label: "ประเภท", render: (c) => enumLabel("DayType", c.day_type) }, { label: "ระดับ", render: (c) => c.applies_to_level ? enumLabel("GradeLevel", c.applies_to_level) : "ทุกระดับ" }, { label: "รายการ", render: (c) => c.title_th || "—" }], o.calendar.slice(0, 60)) : empty(),
+      canEdit ? (() => {
+        const d = input("calendar_date", { type: "date" });
+        const t = select("day_type", enumOptions("DayType"));
+        const lv = select("applies_to_level", enumOptions("GradeLevel", { empty: "ทุกระดับ" }));
+        const title = input("title_th");
+        return form([h("div", { class: "grid3" }, field("วันที่", d, { required: true }), field("ประเภท", t), field("ระดับชั้น", lv), field("รายการ", title))], async () => {
+          await app.api.mutate("calendar.set", { calendar_date: d.value, day_type: t.value, applies_to_level: lv.value || null, title_th: title.value || null });
+          app.render();
+          return false;
+        }, { submitLabel: "บันทึกวัน" });
+      })() : null
+    ));
+    root.appendChild(section(
+      "คาบเรียน",
+      o.periods.length ? table([{ label: "คาบ", key: "period_no" }, { label: "ช่วง", render: (p) => enumLabel("DaySession", p.session) }, { label: "เวลา", render: (p) => `${p.start_time}–${p.end_time}` }, { label: "มีผลตั้งแต่", render: (p) => formatThaiDate(p.effective_from) }], o.periods) : empty("ยังไม่ได้ตั้งคาบเรียน (จำเป็นสำหรับการลาครึ่งวัน/รายคาบ)"),
+      canEdit ? (() => {
+        const no = input("period_no", { type: "number", min: 0, max: 20 });
+        const label = input("label_th");
+        const ses = select("session", enumOptions("DaySession"));
+        const st = input("start_time", { type: "time" });
+        const en = input("end_time", { type: "time" });
+        const from = input("effective_from", { type: "date" });
+        return form([h("div", { class: "grid3" }, field("คาบที่", no, { required: true }), field("ชื่อ", label, { required: true }), field("ช่วง", ses), field("เริ่ม", st, { required: true }), field("สิ้นสุด", en, { required: true }), field("มีผลตั้งแต่", from, { required: true }))], async () => {
+          await app.api.mutate("period.create", { period_no: Number(no.value), label_th: label.value, session: ses.value, start_time: st.value, end_time: en.value, effective_from: from.value });
+          app.render();
+          return false;
+        }, { submitLabel: "เพิ่มคาบ" });
+      })() : null
+    ));
+    root.appendChild(section(
+      "จุดลงเวลา",
+      o.stations.length ? table([{ label: "รหัส", key: "code" }, { label: "ชื่อ", key: "name_th" }, { label: "ประเภท", render: (s2) => enumLabel("StationType", s2.station_type) }], o.stations) : empty(),
+      canEdit ? (() => {
+        const code = input("code");
+        const nm = input("name_th");
+        const tp = select("station_type", enumOptions("StationType"));
+        return form([h("div", { class: "grid3" }, field("รหัส", code, { required: true }), field("ชื่อ", nm, { required: true }), field("ประเภท", tp))], async () => {
+          await app.api.mutate("station.create", { code: code.value, name_th: nm.value, station_type: tp.value });
+          app.render();
+          return false;
+        }, { submitLabel: "เพิ่มจุดลงเวลา" });
+      })() : null
+    ));
+    root.appendChild(section(
+      "กฎธุรกิจ (มีเวอร์ชันและวันที่มีผล)",
+      alertBox("warn", 'กฎที่ติดป้าย "ค่าตัวอย่าง" ยังไม่ใช่เกณฑ์ของโรงเรียน ต้องสร้างเวอร์ชันใหม่ด้วยค่าที่โรงเรียนอนุมัติก่อนเปิดใช้งานจริง'),
+      table([
+        { label: "กฎ", render: (r) => enumLabel("RuleType", r.rule_type) },
+        { label: "v", key: "version_no" },
+        { label: "สถานะ", render: (r) => h("span", null, enumLabel("RuleStatus", r.status), " ", r.is_example ? badge("ค่าตัวอย่าง", "warn", "⚠") : "") },
+        { label: "มีผล", render: (r) => `${formatThaiDate(r.effective_from)} – ${r.effective_to ? formatThaiDate(r.effective_to) : "ไม่กำหนด"}` },
+        { label: "ค่า", render: (r) => h("code", { class: "small" }, JSON.stringify(r.params_json)) },
+        { label: "", render: (r) => canEdit && r.status === "DRAFT" ? actionButton("เปิดใช้", async () => {
+          await app.api.mutate("rule.activate", { rule_id: r.id, confirm_school_policy: true }, { expectedVersion: r.version });
+          toast("เปิดใช้แล้ว");
+          app.render();
+        }, { variant: "secondary", confirmText: "ยืนยันว่าค่าในกฎนี้เป็นเกณฑ์ที่โรงเรียนกำหนดแล้ว และไม่ซ้อนกับเวอร์ชันที่ใช้งาน" }) : canEdit && r.status === "ACTIVE" ? actionButton("กำหนดวันสิ้นสุด", async () => {
+          const d = await askText("วันสิ้นสุดของกฎ (ไม่รวมวันนั้น)", { label: "วันที่ ค.ศ. YYYY-MM-DD" });
+          if (!d) return;
+          await app.api.mutate("rule.setEnd", { rule_id: r.id, effective_to: d, reason: "เปลี่ยนเป็นเวอร์ชันใหม่" }, { expectedVersion: r.version });
+          app.render();
+        }, { variant: "link" }) : "" }
+      ], o.rules),
+      canEdit ? (() => {
+        const type = select("rule_type", enumOptions("RuleType"));
+        const from = input("effective_from", { type: "date" });
+        const params = textarea("params_json", { rows: 6, spellcheck: false });
+        const fill = () => {
+          const ex = o.rules.find((r) => r.rule_type === type.value);
+          params.value = JSON.stringify(ex ? ex.params_json : {}, null, 2);
+        };
+        type.addEventListener("change", fill);
+        fill();
+        return form([h("div", { class: "grid3" }, field("ประเภทกฎ", type), field("มีผลตั้งแต่", from, { required: true })), field("พารามิเตอร์ (JSON ตาม schema)", params, { required: true })], async () => {
+          let parsed;
+          try {
+            parsed = JSON.parse(params.value);
+          } catch (_) {
+            throw { message_th: "JSON ไม่ถูกต้อง", field_errors: [{ field: "params_json", message_th: "JSON ไม่ถูกต้อง" }] };
+          }
+          await app.api.mutate("rule.createVersion", { rule_type: type.value, effective_from: from.value, params_json: parsed });
+          app.render();
+          return false;
+        }, { submitLabel: "สร้างเวอร์ชันใหม่ (ร่าง)" });
+      })() : null
+    ));
+    root.appendChild(section("ค่าตั้งค่าอื่น", table([{ label: "key", key: "key" }, { label: "ค่า", render: (x) => h("code", null, JSON.stringify(x.value_json && "value" in x.value_json ? x.value_json.value : x.value_json)) }, { label: "", render: (x) => x.is_example ? badge("ค่าตัวอย่าง", "warn") : "" }, { label: "คำอธิบาย", render: (x) => x.description_th || "" }], o.settings)));
+    return root;
+  }
+  function yearTermForms(app, o) {
+    const y = input("start_year_ce", { type: "number", min: 2e3, max: 2200, placeholder: "เช่น 2026 (= พ.ศ. 2569)" });
+    const ys = input("start_date", { type: "date" });
+    const ye = input("end_date", { type: "date" });
+    const yearSel = select("academic_year_id", o.academic_years.map((a) => h("option", { value: a.id }, a.label_th)));
+    const no = select("term_no", [1, 2, 3].map((n) => h("option", { value: n }, `ภาคเรียนที่ ${n}`)));
+    const ts = input("t_start", { type: "date" });
+    const te = input("t_end", { type: "date" });
+    const out = h(
+      "div",
+      null,
+      form([h("div", { class: "grid3" }, field("ปี ค.ศ. ที่เริ่ม", y, { required: true }), field("วันเริ่ม", ys, { required: true }), field("วันสิ้นสุด (ไม่รวม)", ye, { required: true }))], async () => {
+        await app.api.mutate("academicYear.create", { start_year_ce: Number(y.value), start_date: ys.value, end_date: ye.value });
+        app.render();
+        return false;
+      }, { submitLabel: "สร้างปีการศึกษา" })
+    );
+    if (o.academic_years.length) {
+      out.appendChild(form([h("div", { class: "grid3" }, field("ปีการศึกษา", yearSel), field("ภาคเรียน", no), field("วันเริ่ม", ts, { required: true }), field("วันสิ้นสุด (ไม่รวม)", te, { required: true }))], async () => {
+        await app.api.mutate("term.create", { academic_year_id: yearSel.value, term_no: Number(no.value), start_date: ts.value, end_date: te.value });
+        app.render();
+        return false;
+      }, { submitLabel: "สร้างภาคเรียน (สร้างไฟล์ข้อมูลภาคเรียนให้อัตโนมัติ)" }));
+    }
+    return out;
+  }
+
+  // frontend/src/screens/imports.js
+  async function renderImports(app) {
+    const root = h("div");
+    const work = h("div", { "aria-live": "polite" });
+    const type = select("import_type", enumOptions("ImportType"));
+    const file = h("input", { type: "file", name: "file", accept: ".csv,.xlsx", class: "input" });
+    root.appendChild(section(
+      "1. เลือกชนิดข้อมูลและไฟล์",
+      alertBox("info", "รองรับ CSV (UTF-8) และ XLSX ≤ 5 MB / 5,000 แถว · รหัสนักเรียนและเบอร์โทรเก็บเป็นข้อความ (เลข 0 นำหน้าไม่หาย) · ชื่อซ้ำจะแจ้งเตือนแต่ไม่รวมเป็นคนเดียว"),
+      h("div", { class: "row gap" }, actionButton("ดาวน์โหลดไฟล์ตัวอย่าง (CSV)", async () => {
+        const t = await app.api.get("import.template", { import_type: type.value });
+        downloadBlob(t.filename, t.content, "text/csv;charset=utf-8");
+      }, { variant: "secondary" })),
+      form([h("div", { class: "grid3" }, field("ชนิดข้อมูล", type), field("ไฟล์", file, { required: true }))], async () => {
+        const f = file.files[0];
+        if (!f) throw { message_th: "กรุณาเลือกไฟล์", field_errors: [{ field: "file", message_th: "กรุณาเลือกไฟล์" }] };
+        if (f.size > 5 * 1024 * 1024) throw { message_th: "ไฟล์ใหญ่เกิน 5 MB" };
+        const up = await app.api.mutate("import.upload", { import_type: type.value, file: { filename: f.name, mime_type: f.type || null, content_base64: await fileToBase64(f) } });
+        renderMapping(app, work, up, type.value);
+        return `อัปโหลดแล้ว ${up.row_count} แถว`;
+      }, { submitLabel: "อัปโหลด" })
+    ));
+    root.appendChild(work);
+    const hist = h("div");
+    root.appendChild(section("ประวัติการนำเข้า", hist));
+    try {
+      const list = await app.api.get("import.list", { limit: 20 });
+      mount(hist, list.items.length ? table([{ label: "ชนิด", render: (b) => enumLabel("ImportType", b.import_type) }, { label: "สถานะ", render: (b) => enumLabel("ImportStatus", b.status) }, { label: "แถว", key: "row_count" }, { label: "นำเข้าแล้ว", render: (b) => {
+        var _a;
+        return (_a = b.applied_count) != null ? _a : "—";
+      } }, { label: "เวลา", key: "created_at" }], list.items) : empty());
+    } catch (e2) {
+      mount(hist, errorState(e2));
+    }
+    return root;
+  }
+  function renderMapping(app, work, up, importType) {
+    const selects = up.columns.map((c) => {
+      const s = select(c.name, [h("option", { value: "" }, "— ไม่ใช้ —"), ...up.header.map((hd) => h("option", { value: hd, selected: up.auto_mapping[c.name] === hd }, hd))]);
+      return field(`${c.label_th} (${c.name})`, s, { required: c.required });
+    });
+    const dateFormat = select("date_format", [h("option", { value: "ISO" }, "ค.ศ. YYYY-MM-DD"), h("option", { value: "DMY_BE" }, "วว/ดด/ปปปป (พ.ศ.)"), h("option", { value: "DMY_CE" }, "วว/ดด/ปปปป (ค.ศ.)")]);
+    const defaultFrom = input("default_effective_from", { type: "date" });
+    const updateExisting = h("input", { type: "checkbox", name: "update_existing" });
+    const out = h("div", { "aria-live": "polite" });
+    const mapping = () => Object.fromEntries(up.columns.map((c, i) => [c.name, selects[i].querySelector("select").value]).filter(([, v]) => v));
+    const options = () => ({ date_format: dateFormat.value, default_effective_from: defaultFrom.value || null, update_existing: updateExisting.checked });
+    mount(work, section(
+      "2. จับคู่คอลัมน์และตรวจข้อมูล",
+      table([{ label: "คอลัมน์ในไฟล์", render: (x) => x }], up.header.map((x) => x)),
+      h("div", { class: "grid3" }, selects),
+      h(
+        "div",
+        { class: "grid3" },
+        field("รูปแบบวันที่ในไฟล์", dateFormat),
+        importType === "STUDENTS" ? field("วันที่มีผลเริ่มต้น", defaultFrom) : null,
+        h("label", { class: "check" }, updateExisting, " อัปเดตข้อมูลเดิมเมื่อรหัสตรงแต่ข้อมูลต่าง")
+      ),
+      h(
+        "div",
+        { class: "row gap" },
+        actionButton("ดูตัวอย่าง 20 แถว", async () => {
+          const p = await app.api.get("import.preview", { batch_id: up.batch_id, mapping: mapping(), options: options() });
+          mount(out, table([{ label: "แถว", key: "row_no" }, { label: "ข้อมูล", render: (r) => JSON.stringify(r.value) }, { label: "ข้อผิดพลาด", render: (r) => r.errors.map((e2) => `${e2.column}: ${e2.message_th}`).join(" · ") || "✔" }], p.rows));
+        }, { variant: "secondary" }),
+        actionButton("ตรวจทั้งไฟล์ (dry-run)", async () => {
+          mount(out, loading("กำลังตรวจทุกแถว…"));
+          try {
+            const d = await app.api.mutate("import.dryRun", { batch_id: up.batch_id, mapping: mapping(), options: options() });
+            renderDryRun(app, out, up, d);
+          } catch (e2) {
+            mount(out, errorState(e2));
+          }
+        })
+      ),
+      out
+    ));
+  }
+  function renderDryRun(app, out, up, d) {
+    const s = d.summary;
+    const ok = s.ERROR === 0;
+    const pollBox = h("div", { "aria-live": "polite" });
+    mount(
+      out,
+      h("div", { class: "stats" }, ["INSERT", "UPDATE", "SKIP", "CONFLICT", "ERROR"].map((k) => h("div", { class: "stat" }, h("div", { class: "stat-n" }, String(s[k])), h("div", { class: "stat-l" }, { INSERT: "เพิ่ม", UPDATE: "แก้ไข", SKIP: "ข้าม (มีแล้ว)", CONFLICT: "ขัดแย้ง", ERROR: "ผิดพลาด" }[k])))),
+      s.warnings ? alertBox("warn", `มีคำเตือน ${s.warnings} รายการ (เช่น ชื่อซ้ำกับนักเรียนรหัสอื่น) — ตรวจสอบก่อนนำเข้า`) : null,
+      d.rows.length ? table([{ label: "แถว", key: "row_no" }, { label: "ผล", key: "action" }, { label: "รายละเอียด", render: (r) => [...r.errors, ...r.warnings].map((e2) => `${e2.column}: ${e2.message_th}`).join(" · ") }], d.rows) : null,
+      ok ? actionButton("นำเข้าจริง", async () => {
+        const r = await app.api.mutate("import.apply", { batch_id: up.batch_id, accept_skipping_conflicts: s.CONFLICT > 0 });
+        pollJob(app, r.job_id, pollBox);
+      }, { large: true, confirmText: s.CONFLICT ? `ยืนยันนำเข้า (ข้าม ${s.CONFLICT} แถวที่ขัดแย้ง ไม่เขียนทับ)` : "ยืนยันนำเข้าข้อมูลจริง" }) : alertBox("danger", "ยังมีแถวผิดพลาด แก้ไฟล์แล้วอัปโหลดใหม่"),
+      pollBox
+    );
+  }
+  function pollJob(app, jobId, box) {
+    let stopped = false;
+    const tick = async () => {
+      if (stopped || !document.body.contains(box)) return;
+      if (document.hidden) {
+        setTimeout(tick, 5e3);
+        return;
+      }
+      try {
+        const j = await app.api.get("job.getStatus", { job_id: jobId }, { channel: `job-${jobId}` });
+        const p = j.progress || {};
+        mount(
+          box,
+          h("p", null, statusBadge(j.status === "SUCCEEDED" ? "OK" : j.status === "FAILED" ? "FAIL" : "WARN"), ` ${enumLabel("JobStatus", j.status)} ${p.message_th || ""}`),
+          j.last_error ? alertBox("danger", j.last_error) : null
+        );
+        if (j.status === "SUCCEEDED" || j.status === "FAILED") {
+          stopped = true;
+          return;
+        }
+      } catch (e2) {
+        if (e2.code !== "STALE_RESPONSE") mount(box, errorState(e2));
+      }
+      setTimeout(tick, 4e3 + Math.random() * 1500);
+    };
+    tick();
+  }
+
+  // frontend/src/screens/health.js
+  async function renderHealth(app) {
+    const hlt = await app.api.get("system.health", {});
+    const root = h("div");
+    root.appendChild(h("p", null, statusBadge(hlt.status), ` สภาพแวดล้อม ${hlt.env} · โหมด ${hlt.system_mode} · เวลาเซิร์ฟเวอร์ ${hlt.server_time} · วันเรียน ${hlt.school_date}`));
+    root.appendChild(section("รายการตรวจ", table([{ label: "สถานะ", render: (c) => statusBadge(c.status) }, { label: "หัวข้อ", key: "key" }, { label: "รายละเอียด", key: "detail_th" }], hlt.checks)));
+    if (app.can("system.maintenance")) {
+      const ro = hlt.system_mode === "READ_ONLY";
+      root.appendChild(section(
+        "โหมดอ่านอย่างเดียว (maintenance)",
+        alertBox("warn", "เมื่อเปิด ระบบปฏิเสธการบันทึกทุกช่องทางที่ server (ใช้ก่อน snapshot/ย้ายข้อมูล/แก้ข้อมูลฉุกเฉิน)"),
+        actionButton(ro ? "ปิดโหมดอ่านอย่างเดียว" : "เปิดโหมดอ่านอย่างเดียว", async () => {
+          const reason = await askText("เหตุผล");
+          if (!reason) return;
+          await app.api.mutate("system.setMode", { mode: ro ? "NORMAL" : "READ_ONLY", reason });
+          toast("เปลี่ยนโหมดแล้ว");
+          app.render();
+        }, { variant: ro ? "secondary" : "danger", confirmText: ro ? "กลับสู่โหมดปกติ?" : "เปิดโหมดอ่านอย่างเดียว ผู้ใช้จะบันทึกข้อมูลไม่ได้จนกว่าจะปิด" })
+      ));
+    }
+    const jobs = await app.api.get("job.list", { limit: 30 });
+    root.appendChild(section("งานเบื้องหลัง", jobs.items.length ? table([
+      { label: "ชนิด", key: "job_type" },
+      { label: "สถานะ", render: (j) => enumLabel("JobStatus", j.status) },
+      { label: "ครั้งที่", key: "attempts" },
+      { label: "ความคืบหน้า", render: (j) => j.progress && j.progress.message_th || "—" },
+      { label: "ข้อผิดพลาด", render: (j) => j.last_error || "" },
+      { label: "", render: (j) => j.status === "FAILED" && app.can("system.maintenance") ? actionButton("รันใหม่", async () => {
+        const reason = await askText("เหตุผลที่รันใหม่");
+        if (!reason) return;
+        await app.api.mutate("job.retry", { job_id: j.id, reason });
+        app.render();
+      }, { variant: "link" }) : "" }
+    ], jobs.items) : empty("ยังไม่มีงานเบื้องหลัง")));
+    if (hlt.platform && hlt.platform.table_rows) {
+      root.appendChild(section("ขนาดข้อมูล (แถว)", table([{ label: "ตาราง", key: "table" }, { label: "partition", key: "partition" }, { label: "แถว", key: "rows" }], hlt.platform.table_rows)));
+    }
+    return root;
+  }
+
+  // frontend/src/screens/extra.js
+  var EXTRA_ROUTES = [];
+
+  // frontend/src/screens/index.js
+  var ROUTES = [
+    { path: "home", title_th: "หน้าหลัก", icon: "🏠", render: renderHome },
+    ...EXTRA_ROUTES.filter((r) => r.position === "top"),
+    { path: "students", title_th: "รายชื่อนักเรียน", icon: "🎓", anyOf: ["student.search", "student.read"], render: renderStudents },
+    ...EXTRA_ROUTES.filter((r) => r.position !== "top" && r.position !== "admin"),
+    { path: "imports", title_th: "ศูนย์นำเข้าข้อมูล", icon: "📥", anyOf: ["import.manage"], render: renderImports },
+    { path: "users", title_th: "ผู้ใช้และสิทธิ์", icon: "👥", anyOf: ["user.read"], render: renderUsers },
+    { path: "settings", title_th: "ตั้งค่า", icon: "⚙", anyOf: ["settings.business", "system.health"], render: renderSettings },
+    ...EXTRA_ROUTES.filter((r) => r.position === "admin"),
+    { path: "health", title_th: "สถานะระบบ", icon: "🩺", anyOf: ["system.health"], render: renderHealth }
+  ];
+
+  // frontend/src/screens/login.js
+  function renderLogin(app, root, onReady) {
+    const pc = app.publicConfig || {};
+    const school = pc.school && pc.school.name_th || "โรงเรียน";
+    const notice = h(
+      "p",
+      { class: "muted small" },
+      "ระบบนี้ใช้ข้อมูลการมาเรียน การลา และการติดต่อผู้ปกครองเพื่อดูแลช่วยเหลือนักเรียนตามหน้าที่ของโรงเรียน ",
+      "การเข้าถึงข้อมูลจำกัดตามบทบาทที่โรงเรียนอนุมัติ (ประกาศความเป็นส่วนตัวฉบับเต็มอยู่ระหว่างโรงเรียนพิจารณา)"
+    );
+    const card = h("div", { class: "login-card" }, h("h1", null, "CWK Smart Care"), h("p", { class: "muted" }, `${school} · ระบบแจ้งลา ลงเวลาสาย และดูแลช่วยเหลือนักเรียน`));
+    if (pc.env && pc.env !== "PROD") card.appendChild(alertBox("warn", `สภาพแวดล้อม ${pc.env}: ใช้ข้อมูลทดสอบเท่านั้น`));
+    if (pc.setup_required) card.appendChild(alertBox("danger", "ระบบยังติดตั้งไม่ครบ ผู้ดูแลต้องรัน adminSetup จาก Apps Script Editor"));
+    if (pc.auth_mode === "DEMO") {
+      const userId = input("user_id", { autocomplete: "off", placeholder: "UUID ของผู้ใช้ทดสอบ" });
+      const pass = input("passphrase", { type: "password", autocomplete: "off" });
+      card.appendChild(form(
+        [field("รหัสผู้ใช้ทดสอบ (DEMO)", userId, { required: true, hint: "ดูรายการจากผลรัน adminSeedDemo ใน Apps Script Editor" }), field("รหัสผ่านทดสอบของสภาพแวดล้อม", pass, { required: true })],
+        async () => {
+          app.auth.signInDemo(userId.value.trim(), pass.value);
+          try {
+            await onReady();
+          } catch (e2) {
+            await app.auth.signOut();
+            throw e2;
+          }
+          return false;
+        },
+        { submitLabel: "เข้าสู่ระบบ (ทดสอบ)", large: true }
+      ));
+      card.appendChild(notice);
+      mount(root, h("div", { class: "login" }, card));
+      return;
+    }
+    const auth = app.auth;
+    const body = h("div");
+    card.appendChild(body);
+    card.appendChild(notice);
+    mount(root, h("div", { class: "login" }, card));
+    const showSignIn = () => {
+      const email = input("email", { type: "email", autocomplete: "username", inputmode: "email" });
+      const pw = input("password", { type: "password", autocomplete: "current-password" });
+      mount(
+        body,
+        form([field("อีเมล", email, { required: true }), field("รหัสผ่าน", pw, { required: true })], async () => {
+          try {
+            await auth.signIn(email.value.trim(), pw.value);
+          } catch (e2) {
+            throw { message_th: firebaseErrorTh(e2) };
+          }
+          await afterSignIn();
+          return false;
+        }, { submitLabel: "เข้าสู่ระบบ", large: true }),
+        h(
+          "div",
+          { class: "row gap" },
+          h("button", { type: "button", class: "btn btn-link", onclick: showSignUp }, "สร้างบัญชีใหม่"),
+          h("button", { type: "button", class: "btn btn-link", onclick: showReset }, "ลืมรหัสผ่าน")
+        )
+      );
+      email.focus();
+    };
+    const showSignUp = () => {
+      const email = input("email", { type: "email", autocomplete: "username" });
+      const pw = input("password", { type: "password", autocomplete: "new-password", minlength: 8 });
+      mount(
+        body,
+        alertBox("info", "การสร้างบัญชียังไม่ให้สิทธิ์ดูข้อมูลนักเรียน ต้องใช้รหัสคำเชิญจากโรงเรียนหลังยืนยันอีเมล"),
+        form([field("อีเมล", email, { required: true }), field("ตั้งรหัสผ่าน (อย่างน้อย 8 ตัวอักษร)", pw, { required: true })], async () => {
+          if (pw.value.length < 8) throw { message_th: "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร", field_errors: [{ field: "password", message_th: "อย่างน้อย 8 ตัวอักษร" }] };
+          try {
+            await auth.signUp(email.value.trim(), pw.value);
+          } catch (e2) {
+            throw { message_th: firebaseErrorTh(e2) };
+          }
+          await afterSignIn();
+          return false;
+        }, { submitLabel: "สร้างบัญชี", large: true }),
+        h("button", { type: "button", class: "btn btn-link", onclick: showSignIn }, "กลับไปเข้าสู่ระบบ")
+      );
+    };
+    const showReset = () => {
+      const email = input("email", { type: "email", autocomplete: "username" });
+      mount(
+        body,
+        form([field("อีเมลที่ใช้สมัคร", email, { required: true })], async () => {
+          try {
+            await auth.resetPassword(email.value.trim());
+          } catch (_) {
+          }
+          return "หากอีเมลนี้มีบัญชี ระบบได้ส่งลิงก์ตั้งรหัสผ่านใหม่แล้ว";
+        }, { submitLabel: "ส่งลิงก์ตั้งรหัสผ่านใหม่" }),
+        h("button", { type: "button", class: "btn btn-link", onclick: showSignIn }, "กลับไปเข้าสู่ระบบ")
+      );
+    };
+    const showVerify = () => {
+      mount(
+        body,
+        alertBox("warn", `กรุณายืนยันอีเมล ${auth.email || ""} จากลิงก์ที่ระบบส่งไป แล้วกดปุ่ม "ยืนยันแล้ว"`),
+        h(
+          "div",
+          { class: "row gap" },
+          actionButton("ยืนยันแล้ว", async () => {
+            await auth.refresh();
+            await afterSignIn();
+          }),
+          actionButton("ส่งอีเมลยืนยันอีกครั้ง", async () => {
+            await auth.sendVerification();
+            toast("ส่งอีเมลแล้ว");
+          }, { variant: "secondary" }),
+          actionButton("ออกจากระบบ", async () => {
+            await auth.signOut();
+            showSignIn();
+          }, { variant: "link" })
+        )
+      );
+    };
+    const showRedeem = () => {
+      const code = input("code", { autocomplete: "one-time-code", placeholder: "XXXX-XXXX-XXXX-XXXX-XXXX", class: "input code" });
+      mount(
+        body,
+        section(
+          "เปิดใช้งานบัญชี",
+          h("p", null, "กรอกรหัสคำเชิญที่ได้รับจากโรงเรียน (ใช้ได้ครั้งเดียวและมีวันหมดอายุ)"),
+          form([field("รหัสคำเชิญ", code, { required: true })], async () => {
+            await app.api.mutate("auth.redeemInvitation", { code: code.value.trim() });
+            await onReady();
+            return false;
+          }, { submitLabel: "เปิดใช้งาน", large: true })
+        ),
+        actionButton("ออกจากระบบ", async () => {
+          await auth.signOut();
+          showSignIn();
+        }, { variant: "link" })
+      );
+      code.focus();
+    };
+    const afterSignIn = async () => {
+      if (!auth.signedIn) return showSignIn();
+      if (!auth.emailVerified) return showVerify();
+      const s = await app.loadSession();
+      if (!s.linked) return showRedeem();
+      await onReady();
+    };
+    if (auth.signedIn) afterSignIn().catch(() => showSignIn());
+    else showSignIn();
+  }
+
+  // frontend/src/main.js
+  function deviceId() {
+    try {
+      let id = sessionStorage.getItem("cwk.device");
+      if (!id) {
+        id = uuid();
+        sessionStorage.setItem("cwk.device", id);
+      }
+      return id;
+    } catch (_) {
+      return null;
+    }
+  }
+  async function start(options = {}) {
+    const root = document.getElementById("app");
+    const boot = window.__CWK_BOOT__ || {};
+    const onGas = !!(globalThis.google && google.script && google.script.run);
+    const transport = options.transport || (onGas ? new GasRpcTransport() : new HttpTransport(options.apiBase || ""));
+    let publicConfig = boot.public_config;
+    let auth;
+    const api = new ApiClient({ transport, getCredential: () => auth ? auth.credential() : null, deviceId: deviceId(), onUnauthenticated: () => showLogin() });
+    if (!publicConfig) {
+      try {
+        publicConfig = await api.get("app.publicConfig", {});
+      } catch (e2) {
+        mount(root, errorState(e2, () => location.reload()));
+        return;
+      }
+    }
+    auth = publicConfig.auth_mode === "GATEWAY" && publicConfig.firebase ? new FirebaseAuth(publicConfig.firebase, publicConfig.auth_persistence) : new DemoAuth();
+    try {
+      await auth.init();
+    } catch (e2) {
+      mount(root, errorState({ message_th: `โหลดระบบยืนยันตัวตนไม่สำเร็จ: ${e2.message}` }, () => location.reload()));
+      return;
+    }
+    const app = new App({ root, api, auth, publicConfig, routes: ROUTES, boot });
+    app.onLoggedOut = () => showLogin();
+    globalThis.__cwkApp = app;
+    async function ready() {
+      const s = await app.loadSession();
+      if (!s.linked) {
+        showLogin();
+        return;
+      }
+      if (boot.initial_route && !location.hash) location.hash = `#/${boot.initial_route}${boot.focus_id ? `?id=${boot.focus_id}` : ""}`;
+      await app.render();
+    }
+    function showLogin() {
+      app.session = null;
+      renderLogin(app, root, ready);
+    }
+    if (auth.signedIn) {
+      try {
+        await ready();
+      } catch (_) {
+        showLogin();
+      }
+    } else showLogin();
+  }
+  if (typeof window !== "undefined" && !window.__CWK_NO_AUTOSTART__) {
+    window.addEventListener("DOMContentLoaded", () => start());
+    if (document.readyState !== "loading") start();
+  }
+  return __toCommonJS(main_exports);
+})();
+</script>
+</body>
+</html>
