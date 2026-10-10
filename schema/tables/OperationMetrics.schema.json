@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/OperationMetrics.schema.json",
+  "title": "OperationMetrics",
+  "description": "สถิติเวลา p50/p95 ต่อ operation ต่อช่วงเวลา (สำหรับ pilot และเกณฑ์ย้ายระบบ)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "bucket_start",
+    "operation",
+    "count",
+    "error_count",
+    "p50_ms",
+    "p95_ms",
+    "max_ms",
+    "lock_wait_p95_ms",
+    "created_at",
+    "created_by"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "bucket_start": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "operation": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "error_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "p50_ms": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "p95_ms": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "max_ms": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "lock_wait_p95_ms": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาบันทึก (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้บันทึก (ยืนยันโดย server)"
+    }
+  },
+  "x-cwk": {
+    "group": "Operations",
+    "kind": "EVENT",
+    "partition": "TERM",
+    "partition_column": "bucket_start",
+    "sensitivity": "INTERNAL",
+    "retention": "1Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [],
+    "foreign_keys": [],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

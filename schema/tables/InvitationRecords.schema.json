@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/InvitationRecords.schema.json",
+  "title": "InvitationRecords",
+  "description": "คำเชิญเปิดใช้งาน ใช้ได้ครั้งเดียว มีอายุ เก็บเฉพาะ hash ของรหัส (ไม่ export)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "invitation_type",
+    "target_user_id",
+    "code_hash",
+    "bound_email",
+    "expires_at",
+    "max_attempts",
+    "attempt_count",
+    "status",
+    "redeemed_at",
+    "redeemed_identity_link_id",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "invitation_type": {
+      "type": "string",
+      "enum": [
+        "STAFF",
+        "GUARDIAN",
+        "STUDENT"
+      ]
+    },
+    "target_user_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "code_hash": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "SHA-256 ของรหัสคำเชิญ (รหัสจริงแสดงครั้งเดียว)"
+    },
+    "bound_email": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 254,
+      "description": "ถ้ากำหนด ต้องตรงกับอีเมลที่ provider ยืนยันแล้ว"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "max_attempts": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20
+    },
+    "attempt_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PENDING",
+        "REDEEMED",
+        "EXPIRED",
+        "REVOKED",
+        "LOCKED"
+      ]
+    },
+    "redeemed_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "redeemed_identity_link_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "description": "วงอ้างอิงกับ IdentityLinks.invitation_id → FK แบบ DEFERRABLE"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาสร้าง (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้สร้าง (Users.id; อ้างอิงแบบ soft ไม่บังคับ FK)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาแก้ไขล่าสุด (UTC)"
+    },
+    "updated_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้แก้ไขล่าสุด"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "row version สำหรับ optimistic concurrency"
+    }
+  },
+  "x-cwk": {
+    "group": "Identity",
+    "kind": "ENTITY",
+    "partition": "NONE",
+    "partition_column": null,
+    "sensitivity": "SECRET",
+    "retention": "1Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [],
+    "foreign_keys": [
+      {
+        "column": "target_user_id",
+        "references": "Users.id",
+        "deferrable": false
+      },
+      {
+        "column": "redeemed_identity_link_id",
+        "references": "IdentityLinks.id",
+        "deferrable": true
+      }
+    ],
+    "secret_columns": [
+      "code_hash"
+    ],
+    "derived_columns": []
+  }
+}

@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/LeaveRevisions.schema.json",
+  "title": "LeaveRevisions",
+  "description": "ประวัติทุกการเปลี่ยนแปลงใบลา (append-only ห้ามเขียนทับเหตุผล/ผู้อนุมัติเดิม)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "leave_request_id",
+    "revision_no",
+    "action",
+    "actor_id",
+    "acted_at",
+    "from_status",
+    "to_status",
+    "snapshot_json",
+    "comment",
+    "operation_id",
+    "created_at",
+    "created_by"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "leave_request_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "revision_no": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "CREATE",
+        "SUBMIT",
+        "GUARDIAN_CONFIRM",
+        "GUARDIAN_DECLINE",
+        "APPROVE",
+        "PARTIAL_APPROVE",
+        "REJECT",
+        "RETURN",
+        "RESUBMIT",
+        "WITHDRAW",
+        "CANCEL_REQUEST",
+        "CANCEL_APPROVE",
+        "CANCEL_REJECT",
+        "REROUTE"
+      ]
+    },
+    "actor_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "acted_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "from_status": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "DRAFT",
+        "SUBMITTED",
+        "PENDING_GUARDIAN",
+        "PENDING_SCHOOL",
+        "RETURNED",
+        "APPROVED",
+        "PARTIALLY_APPROVED",
+        "REJECTED",
+        "WITHDRAWN",
+        "CANCELLATION_REQUESTED",
+        "CANCELLED",
+        null
+      ]
+    },
+    "to_status": {
+      "type": "string",
+      "enum": [
+        "DRAFT",
+        "SUBMITTED",
+        "PENDING_GUARDIAN",
+        "PENDING_SCHOOL",
+        "RETURNED",
+        "APPROVED",
+        "PARTIALLY_APPROVED",
+        "REJECTED",
+        "WITHDRAWN",
+        "CANCELLATION_REQUESTED",
+        "CANCELLED"
+      ]
+    },
+    "snapshot_json": {
+      "type": [
+        "object",
+        "array"
+      ]
+    },
+    "comment": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1000
+    },
+    "operation_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาบันทึก (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้บันทึก (ยืนยันโดย server)"
+    }
+  },
+  "x-cwk": {
+    "group": "Leave",
+    "kind": "EVENT",
+    "partition": "NONE",
+    "partition_column": null,
+    "sensitivity": "PERSONAL",
+    "retention": "ENROLLMENT_PLUS_5Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [],
+    "foreign_keys": [
+      {
+        "column": "leave_request_id",
+        "references": "LeaveRequests.id",
+        "deferrable": false
+      },
+      {
+        "column": "actor_id",
+        "references": "Users.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

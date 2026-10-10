@@ -1,0 +1,201 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/StudentGuardians.schema.json",
+  "title": "StudentGuardians",
+  "description": "ความสัมพันธ์นักเรียน-ผู้ปกครองที่เจ้าหน้าที่ยืนยัน พร้อมสิทธิ์และช่วงเวลาที่มีผล",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "student_id",
+    "guardian_id",
+    "relationship",
+    "relationship_note",
+    "is_primary_contact",
+    "contact_priority",
+    "permitted_actions",
+    "notification_preferences",
+    "status",
+    "verified_by",
+    "verified_at",
+    "verification_method",
+    "effective_from",
+    "effective_to",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "student_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "guardian_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "relationship": {
+      "type": "string",
+      "enum": [
+        "FATHER",
+        "MOTHER",
+        "GRANDPARENT",
+        "SIBLING",
+        "RELATIVE",
+        "LEGAL_GUARDIAN",
+        "OTHER"
+      ]
+    },
+    "relationship_note": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200
+    },
+    "is_primary_contact": {
+      "type": "boolean"
+    },
+    "contact_priority": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9
+    },
+    "permitted_actions": {
+      "type": [
+        "object",
+        "array"
+      ],
+      "description": "รายการสิทธิ์ เช่น [\"VIEW_ATTENDANCE\",\"SUBMIT_LEAVE\"]"
+    },
+    "notification_preferences": {
+      "type": [
+        "object",
+        "array"
+      ],
+      "description": "เช่น {\"LATE_CONFIRMED\":true,\"ABSENCE_CONFIRMED\":true}"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PENDING_VERIFICATION",
+        "ACTIVE",
+        "ENDED"
+      ]
+    },
+    "verified_by": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "verified_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "verification_method": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "IN_PERSON",
+        "DOCUMENT",
+        "PHONE_CALLBACK",
+        "SCHOOL_RECORD",
+        null
+      ]
+    },
+    "effective_from": {
+      "type": "string",
+      "format": "date"
+    },
+    "effective_to": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาสร้าง (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้สร้าง (Users.id; อ้างอิงแบบ soft ไม่บังคับ FK)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาแก้ไขล่าสุด (UTC)"
+    },
+    "updated_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้แก้ไขล่าสุด"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "row version สำหรับ optimistic concurrency"
+    }
+  },
+  "x-cwk": {
+    "group": "Student",
+    "kind": "ENTITY",
+    "partition": "NONE",
+    "partition_column": null,
+    "sensitivity": "PERSONAL",
+    "retention": "ENROLLMENT_PLUS_5Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [
+      {
+        "columns": [
+          "student_id",
+          "guardian_id",
+          "effective_from"
+        ],
+        "where": null,
+        "nullsNotDistinct": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "column": "student_id",
+        "references": "Students.id",
+        "deferrable": false
+      },
+      {
+        "column": "guardian_id",
+        "references": "Guardians.id",
+        "deferrable": false
+      },
+      {
+        "column": "verified_by",
+        "references": "Users.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

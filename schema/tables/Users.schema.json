@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/Users.schema.json",
+  "title": "Users",
+  "description": "บัญชีผู้ใช้ของแอป (UUID อิสระจากผู้ให้บริการยืนยันตัวตน); สร้างบัญชีแล้วยังไม่มีสิทธิ์จนผ่านคำเชิญและบทบาท",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "school_id",
+    "user_type",
+    "display_name",
+    "contact_email",
+    "staff_code",
+    "student_id",
+    "guardian_id",
+    "status",
+    "disabled_at",
+    "disabled_by",
+    "disabled_reason",
+    "last_login_at",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "school_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "user_type": {
+      "type": "string",
+      "enum": [
+        "STAFF",
+        "GUARDIAN",
+        "STUDENT",
+        "SYSTEM"
+      ]
+    },
+    "display_name": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "contact_email": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 254,
+      "description": "อีเมลติดต่อ (ไม่ใช่หลักฐานยืนยันตัวตน)"
+    },
+    "staff_code": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 30
+    },
+    "student_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "description": "สำหรับบัญชีนักเรียน (กำหนดโดยเจ้าหน้าที่เท่านั้น)"
+    },
+    "guardian_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "description": "สำหรับบัญชีผู้ปกครอง (กำหนดโดยเจ้าหน้าที่เท่านั้น)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "INVITED",
+        "ACTIVE",
+        "DISABLED"
+      ]
+    },
+    "disabled_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "disabled_by": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "disabled_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500
+    },
+    "last_login_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาสร้าง (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้สร้าง (Users.id; อ้างอิงแบบ soft ไม่บังคับ FK)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาแก้ไขล่าสุด (UTC)"
+    },
+    "updated_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้แก้ไขล่าสุด"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "row version สำหรับ optimistic concurrency"
+    }
+  },
+  "x-cwk": {
+    "group": "Identity",
+    "kind": "ENTITY",
+    "partition": "NONE",
+    "partition_column": null,
+    "sensitivity": "PERSONAL",
+    "retention": "ACCOUNT_LIFETIME_PLUS_1Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [
+      {
+        "columns": [
+          "school_id",
+          "staff_code"
+        ],
+        "where": null,
+        "nullsNotDistinct": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "column": "school_id",
+        "references": "Schools.id",
+        "deferrable": false
+      },
+      {
+        "column": "student_id",
+        "references": "Students.id",
+        "deferrable": false
+      },
+      {
+        "column": "guardian_id",
+        "references": "Guardians.id",
+        "deferrable": false
+      },
+      {
+        "column": "disabled_by",
+        "references": "Users.id",
+        "deferrable": true
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

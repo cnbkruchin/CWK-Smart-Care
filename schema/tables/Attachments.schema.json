@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/Attachments.schema.json",
+  "title": "Attachments",
+  "description": "ไฟล์แนบเชิงตรรกะ (logical_file_id = id) ไม่ผูกกับ Drive URL; provider object อยู่ใน StorageObjectMappings",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "school_id",
+    "original_filename",
+    "mime_type",
+    "size_bytes",
+    "sha256",
+    "classification",
+    "status",
+    "uploaded_by",
+    "uploaded_at",
+    "linked_at",
+    "deleted_at",
+    "deleted_by",
+    "retention_until",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "logical file ID"
+    },
+    "school_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "original_filename": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "mime_type": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "size_bytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sha256": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "classification": {
+      "type": "string",
+      "enum": [
+        "GENERAL",
+        "MEDICAL",
+        "PHOTO",
+        "REPORT",
+        "EXPORT",
+        "IMPORT_SOURCE"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "STAGED",
+        "ACTIVE",
+        "DELETED",
+        "QUARANTINED"
+      ]
+    },
+    "uploaded_by": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "uploaded_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "linked_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "deleted_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "deleted_by": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "retention_until": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาสร้าง (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้สร้าง (Users.id; อ้างอิงแบบ soft ไม่บังคับ FK)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาแก้ไขล่าสุด (UTC)"
+    },
+    "updated_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้แก้ไขล่าสุด"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "row version สำหรับ optimistic concurrency"
+    }
+  },
+  "x-cwk": {
+    "group": "Files",
+    "kind": "ENTITY",
+    "partition": "NONE",
+    "partition_column": null,
+    "sensitivity": "SENSITIVE",
+    "retention": "BY_CLASSIFICATION",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [],
+    "foreign_keys": [
+      {
+        "column": "school_id",
+        "references": "Schools.id",
+        "deferrable": false
+      },
+      {
+        "column": "uploaded_by",
+        "references": "Users.id",
+        "deferrable": false
+      },
+      {
+        "column": "deleted_by",
+        "references": "Users.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

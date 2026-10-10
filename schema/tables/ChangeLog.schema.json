@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/ChangeLog.schema.json",
+  "title": "ChangeLog",
+  "description": "ลำดับการเปลี่ยนแปลงต่อ operation (insert/update/tombstone) สำหรับ incremental export/delta; seq เพิ่มขึ้นเสมอ",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "seq",
+    "operation_id",
+    "operation",
+    "committed_at",
+    "changes_json",
+    "actor_id",
+    "created_at",
+    "created_by"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "operation_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "operation": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "committed_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "changes_json": {
+      "type": [
+        "object",
+        "array"
+      ],
+      "description": "[{table, id, op: INSERT|UPDATE|TOMBSTONE, version}]"
+    },
+    "actor_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาบันทึก (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้บันทึก (ยืนยันโดย server)"
+    }
+  },
+  "x-cwk": {
+    "group": "Operations",
+    "kind": "EVENT",
+    "partition": "TERM",
+    "partition_column": "committed_at",
+    "sensitivity": "INTERNAL",
+    "retention": "1Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [
+      {
+        "columns": [
+          "seq"
+        ],
+        "where": null,
+        "nullsNotDistinct": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "column": "actor_id",
+        "references": "Users.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

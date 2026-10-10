@@ -1,0 +1,235 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/ReportRuns.schema.json",
+  "title": "ReportRuns",
+  "description": "การออกรายงาน: filter, as_of, schema/rule version, ผู้สร้าง, การล็อกรอบ และ revision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "report_code",
+    "filter_json",
+    "as_of",
+    "schema_version",
+    "rule_versions_json",
+    "status",
+    "output_format",
+    "output_attachment_id",
+    "row_count",
+    "totals_json",
+    "locked",
+    "locked_by",
+    "locked_at",
+    "supersedes_run_id",
+    "superseded_by_run_id",
+    "requested_by",
+    "job_id",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "report_code": {
+      "type": "string",
+      "enum": [
+        "R01",
+        "R02",
+        "R03",
+        "R04",
+        "R05",
+        "R06",
+        "R07",
+        "R08",
+        "R09",
+        "R10",
+        "R11",
+        "R12"
+      ]
+    },
+    "filter_json": {
+      "type": [
+        "object",
+        "array"
+      ]
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "rule_versions_json": {
+      "type": [
+        "object",
+        "array",
+        "null"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "QUEUED",
+        "RUNNING",
+        "READY",
+        "FAILED",
+        "SUPERSEDED"
+      ]
+    },
+    "output_format": {
+      "type": "string",
+      "enum": [
+        "JSON",
+        "CSV",
+        "XLSX",
+        "PDF"
+      ]
+    },
+    "output_attachment_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "row_count": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "totals_json": {
+      "type": [
+        "object",
+        "array",
+        "null"
+      ]
+    },
+    "locked": {
+      "type": "boolean"
+    },
+    "locked_by": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "locked_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "supersedes_run_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "superseded_by_run_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "requested_by": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "job_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาสร้าง (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้สร้าง (Users.id; อ้างอิงแบบ soft ไม่บังคับ FK)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาแก้ไขล่าสุด (UTC)"
+    },
+    "updated_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้แก้ไขล่าสุด"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "row version สำหรับ optimistic concurrency"
+    }
+  },
+  "x-cwk": {
+    "group": "Operations",
+    "kind": "ENTITY",
+    "partition": "NONE",
+    "partition_column": null,
+    "sensitivity": "INTERNAL",
+    "retention": "2Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [],
+    "foreign_keys": [
+      {
+        "column": "output_attachment_id",
+        "references": "Attachments.id",
+        "deferrable": false
+      },
+      {
+        "column": "locked_by",
+        "references": "Users.id",
+        "deferrable": false
+      },
+      {
+        "column": "supersedes_run_id",
+        "references": "ReportRuns.id",
+        "deferrable": true
+      },
+      {
+        "column": "superseded_by_run_id",
+        "references": "ReportRuns.id",
+        "deferrable": true
+      },
+      {
+        "column": "requested_by",
+        "references": "Users.id",
+        "deferrable": false
+      },
+      {
+        "column": "job_id",
+        "references": "Jobs.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

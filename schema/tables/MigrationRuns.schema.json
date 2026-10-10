@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/MigrationRuns.schema.json",
+  "title": "MigrationRuns",
+  "description": "งานส่งออก/นำเข้า/กระทบยอด/สลับระบบ พร้อม state machine",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "run_type",
+    "mode",
+    "state",
+    "snapshot_id",
+    "package_location",
+    "manifest_sha256",
+    "completeness",
+    "scope_json",
+    "high_water_marks_json",
+    "started_by",
+    "started_at",
+    "finished_at",
+    "summary_json",
+    "job_id",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "run_type": {
+      "type": "string",
+      "enum": [
+        "EXPORT",
+        "VALIDATE",
+        "IMPORT_SHEETS",
+        "IMPORT_POSTGRES",
+        "RECONCILE",
+        "CUTOVER",
+        "ROLLBACK"
+      ]
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "FULL_SNAPSHOT",
+        "PARTIAL",
+        "REPORT_EXPORT",
+        "REHEARSAL"
+      ]
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "PLANNED",
+        "SNAPSHOTTING",
+        "EXPORTED",
+        "VALIDATED",
+        "STAGED",
+        "RECONCILED",
+        "CUTOVER_READY",
+        "ACTIVE",
+        "ROLLED_BACK",
+        "FAILED",
+        "CANCELLED"
+      ]
+    },
+    "snapshot_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "package_location": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 300
+    },
+    "manifest_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 64
+    },
+    "completeness": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "COMPLETE",
+        "PARTIAL",
+        "FAILED",
+        null
+      ]
+    },
+    "scope_json": {
+      "type": [
+        "object",
+        "array",
+        "null"
+      ]
+    },
+    "high_water_marks_json": {
+      "type": [
+        "object",
+        "array",
+        "null"
+      ]
+    },
+    "started_by": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "finished_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "summary_json": {
+      "type": [
+        "object",
+        "array",
+        "null"
+      ]
+    },
+    "job_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาสร้าง (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้สร้าง (Users.id; อ้างอิงแบบ soft ไม่บังคับ FK)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาแก้ไขล่าสุด (UTC)"
+    },
+    "updated_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้แก้ไขล่าสุด"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "row version สำหรับ optimistic concurrency"
+    }
+  },
+  "x-cwk": {
+    "group": "Operations",
+    "kind": "ENTITY",
+    "partition": "NONE",
+    "partition_column": null,
+    "sensitivity": "INTERNAL",
+    "retention": "PERMANENT",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [],
+    "foreign_keys": [
+      {
+        "column": "started_by",
+        "references": "Users.id",
+        "deferrable": false
+      },
+      {
+        "column": "job_id",
+        "references": "Jobs.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

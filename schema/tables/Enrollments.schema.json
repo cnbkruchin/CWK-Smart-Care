@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/Enrollments.schema.json",
+  "title": "Enrollments",
+  "description": "ประวัติการอยู่ห้อง [effective_from, effective_to) ห้ามช่วงซ้อนกันต่อนักเรียน; ย้ายห้อง/เลื่อนชั้น/ย้ายออกปิดช่วงเดิมแล้วเปิดช่วงใหม่",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "student_id",
+    "class_id",
+    "academic_year_id",
+    "effective_from",
+    "effective_to",
+    "end_reason",
+    "roll_no",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "student_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "class_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "academic_year_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "effective_from": {
+      "type": "string",
+      "format": "date"
+    },
+    "effective_to": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "end_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "CLASS_CHANGE",
+        "PROMOTION",
+        "TRANSFER_OUT",
+        "GRADUATION",
+        "WITHDRAWAL",
+        "CORRECTION",
+        null
+      ]
+    },
+    "roll_no": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 200
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาสร้าง (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้สร้าง (Users.id; อ้างอิงแบบ soft ไม่บังคับ FK)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาแก้ไขล่าสุด (UTC)"
+    },
+    "updated_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้แก้ไขล่าสุด"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "row version สำหรับ optimistic concurrency"
+    }
+  },
+  "x-cwk": {
+    "group": "Student",
+    "kind": "ENTITY",
+    "partition": "NONE",
+    "partition_column": null,
+    "sensitivity": "PERSONAL",
+    "retention": "ENROLLMENT_PLUS_5Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [],
+    "foreign_keys": [
+      {
+        "column": "student_id",
+        "references": "Students.id",
+        "deferrable": false
+      },
+      {
+        "column": "class_id",
+        "references": "Classes.id",
+        "deferrable": false
+      },
+      {
+        "column": "academic_year_id",
+        "references": "AcademicYears.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

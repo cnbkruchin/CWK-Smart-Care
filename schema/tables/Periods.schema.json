@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/Periods.schema.json",
+  "title": "Periods",
+  "description": "คาบเรียนพร้อมวันที่มีผล",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "school_id",
+    "period_no",
+    "label_th",
+    "session",
+    "start_time",
+    "end_time",
+    "effective_from",
+    "effective_to",
+    "applies_to_level",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "school_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "period_no": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 20
+    },
+    "label_th": {
+      "type": "string",
+      "maxLength": 50
+    },
+    "session": {
+      "type": "string",
+      "enum": [
+        "AM",
+        "PM"
+      ]
+    },
+    "start_time": {
+      "type": "string",
+      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+    },
+    "end_time": {
+      "type": "string",
+      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+    },
+    "effective_from": {
+      "type": "string",
+      "format": "date"
+    },
+    "effective_to": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "applies_to_level": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "M1",
+        "M2",
+        "M3",
+        "M4",
+        "M5",
+        "M6",
+        null
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาสร้าง (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้สร้าง (Users.id; อ้างอิงแบบ soft ไม่บังคับ FK)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาแก้ไขล่าสุด (UTC)"
+    },
+    "updated_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้แก้ไขล่าสุด"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "row version สำหรับ optimistic concurrency"
+    }
+  },
+  "x-cwk": {
+    "group": "Configuration",
+    "kind": "CONFIG",
+    "partition": "NONE",
+    "partition_column": null,
+    "sensitivity": "PUBLIC",
+    "retention": "PERMANENT",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [
+      {
+        "where": null,
+        "nullsNotDistinct": true,
+        "columns": [
+          "school_id",
+          "period_no",
+          "effective_from",
+          "applies_to_level"
+        ]
+      }
+    ],
+    "foreign_keys": [
+      {
+        "column": "school_id",
+        "references": "Schools.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

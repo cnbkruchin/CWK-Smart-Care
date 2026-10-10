@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/AuditEvents.schema.json",
+  "title": "AuditEvents",
+  "description": "Audit (append-only) ใคร ทำอะไร เมื่อใด เหตุผล ค่าเดิม/ใหม่ (ปิดบังฟิลด์อ่อนไหว) — ไม่ tamper-proof เมื่อผู้แก้ไข Sheet ยังแก้ได้",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "occurred_at",
+    "actor_id",
+    "actor_roles",
+    "action",
+    "entity_type",
+    "entity_id",
+    "student_id",
+    "operation_id",
+    "request_id",
+    "channel",
+    "reason",
+    "before_json",
+    "after_json",
+    "created_at",
+    "created_by"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "actor_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "actor_roles": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200
+    },
+    "action": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "entity_type": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 40
+    },
+    "entity_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "student_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "operation_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "request_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "APP",
+        "JOB",
+        "WEBHOOK",
+        "EDITOR",
+        "MIGRATION",
+        "API"
+      ]
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1000
+    },
+    "before_json": {
+      "type": [
+        "object",
+        "array",
+        "null"
+      ]
+    },
+    "after_json": {
+      "type": [
+        "object",
+        "array",
+        "null"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาบันทึก (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้บันทึก (ยืนยันโดย server)"
+    }
+  },
+  "x-cwk": {
+    "group": "Operations",
+    "kind": "EVENT",
+    "partition": "TERM",
+    "partition_column": "occurred_at",
+    "sensitivity": "SENSITIVE",
+    "retention": "AUDIT_5Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [],
+    "foreign_keys": [
+      {
+        "column": "actor_id",
+        "references": "Users.id",
+        "deferrable": false
+      },
+      {
+        "column": "student_id",
+        "references": "Students.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

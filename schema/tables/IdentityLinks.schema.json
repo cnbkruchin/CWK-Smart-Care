@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/IdentityLinks.schema.json",
+  "title": "IdentityLinks",
+  "description": "การผูก (provider, issuer, subject) กับ Users.id — ไม่เก็บรหัสผ่านหรือ token",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "user_id",
+    "provider",
+    "issuer",
+    "subject",
+    "email_at_link",
+    "linked_at",
+    "linked_via",
+    "invitation_id",
+    "status",
+    "revoked_at",
+    "revoked_by",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "user_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "provider": {
+      "type": "string",
+      "enum": [
+        "firebase",
+        "google-workspace",
+        "demo"
+      ]
+    },
+    "issuer": {
+      "type": "string",
+      "maxLength": 300
+    },
+    "subject": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "email_at_link": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 254,
+      "description": "อีเมลที่ provider ยืนยันขณะผูก (ข้อมูลประกอบ)"
+    },
+    "linked_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "linked_via": {
+      "type": "string",
+      "enum": [
+        "INVITATION",
+        "BOOTSTRAP",
+        "ADMIN",
+        "DEMO_SEED"
+      ]
+    },
+    "invitation_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ACTIVE",
+        "REVOKED"
+      ]
+    },
+    "revoked_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "revoked_by": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาสร้าง (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้สร้าง (Users.id; อ้างอิงแบบ soft ไม่บังคับ FK)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาแก้ไขล่าสุด (UTC)"
+    },
+    "updated_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้แก้ไขล่าสุด"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "row version สำหรับ optimistic concurrency"
+    }
+  },
+  "x-cwk": {
+    "group": "Identity",
+    "kind": "ENTITY",
+    "partition": "NONE",
+    "partition_column": null,
+    "sensitivity": "PERSONAL",
+    "retention": "ACCOUNT_LIFETIME_PLUS_1Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [
+      {
+        "where": "status = 'ACTIVE'",
+        "nullsNotDistinct": false,
+        "columns": [
+          "provider",
+          "issuer",
+          "subject"
+        ]
+      }
+    ],
+    "foreign_keys": [
+      {
+        "column": "user_id",
+        "references": "Users.id",
+        "deferrable": false
+      },
+      {
+        "column": "invitation_id",
+        "references": "InvitationRecords.id",
+        "deferrable": false
+      },
+      {
+        "column": "revoked_by",
+        "references": "Users.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

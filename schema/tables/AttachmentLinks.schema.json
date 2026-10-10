@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/AttachmentLinks.schema.json",
+  "title": "AttachmentLinks",
+  "description": "ความสัมพันธ์ไฟล์ ↔ entity",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "attachment_id",
+    "entity_type",
+    "entity_id",
+    "purpose",
+    "linked_by",
+    "linked_at",
+    "unlinked_at",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "attachment_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "entity_type": {
+      "type": "string",
+      "enum": [
+        "STUDENT",
+        "LEAVE_REQUEST",
+        "CASE",
+        "CONTACT_LOG",
+        "IMPORT_BATCH",
+        "REPORT_RUN",
+        "ATTENDANCE_CORRECTION",
+        "SCHOOL",
+        "MIGRATION_RUN",
+        "BACKUP_RUN"
+      ]
+    },
+    "entity_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "polymorphic reference ตาม entity_type"
+    },
+    "purpose": {
+      "type": "string",
+      "maxLength": 50
+    },
+    "linked_by": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "linked_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "unlinked_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาสร้าง (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้สร้าง (Users.id; อ้างอิงแบบ soft ไม่บังคับ FK)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาแก้ไขล่าสุด (UTC)"
+    },
+    "updated_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้แก้ไขล่าสุด"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "row version สำหรับ optimistic concurrency"
+    }
+  },
+  "x-cwk": {
+    "group": "Files",
+    "kind": "ENTITY",
+    "partition": "NONE",
+    "partition_column": null,
+    "sensitivity": "INTERNAL",
+    "retention": "BY_CLASSIFICATION",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [],
+    "foreign_keys": [
+      {
+        "column": "attachment_id",
+        "references": "Attachments.id",
+        "deferrable": false
+      },
+      {
+        "column": "linked_by",
+        "references": "Users.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

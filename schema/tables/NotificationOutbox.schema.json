@@ -1,0 +1,251 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/NotificationOutbox.schema.json",
+  "title": "NotificationOutbox",
+  "description": "คิวส่งภายนอก (email/LINE/SMS) แยก delivery state ออกจากการรับทราบ; dedupe_key กันส่งซ้ำ",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "notification_id",
+    "recipient_id",
+    "recipient_user_id",
+    "channel",
+    "dedupe_key",
+    "delivery_state",
+    "attempts",
+    "max_attempts",
+    "next_attempt_at",
+    "lease_until",
+    "lease_owner",
+    "retry_key",
+    "retry_key_created_at",
+    "provider_request_id",
+    "provider_message_id",
+    "last_error_code",
+    "last_error_message",
+    "accepted_at",
+    "resend_of_outbox_id",
+    "held_reason",
+    "replay_blocked",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUIDv5 จาก dedupe_key"
+    },
+    "notification_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "recipient_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "recipient_user_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "EMAIL",
+        "LINE",
+        "SMS"
+      ]
+    },
+    "dedupe_key": {
+      "type": "string",
+      "maxLength": 300
+    },
+    "delivery_state": {
+      "type": "string",
+      "enum": [
+        "QUEUED",
+        "PROCESSING",
+        "PROVIDER_ACCEPTED",
+        "RETRY_WAIT",
+        "FAILED_FINAL",
+        "CANCELLED"
+      ]
+    },
+    "attempts": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "max_attempts": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "next_attempt_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "lease_until": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "lease_owner": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 100
+    },
+    "retry_key": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "description": "X-Line-Retry-Key ใช้ค่าเดิมตลอดการ retry ของการส่งเดียวกัน"
+    },
+    "retry_key_created_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "provider_request_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200
+    },
+    "provider_message_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200
+    },
+    "last_error_code": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 60
+    },
+    "last_error_message": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500
+    },
+    "accepted_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "resend_of_outbox_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "held_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 60
+    },
+    "replay_blocked": {
+      "type": "boolean",
+      "description": "TRUE สำหรับรายการจากการย้ายข้อมูล ห้ามส่งย้อนหลังอัตโนมัติ"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาสร้าง (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้สร้าง (Users.id; อ้างอิงแบบ soft ไม่บังคับ FK)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาแก้ไขล่าสุด (UTC)"
+    },
+    "updated_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้แก้ไขล่าสุด"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "row version สำหรับ optimistic concurrency"
+    }
+  },
+  "x-cwk": {
+    "group": "Notifications",
+    "kind": "ENTITY",
+    "partition": "TERM",
+    "partition_column": "created_at",
+    "sensitivity": "PERSONAL",
+    "retention": "TERM_PLUS_1Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [
+      {
+        "columns": [
+          "dedupe_key"
+        ],
+        "where": null,
+        "nullsNotDistinct": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "column": "notification_id",
+        "references": "Notifications.id",
+        "deferrable": false
+      },
+      {
+        "column": "recipient_id",
+        "references": "NotificationRecipients.id",
+        "deferrable": false
+      },
+      {
+        "column": "recipient_user_id",
+        "references": "Users.id",
+        "deferrable": false
+      },
+      {
+        "column": "resend_of_outbox_id",
+        "references": "NotificationOutbox.id",
+        "deferrable": true
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

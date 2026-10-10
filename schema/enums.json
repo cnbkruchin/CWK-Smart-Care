@@ -1,0 +1,1382 @@
+{
+  "Role": {
+    "values": [
+      "SYSTEM_ADMIN",
+      "STUDENT_AFFAIRS",
+      "EXECUTIVE",
+      "HOMEROOM_TEACHER",
+      "SUBJECT_TEACHER",
+      "DUTY_TEACHER",
+      "GATE_STAFF",
+      "GUARDIAN",
+      "STUDENT"
+    ],
+    "th": {
+      "SYSTEM_ADMIN": "ผู้ดูแลระบบ (งานเทคนิค)",
+      "STUDENT_AFFAIRS": "กลุ่มบริหารงานกิจการนักเรียน",
+      "EXECUTIVE": "ผู้บริหาร",
+      "HOMEROOM_TEACHER": "ครูที่ปรึกษา",
+      "SUBJECT_TEACHER": "ครูประจำวิชา",
+      "DUTY_TEACHER": "ครูเวร",
+      "GATE_STAFF": "เจ้าหน้าที่ประตู",
+      "GUARDIAN": "ผู้ปกครอง",
+      "STUDENT": "นักเรียน"
+    }
+  },
+  "UserType": {
+    "values": [
+      "STAFF",
+      "GUARDIAN",
+      "STUDENT",
+      "SYSTEM"
+    ],
+    "th": {
+      "STAFF": "บุคลากร",
+      "GUARDIAN": "ผู้ปกครอง",
+      "STUDENT": "นักเรียน",
+      "SYSTEM": "ระบบ"
+    }
+  },
+  "UserStatus": {
+    "values": [
+      "INVITED",
+      "ACTIVE",
+      "DISABLED"
+    ],
+    "th": {
+      "INVITED": "รอเปิดใช้งาน",
+      "ACTIVE": "ใช้งาน",
+      "DISABLED": "ระงับ"
+    }
+  },
+  "RecordStatus": {
+    "values": [
+      "ACTIVE",
+      "INACTIVE"
+    ],
+    "th": {
+      "ACTIVE": "ใช้งาน",
+      "INACTIVE": "ไม่ใช้งาน"
+    }
+  },
+  "YearStatus": {
+    "values": [
+      "PLANNED",
+      "ACTIVE",
+      "CLOSED"
+    ],
+    "th": {
+      "PLANNED": "วางแผน",
+      "ACTIVE": "ใช้งาน",
+      "CLOSED": "ปิดแล้ว"
+    }
+  },
+  "DayType": {
+    "values": [
+      "SCHOOL_DAY",
+      "HOLIDAY",
+      "NO_SCHOOL",
+      "EXAM_DAY",
+      "ACTIVITY_DAY"
+    ],
+    "th": {
+      "SCHOOL_DAY": "วันเรียน",
+      "HOLIDAY": "วันหยุด",
+      "NO_SCHOOL": "งดการเรียน",
+      "EXAM_DAY": "วันสอบ",
+      "ACTIVITY_DAY": "วันกิจกรรม"
+    }
+  },
+  "DaySession": {
+    "values": [
+      "AM",
+      "PM"
+    ],
+    "th": {
+      "AM": "ช่วงเช้า",
+      "PM": "ช่วงบ่าย"
+    }
+  },
+  "RuleType": {
+    "values": [
+      "SCHOOL_LATENESS",
+      "PERIOD_LATENESS",
+      "FOLLOWUP_LATE_COUNT",
+      "FOLLOWUP_ABSENCE_COUNT",
+      "LEAVE_ROUTING",
+      "ABSENCE_VERIFICATION",
+      "NOTIFICATION_POLICY"
+    ],
+    "th": {
+      "SCHOOL_LATENESS": "เกณฑ์มาสายเข้าโรงเรียน",
+      "PERIOD_LATENESS": "เกณฑ์สายเข้าคาบ (โมดูลต่อยอด)",
+      "FOLLOWUP_LATE_COUNT": "เกณฑ์ติดตามจากจำนวนครั้งที่สาย",
+      "FOLLOWUP_ABSENCE_COUNT": "เกณฑ์ติดตามจากจำนวนวันขาดที่ยืนยัน",
+      "LEAVE_ROUTING": "เส้นทางอนุมัติใบลา",
+      "ABSENCE_VERIFICATION": "เวลาตรวจสอบการขาดเรียน",
+      "NOTIFICATION_POLICY": "นโยบายการแจ้งเตือน"
+    }
+  },
+  "RuleStatus": {
+    "values": [
+      "DRAFT",
+      "ACTIVE",
+      "RETIRED"
+    ],
+    "th": {
+      "DRAFT": "ร่าง",
+      "ACTIVE": "ใช้งาน",
+      "RETIRED": "เลิกใช้"
+    }
+  },
+  "StorageStatus": {
+    "values": [
+      "ACTIVE",
+      "READONLY",
+      "ARCHIVED"
+    ],
+    "th": {
+      "ACTIVE": "ใช้งาน",
+      "READONLY": "อ่านอย่างเดียว",
+      "ARCHIVED": "จัดเก็บถาวร"
+    }
+  },
+  "IdentityProvider": {
+    "values": [
+      "firebase",
+      "google-workspace",
+      "demo"
+    ],
+    "th": {
+      "firebase": "Firebase Authentication / Identity Platform",
+      "google-workspace": "Google Workspace (ยังไม่เปิดใช้)",
+      "demo": "บัญชีทดสอบ (DEV เท่านั้น)"
+    }
+  },
+  "LinkStatus": {
+    "values": [
+      "ACTIVE",
+      "REVOKED"
+    ],
+    "th": {
+      "ACTIVE": "ใช้งาน",
+      "REVOKED": "เพิกถอน"
+    }
+  },
+  "LinkedVia": {
+    "values": [
+      "INVITATION",
+      "BOOTSTRAP",
+      "ADMIN",
+      "DEMO_SEED"
+    ],
+    "th": {
+      "INVITATION": "คำเชิญ",
+      "BOOTSTRAP": "ติดตั้งระบบ",
+      "ADMIN": "ผู้ดูแลผูกบัญชี",
+      "DEMO_SEED": "ข้อมูลทดสอบ"
+    }
+  },
+  "AssignmentType": {
+    "values": [
+      "HOMEROOM",
+      "DUTY",
+      "TEACHING",
+      "DELEGATE"
+    ],
+    "th": {
+      "HOMEROOM": "ครูที่ปรึกษา",
+      "DUTY": "เวรประจำจุด",
+      "TEACHING": "สอนประจำวิชา",
+      "DELEGATE": "ผู้รักษาการแทน"
+    }
+  },
+  "InvitationType": {
+    "values": [
+      "STAFF",
+      "GUARDIAN",
+      "STUDENT"
+    ],
+    "th": {
+      "STAFF": "บุคลากร",
+      "GUARDIAN": "ผู้ปกครอง",
+      "STUDENT": "นักเรียน"
+    }
+  },
+  "InvitationStatus": {
+    "values": [
+      "PENDING",
+      "REDEEMED",
+      "EXPIRED",
+      "REVOKED",
+      "LOCKED"
+    ],
+    "th": {
+      "PENDING": "รอใช้งาน",
+      "REDEEMED": "ใช้แล้ว",
+      "EXPIRED": "หมดอายุ",
+      "REVOKED": "ยกเลิก",
+      "LOCKED": "ล็อกเพราะกรอกผิดหลายครั้ง"
+    }
+  },
+  "StationType": {
+    "values": [
+      "GATE",
+      "OFFICE",
+      "CLASSROOM"
+    ],
+    "th": {
+      "GATE": "ประตู/จุดลงเวลา",
+      "OFFICE": "ห้องกิจการนักเรียน",
+      "CLASSROOM": "ห้องเรียน"
+    }
+  },
+  "StudentStatus": {
+    "values": [
+      "ACTIVE",
+      "TRANSFERRED_OUT",
+      "GRADUATED",
+      "WITHDRAWN",
+      "SUSPENDED"
+    ],
+    "th": {
+      "ACTIVE": "กำลังศึกษา",
+      "TRANSFERRED_OUT": "ย้ายออก",
+      "GRADUATED": "จบการศึกษา",
+      "WITHDRAWN": "พ้นสภาพ/ลาออก",
+      "SUSPENDED": "พักการเรียน"
+    }
+  },
+  "Gender": {
+    "values": [
+      "MALE",
+      "FEMALE",
+      "OTHER",
+      "UNSPECIFIED"
+    ],
+    "th": {
+      "MALE": "ชาย",
+      "FEMALE": "หญิง",
+      "OTHER": "อื่น ๆ",
+      "UNSPECIFIED": "ไม่ระบุ"
+    }
+  },
+  "GradeLevel": {
+    "values": [
+      "M1",
+      "M2",
+      "M3",
+      "M4",
+      "M5",
+      "M6"
+    ],
+    "th": {
+      "M1": "ม.1",
+      "M2": "ม.2",
+      "M3": "ม.3",
+      "M4": "ม.4",
+      "M5": "ม.5",
+      "M6": "ม.6"
+    }
+  },
+  "EnrollmentEndReason": {
+    "values": [
+      "CLASS_CHANGE",
+      "PROMOTION",
+      "TRANSFER_OUT",
+      "GRADUATION",
+      "WITHDRAWAL",
+      "CORRECTION"
+    ],
+    "th": {
+      "CLASS_CHANGE": "ย้ายห้อง",
+      "PROMOTION": "เลื่อนชั้น",
+      "TRANSFER_OUT": "ย้ายออก",
+      "GRADUATION": "จบการศึกษา",
+      "WITHDRAWAL": "พ้นสภาพ/ลาออก",
+      "CORRECTION": "แก้ไขข้อมูลผิด"
+    }
+  },
+  "Relationship": {
+    "values": [
+      "FATHER",
+      "MOTHER",
+      "GRANDPARENT",
+      "SIBLING",
+      "RELATIVE",
+      "LEGAL_GUARDIAN",
+      "OTHER"
+    ],
+    "th": {
+      "FATHER": "บิดา",
+      "MOTHER": "มารดา",
+      "GRANDPARENT": "ปู่ย่าตายาย",
+      "SIBLING": "พี่น้อง",
+      "RELATIVE": "ญาติ",
+      "LEGAL_GUARDIAN": "ผู้ปกครองตามกฎหมาย",
+      "OTHER": "อื่น ๆ"
+    }
+  },
+  "GuardianLinkStatus": {
+    "values": [
+      "PENDING_VERIFICATION",
+      "ACTIVE",
+      "ENDED"
+    ],
+    "th": {
+      "PENDING_VERIFICATION": "รอเจ้าหน้าที่ยืนยัน",
+      "ACTIVE": "ยืนยันแล้ว",
+      "ENDED": "สิ้นสุด"
+    }
+  },
+  "VerificationMethod": {
+    "values": [
+      "IN_PERSON",
+      "DOCUMENT",
+      "PHONE_CALLBACK",
+      "SCHOOL_RECORD"
+    ],
+    "th": {
+      "IN_PERSON": "พบตัวที่โรงเรียน",
+      "DOCUMENT": "ตรวจเอกสาร",
+      "PHONE_CALLBACK": "โทรกลับยืนยันเบอร์ที่โรงเรียนมี",
+      "SCHOOL_RECORD": "ทะเบียนนักเรียน"
+    }
+  },
+  "GuardianPermission": {
+    "values": [
+      "VIEW_ATTENDANCE",
+      "SUBMIT_LEAVE",
+      "CONFIRM_LEAVE",
+      "RECEIVE_NOTIFICATIONS",
+      "VIEW_CASE_SUMMARY",
+      "VIEW_DOCUMENTS"
+    ],
+    "th": {
+      "VIEW_ATTENDANCE": "ดูการมาเรียน",
+      "SUBMIT_LEAVE": "แจ้งลา",
+      "CONFIRM_LEAVE": "ยืนยันใบลา",
+      "RECEIVE_NOTIFICATIONS": "รับการแจ้งเตือน",
+      "VIEW_CASE_SUMMARY": "ดูสรุปการติดตาม",
+      "VIEW_DOCUMENTS": "ดูเอกสารที่ตนส่ง"
+    }
+  },
+  "ContactOwnerType": {
+    "values": [
+      "GUARDIAN",
+      "STAFF",
+      "STUDENT"
+    ],
+    "th": {
+      "GUARDIAN": "ผู้ปกครอง",
+      "STAFF": "บุคลากร",
+      "STUDENT": "นักเรียน"
+    }
+  },
+  "ContactChannel": {
+    "values": [
+      "PHONE",
+      "EMAIL",
+      "LINE",
+      "SMS",
+      "IN_PERSON",
+      "OTHER"
+    ],
+    "th": {
+      "PHONE": "โทรศัพท์",
+      "EMAIL": "อีเมล",
+      "LINE": "LINE",
+      "SMS": "SMS",
+      "IN_PERSON": "พบตัว",
+      "OTHER": "อื่น ๆ"
+    }
+  },
+  "AttendanceEventType": {
+    "values": [
+      "GATE_ARRIVAL",
+      "CLASSROOM_ENTERED",
+      "ROLL_CALL_PRESENT",
+      "ROLL_CALL_ABSENT",
+      "ROLL_CALL_LATE",
+      "ROLL_CALL_LEAVE_REPORTED",
+      "ABSENCE_CONFIRMED",
+      "LATENESS_EXEMPTED",
+      "EVENT_VOIDED"
+    ],
+    "th": {
+      "GATE_ARRIVAL": "ลงเวลามาถึงโรงเรียน",
+      "CLASSROOM_ENTERED": "เข้าห้องเรียน",
+      "ROLL_CALL_PRESENT": "เช็กชื่อ: มา",
+      "ROLL_CALL_ABSENT": "เช็กชื่อ: ไม่พบตัว",
+      "ROLL_CALL_LATE": "เช็กชื่อ: มาสาย (ไม่มีบันทึกที่ประตู)",
+      "ROLL_CALL_LEAVE_REPORTED": "เช็กชื่อ: แจ้งลาด้วยวาจา รอใบลา",
+      "ABSENCE_CONFIRMED": "ยืนยันขาดเรียน",
+      "LATENESS_EXEMPTED": "ยกเว้นการนับสาย",
+      "EVENT_VOIDED": "ยกเลิกรายการ (แก้ไข)"
+    }
+  },
+  "AttendanceSource": {
+    "values": [
+      "SCAN_KEYBOARD",
+      "SCAN_CAMERA",
+      "SEARCH_CODE",
+      "SEARCH_NAME",
+      "MANUAL_TIME",
+      "QUEUE_BATCH",
+      "OFFLINE_SYNC",
+      "ROLL_CALL",
+      "IMPORT",
+      "CORRECTION",
+      "SYSTEM"
+    ],
+    "th": {
+      "SCAN_KEYBOARD": "เครื่องสแกนแบบคีย์บอร์ด",
+      "SCAN_CAMERA": "สแกนด้วยกล้อง",
+      "SEARCH_CODE": "ค้นหารหัส",
+      "SEARCH_NAME": "ค้นหาชื่อ",
+      "MANUAL_TIME": "ครูระบุเวลาเอง",
+      "QUEUE_BATCH": "เวลามาถึงของแถวรอ",
+      "OFFLINE_SYNC": "บันทึกขณะออฟไลน์",
+      "ROLL_CALL": "การเช็กชื่อ",
+      "IMPORT": "นำเข้า",
+      "CORRECTION": "การแก้ไข",
+      "SYSTEM": "ระบบ"
+    }
+  },
+  "PresenceStatus": {
+    "values": [
+      "PRESENT",
+      "ABSENT_CONFIRMED",
+      "ON_LEAVE_FULL_DAY",
+      "UNKNOWN",
+      "NOT_ELIGIBLE",
+      "NON_SCHOOL_DAY"
+    ],
+    "th": {
+      "PRESENT": "มาเรียน",
+      "ABSENT_CONFIRMED": "ขาดเรียน (ยืนยันแล้ว)",
+      "ON_LEAVE_FULL_DAY": "ลาทั้งวัน",
+      "UNKNOWN": "รอตรวจสอบ",
+      "NOT_ELIGIBLE": "ไม่อยู่ในทะเบียนวันนั้น",
+      "NON_SCHOOL_DAY": "ไม่ใช่วันเรียน"
+    }
+  },
+  "VerificationLevel": {
+    "values": [
+      "NONE",
+      "GATE_RECORD",
+      "ROLL_CALL",
+      "VERIFIED"
+    ],
+    "th": {
+      "NONE": "ยังไม่มีหลักฐาน",
+      "GATE_RECORD": "บันทึกที่ประตู",
+      "ROLL_CALL": "ครูเช็กชื่อ",
+      "VERIFIED": "ครูยืนยันแล้ว"
+    }
+  },
+  "RollCallMark": {
+    "values": [
+      "PRESENT",
+      "ABSENT",
+      "LATE",
+      "LEAVE_REPORTED",
+      "NOT_MARKED"
+    ],
+    "th": {
+      "PRESENT": "มา",
+      "ABSENT": "ไม่พบตัว",
+      "LATE": "มาสาย",
+      "LEAVE_REPORTED": "แจ้งลา",
+      "NOT_MARKED": "ยังไม่เช็กชื่อ"
+    }
+  },
+  "RollCallStatus": {
+    "values": [
+      "OPEN",
+      "SUBMITTED",
+      "VERIFIED"
+    ],
+    "th": {
+      "OPEN": "กำลังเช็กชื่อ",
+      "SUBMITTED": "ส่งแล้ว",
+      "VERIFIED": "ยืนยันแล้ว"
+    }
+  },
+  "CorrectionType": {
+    "values": [
+      "VOID_EVENT",
+      "AMEND_ARRIVAL_TIME",
+      "ADD_ARRIVAL",
+      "CHANGE_ROLL_CALL_MARK",
+      "EXEMPT_LATENESS"
+    ],
+    "th": {
+      "VOID_EVENT": "ยกเลิกรายการ",
+      "AMEND_ARRIVAL_TIME": "แก้เวลามาถึง",
+      "ADD_ARRIVAL": "เพิ่มรายการมาถึง",
+      "CHANGE_ROLL_CALL_MARK": "แก้ผลเช็กชื่อ",
+      "EXEMPT_LATENESS": "ยกเว้นการนับสาย"
+    }
+  },
+  "CorrectionStatus": {
+    "values": [
+      "PENDING",
+      "APPLIED",
+      "REJECTED"
+    ],
+    "th": {
+      "PENDING": "รอพิจารณา",
+      "APPLIED": "แก้ไขแล้ว",
+      "REJECTED": "ไม่อนุมัติ"
+    }
+  },
+  "ReconciliationTaskType": {
+    "values": [
+      "UNKNOWN_STATUS",
+      "CONFLICT_LEAVE_PRESENCE",
+      "CONFLICT_ROLLCALL_GATE",
+      "OFFLINE_REVIEW",
+      "IMPORT_REVIEW",
+      "LEAVE_REPORTED_NO_REQUEST",
+      "DATA_QUALITY"
+    ],
+    "th": {
+      "UNKNOWN_STATUS": "นักเรียนยังไม่ทราบสถานะ",
+      "CONFLICT_LEAVE_PRESENCE": "มีใบลาแต่พบการมาเรียน",
+      "CONFLICT_ROLLCALL_GATE": "เช็กชื่อไม่พบตัวแต่มีบันทึกประตู",
+      "OFFLINE_REVIEW": "ตรวจรายการออฟไลน์",
+      "IMPORT_REVIEW": "ตรวจข้อมูลนำเข้า",
+      "LEAVE_REPORTED_NO_REQUEST": "แจ้งลาด้วยวาจาแต่ยังไม่มีใบลา",
+      "DATA_QUALITY": "คุณภาพข้อมูล"
+    }
+  },
+  "TaskStatus": {
+    "values": [
+      "OPEN",
+      "RESOLVED",
+      "DISMISSED"
+    ],
+    "th": {
+      "OPEN": "รอดำเนินการ",
+      "RESOLVED": "แก้ไขแล้ว",
+      "DISMISSED": "ไม่ต้องดำเนินการ"
+    }
+  },
+  "LeaveType": {
+    "values": [
+      "SICK",
+      "PERSONAL",
+      "SCHOOL_ACTIVITY",
+      "OTHER"
+    ],
+    "th": {
+      "SICK": "ลาป่วย",
+      "PERSONAL": "ลากิจ",
+      "SCHOOL_ACTIVITY": "กิจกรรมโรงเรียน (ไม่นับเป็นการลาส่วนตัว)",
+      "OTHER": "อื่น ๆ"
+    }
+  },
+  "LeaveUnit": {
+    "values": [
+      "FULL_DAY",
+      "HALF_DAY_AM",
+      "HALF_DAY_PM",
+      "PERIODS"
+    ],
+    "th": {
+      "FULL_DAY": "ทั้งวัน",
+      "HALF_DAY_AM": "ครึ่งวันเช้า",
+      "HALF_DAY_PM": "ครึ่งวันบ่าย",
+      "PERIODS": "บางคาบ"
+    }
+  },
+  "LeaveStatus": {
+    "values": [
+      "DRAFT",
+      "SUBMITTED",
+      "PENDING_GUARDIAN",
+      "PENDING_SCHOOL",
+      "RETURNED",
+      "APPROVED",
+      "PARTIALLY_APPROVED",
+      "REJECTED",
+      "WITHDRAWN",
+      "CANCELLATION_REQUESTED",
+      "CANCELLED"
+    ],
+    "th": {
+      "DRAFT": "ร่าง",
+      "SUBMITTED": "ส่งแล้ว",
+      "PENDING_GUARDIAN": "รอผู้ปกครองยืนยัน",
+      "PENDING_SCHOOL": "รอโรงเรียนอนุมัติ",
+      "RETURNED": "ส่งกลับแก้ไข",
+      "APPROVED": "อนุมัติ",
+      "PARTIALLY_APPROVED": "อนุมัติบางช่วง",
+      "REJECTED": "ไม่อนุมัติ",
+      "WITHDRAWN": "ถอนคำขอ",
+      "CANCELLATION_REQUESTED": "ขอยกเลิก",
+      "CANCELLED": "ยกเลิกแล้ว"
+    }
+  },
+  "GuardianConfirmation": {
+    "values": [
+      "NOT_REQUIRED",
+      "PENDING",
+      "CONFIRMED",
+      "DECLINED"
+    ],
+    "th": {
+      "NOT_REQUIRED": "ไม่ต้องยืนยัน",
+      "PENDING": "รอยืนยัน",
+      "CONFIRMED": "ยืนยันแล้ว",
+      "DECLINED": "ผู้ปกครองไม่ยืนยัน"
+    }
+  },
+  "SchoolApproval": {
+    "values": [
+      "NOT_STARTED",
+      "PENDING",
+      "APPROVED",
+      "PARTIALLY_APPROVED",
+      "REJECTED",
+      "RETURNED"
+    ],
+    "th": {
+      "NOT_STARTED": "ยังไม่เริ่ม",
+      "PENDING": "รออนุมัติ",
+      "APPROVED": "อนุมัติ",
+      "PARTIALLY_APPROVED": "อนุมัติบางช่วง",
+      "REJECTED": "ไม่อนุมัติ",
+      "RETURNED": "ส่งกลับแก้ไข"
+    }
+  },
+  "RequesterType": {
+    "values": [
+      "GUARDIAN",
+      "STUDENT",
+      "STAFF"
+    ],
+    "th": {
+      "GUARDIAN": "ผู้ปกครอง",
+      "STUDENT": "นักเรียน",
+      "STAFF": "บุคลากรแจ้งแทน"
+    }
+  },
+  "SegmentStatus": {
+    "values": [
+      "REQUESTED",
+      "APPROVED",
+      "REJECTED",
+      "WITHDRAWN",
+      "CANCELLED"
+    ],
+    "th": {
+      "REQUESTED": "ขอลา",
+      "APPROVED": "อนุมัติ",
+      "REJECTED": "ไม่อนุมัติ",
+      "WITHDRAWN": "ถอน",
+      "CANCELLED": "ยกเลิก"
+    }
+  },
+  "SegmentUsage": {
+    "values": [
+      "NOT_EVALUATED",
+      "USED",
+      "ATTENDED_ANYWAY",
+      "PARTIALLY_USED"
+    ],
+    "th": {
+      "NOT_EVALUATED": "ยังไม่ประเมิน",
+      "USED": "ใช้ตามคำขอ",
+      "ATTENDED_ANYWAY": "มีหลักฐานว่ามาเรียน",
+      "PARTIALLY_USED": "ใช้บางส่วน"
+    }
+  },
+  "LeaveAction": {
+    "values": [
+      "CREATE",
+      "SUBMIT",
+      "GUARDIAN_CONFIRM",
+      "GUARDIAN_DECLINE",
+      "APPROVE",
+      "PARTIAL_APPROVE",
+      "REJECT",
+      "RETURN",
+      "RESUBMIT",
+      "WITHDRAW",
+      "CANCEL_REQUEST",
+      "CANCEL_APPROVE",
+      "CANCEL_REJECT",
+      "REROUTE"
+    ],
+    "th": {
+      "CREATE": "สร้าง",
+      "SUBMIT": "ส่งคำขอ",
+      "GUARDIAN_CONFIRM": "ผู้ปกครองยืนยัน",
+      "GUARDIAN_DECLINE": "ผู้ปกครองไม่ยืนยัน",
+      "APPROVE": "อนุมัติ",
+      "PARTIAL_APPROVE": "อนุมัติบางช่วง",
+      "REJECT": "ไม่อนุมัติ",
+      "RETURN": "ส่งกลับแก้ไข",
+      "RESUBMIT": "ส่งใหม่หลังแก้ไข",
+      "WITHDRAW": "ถอนคำขอ",
+      "CANCEL_REQUEST": "ขอยกเลิก",
+      "CANCEL_APPROVE": "อนุมัติการยกเลิก",
+      "CANCEL_REJECT": "ไม่อนุมัติการยกเลิก",
+      "REROUTE": "เปลี่ยนผู้พิจารณา"
+    }
+  },
+  "ApprovalStepType": {
+    "values": [
+      "GUARDIAN_CONFIRMATION",
+      "SCHOOL_APPROVAL",
+      "CANCELLATION_DECISION"
+    ],
+    "th": {
+      "GUARDIAN_CONFIRMATION": "ผู้ปกครองยืนยัน",
+      "SCHOOL_APPROVAL": "โรงเรียนอนุมัติ",
+      "CANCELLATION_DECISION": "พิจารณาการยกเลิก"
+    }
+  },
+  "ApprovalDecision": {
+    "values": [
+      "CONFIRMED",
+      "DECLINED",
+      "APPROVED",
+      "PARTIALLY_APPROVED",
+      "REJECTED",
+      "RETURNED"
+    ],
+    "th": {
+      "CONFIRMED": "ยืนยัน",
+      "DECLINED": "ไม่ยืนยัน",
+      "APPROVED": "อนุมัติ",
+      "PARTIALLY_APPROVED": "อนุมัติบางช่วง",
+      "REJECTED": "ไม่อนุมัติ",
+      "RETURNED": "ส่งกลับแก้ไข"
+    }
+  },
+  "CaseType": {
+    "values": [
+      "RULE_LATE_COUNT",
+      "RULE_ABSENCE_COUNT",
+      "MANUAL",
+      "CALLBACK_REQUEST",
+      "ACK_TIMEOUT"
+    ],
+    "th": {
+      "RULE_LATE_COUNT": "สายเกินเกณฑ์",
+      "RULE_ABSENCE_COUNT": "ขาดเกินเกณฑ์",
+      "MANUAL": "เปิดโดยครู",
+      "CALLBACK_REQUEST": "ผู้ปกครองขอให้ติดต่อกลับ",
+      "ACK_TIMEOUT": "ไม่ได้รับการรับทราบตามเวลา"
+    }
+  },
+  "CaseStatus": {
+    "values": [
+      "OPEN",
+      "IN_PROGRESS",
+      "WAITING_RESPONSE",
+      "RESOLVED",
+      "CLOSED"
+    ],
+    "th": {
+      "OPEN": "เปิด",
+      "IN_PROGRESS": "กำลังดำเนินการ",
+      "WAITING_RESPONSE": "รอการตอบกลับ",
+      "RESOLVED": "แก้ไขแล้ว (รอปิด)",
+      "CLOSED": "ปิดเรื่อง"
+    }
+  },
+  "Priority": {
+    "values": [
+      "LOW",
+      "NORMAL",
+      "HIGH",
+      "URGENT"
+    ],
+    "th": {
+      "LOW": "ต่ำ",
+      "NORMAL": "ปกติ",
+      "HIGH": "สูง",
+      "URGENT": "เร่งด่วน"
+    }
+  },
+  "CaseEventType": {
+    "values": [
+      "OPENED",
+      "ASSIGNED",
+      "NOTE",
+      "CONTACT_LOGGED",
+      "APPOINTMENT_SET",
+      "STATUS_CHANGED",
+      "TRANSFERRED",
+      "CLOSED",
+      "REOPENED",
+      "CALLBACK_REQUESTED"
+    ],
+    "th": {
+      "OPENED": "เปิดเรื่อง",
+      "ASSIGNED": "มอบหมาย",
+      "NOTE": "บันทึก",
+      "CONTACT_LOGGED": "บันทึกการติดต่อ",
+      "APPOINTMENT_SET": "นัดหมาย",
+      "STATUS_CHANGED": "เปลี่ยนสถานะ",
+      "TRANSFERRED": "ส่งต่อ",
+      "CLOSED": "ปิดเรื่อง",
+      "REOPENED": "เปิดใหม่",
+      "CALLBACK_REQUESTED": "ขอให้ติดต่อกลับ"
+    }
+  },
+  "ContactDirection": {
+    "values": [
+      "OUTBOUND",
+      "INBOUND"
+    ],
+    "th": {
+      "OUTBOUND": "โรงเรียนติดต่อ",
+      "INBOUND": "ผู้ปกครองติดต่อมา"
+    }
+  },
+  "ContactOutcome": {
+    "values": [
+      "REACHED",
+      "NO_ANSWER",
+      "ACKNOWLEDGED",
+      "APPOINTMENT_MADE",
+      "FOLLOW_UP_NEEDED",
+      "WRONG_CONTACT",
+      "ASSISTANCE_PROVIDED"
+    ],
+    "th": {
+      "REACHED": "ติดต่อได้",
+      "NO_ANSWER": "ติดต่อไม่ได้",
+      "ACKNOWLEDGED": "ผู้ปกครองรับทราบแล้ว",
+      "APPOINTMENT_MADE": "นัดหมายแล้ว",
+      "FOLLOW_UP_NEEDED": "ต้องติดตามต่อ",
+      "WRONG_CONTACT": "ข้อมูลติดต่อไม่ถูกต้อง",
+      "ASSISTANCE_PROVIDED": "ให้ความช่วยเหลือแล้ว"
+    }
+  },
+  "AppointmentStatus": {
+    "values": [
+      "SCHEDULED",
+      "COMPLETED",
+      "NO_SHOW",
+      "CANCELLED",
+      "RESCHEDULED"
+    ],
+    "th": {
+      "SCHEDULED": "นัดแล้ว",
+      "COMPLETED": "พบแล้ว",
+      "NO_SHOW": "ไม่มาตามนัด",
+      "CANCELLED": "ยกเลิก",
+      "RESCHEDULED": "เลื่อนนัด"
+    }
+  },
+  "FileClassification": {
+    "values": [
+      "GENERAL",
+      "MEDICAL",
+      "PHOTO",
+      "REPORT",
+      "EXPORT",
+      "IMPORT_SOURCE"
+    ],
+    "th": {
+      "GENERAL": "ทั่วไป",
+      "MEDICAL": "เอกสารสุขภาพ (อ่อนไหว)",
+      "PHOTO": "รูปถ่ายนักเรียน",
+      "REPORT": "รายงาน",
+      "EXPORT": "ไฟล์ส่งออก",
+      "IMPORT_SOURCE": "ไฟล์นำเข้า"
+    }
+  },
+  "FileStatus": {
+    "values": [
+      "STAGED",
+      "ACTIVE",
+      "DELETED",
+      "QUARANTINED"
+    ],
+    "th": {
+      "STAGED": "อัปโหลดแล้วยังไม่ผูก",
+      "ACTIVE": "ใช้งาน",
+      "DELETED": "ลบแล้ว",
+      "QUARANTINED": "กักตรวจ"
+    }
+  },
+  "EntityType": {
+    "values": [
+      "STUDENT",
+      "LEAVE_REQUEST",
+      "CASE",
+      "CONTACT_LOG",
+      "IMPORT_BATCH",
+      "REPORT_RUN",
+      "ATTENDANCE_CORRECTION",
+      "SCHOOL",
+      "MIGRATION_RUN",
+      "BACKUP_RUN"
+    ],
+    "th": {
+      "STUDENT": "นักเรียน",
+      "LEAVE_REQUEST": "ใบลา",
+      "CASE": "เรื่องติดตาม",
+      "CONTACT_LOG": "บันทึกการติดต่อ",
+      "IMPORT_BATCH": "ชุดนำเข้า",
+      "REPORT_RUN": "รายงาน",
+      "ATTENDANCE_CORRECTION": "คำขอแก้ไขการมาเรียน",
+      "SCHOOL": "โรงเรียน",
+      "MIGRATION_RUN": "งานย้ายข้อมูล",
+      "BACKUP_RUN": "การสำรองข้อมูล"
+    }
+  },
+  "StorageProvider": {
+    "values": [
+      "GOOGLE_DRIVE",
+      "FILESYSTEM",
+      "OBJECT_STORAGE"
+    ],
+    "th": {
+      "GOOGLE_DRIVE": "Google Drive",
+      "FILESYSTEM": "ระบบไฟล์ (ทดสอบ)",
+      "OBJECT_STORAGE": "Object storage"
+    }
+  },
+  "NotificationType": {
+    "values": [
+      "LEAVE_NEW",
+      "LEAVE_PENDING_GUARDIAN",
+      "LEAVE_PENDING_SCHOOL",
+      "LEAVE_DECIDED",
+      "LATE_CONFIRMED",
+      "ABSENCE_CONFIRMED",
+      "CASE_NEW",
+      "CASE_OVERDUE",
+      "CALLBACK_REQUESTED",
+      "DATA_CORRECTED",
+      "ROLL_CALL_REMINDER",
+      "SYSTEM"
+    ],
+    "th": {
+      "LEAVE_NEW": "ใบลาใหม่",
+      "LEAVE_PENDING_GUARDIAN": "ใบลารอผู้ปกครองยืนยัน",
+      "LEAVE_PENDING_SCHOOL": "ใบลารออนุมัติ",
+      "LEAVE_DECIDED": "ผลพิจารณาใบลา",
+      "LATE_CONFIRMED": "มาสาย",
+      "ABSENCE_CONFIRMED": "ขาดเรียน (ยืนยันแล้ว)",
+      "CASE_NEW": "งานติดตามใหม่",
+      "CASE_OVERDUE": "งานติดตามเกินกำหนด",
+      "CALLBACK_REQUESTED": "ขอให้ติดต่อกลับ",
+      "DATA_CORRECTED": "แจ้งการแก้ไขข้อมูลสำคัญ",
+      "ROLL_CALL_REMINDER": "เตือนตรวจสอบการมาเรียน",
+      "SYSTEM": "แจ้งจากระบบ"
+    }
+  },
+  "Urgency": {
+    "values": [
+      "NORMAL",
+      "URGENT"
+    ],
+    "th": {
+      "NORMAL": "ปกติ",
+      "URGENT": "เร่งด่วน"
+    }
+  },
+  "InAppState": {
+    "values": [
+      "UNREAD",
+      "READ"
+    ],
+    "th": {
+      "UNREAD": "ยังไม่อ่าน",
+      "READ": "เปิดอ่านในแอปแล้ว"
+    }
+  },
+  "AckState": {
+    "values": [
+      "NOT_REQUIRED",
+      "PENDING_ACK",
+      "ACKNOWLEDGED",
+      "FOLLOW_UP_REQUIRED"
+    ],
+    "th": {
+      "NOT_REQUIRED": "ไม่ต้องรับทราบ",
+      "PENDING_ACK": "รอรับทราบ",
+      "ACKNOWLEDGED": "รับทราบแล้ว",
+      "FOLLOW_UP_REQUIRED": "ต้องติดตาม"
+    }
+  },
+  "Channel": {
+    "values": [
+      "EMAIL",
+      "LINE",
+      "SMS"
+    ],
+    "th": {
+      "EMAIL": "อีเมล",
+      "LINE": "LINE",
+      "SMS": "SMS"
+    }
+  },
+  "DeliveryState": {
+    "values": [
+      "QUEUED",
+      "PROCESSING",
+      "PROVIDER_ACCEPTED",
+      "RETRY_WAIT",
+      "FAILED_FINAL",
+      "CANCELLED"
+    ],
+    "th": {
+      "QUEUED": "รอส่ง",
+      "PROCESSING": "กำลังส่ง",
+      "PROVIDER_ACCEPTED": "ผู้ให้บริการรับคำขอแล้ว (ไม่ใช่การอ่าน)",
+      "RETRY_WAIT": "รอส่งซ้ำ",
+      "FAILED_FINAL": "ส่งไม่สำเร็จ",
+      "CANCELLED": "ยกเลิกการส่ง"
+    }
+  },
+  "AttemptResult": {
+    "values": [
+      "ACCEPTED",
+      "DUPLICATE_ACCEPTED",
+      "RETRYABLE_ERROR",
+      "FINAL_ERROR",
+      "OUTCOME_UNKNOWN",
+      "SKIPPED"
+    ],
+    "th": {
+      "ACCEPTED": "รับคำขอแล้ว",
+      "DUPLICATE_ACCEPTED": "คำขอเดิมเคยรับแล้ว (409)",
+      "RETRYABLE_ERROR": "ผิดพลาดชั่วคราว",
+      "FINAL_ERROR": "ผิดพลาดถาวร",
+      "OUTCOME_UNKNOWN": "ไม่ทราบผล",
+      "SKIPPED": "ข้ามการส่ง"
+    }
+  },
+  "AckAction": {
+    "values": [
+      "ACKNOWLEDGED",
+      "CALLBACK_REQUESTED"
+    ],
+    "th": {
+      "ACKNOWLEDGED": "รับทราบ",
+      "CALLBACK_REQUESTED": "ขอให้ติดต่อกลับ"
+    }
+  },
+  "AckChannel": {
+    "values": [
+      "IN_APP",
+      "LINE"
+    ],
+    "th": {
+      "IN_APP": "ในแอป",
+      "LINE": "LINE"
+    }
+  },
+  "BindingStatus": {
+    "values": [
+      "PENDING",
+      "ACTIVE",
+      "REVOKED"
+    ],
+    "th": {
+      "PENDING": "รอยืนยัน",
+      "ACTIVE": "ใช้งาน",
+      "REVOKED": "ยกเลิก"
+    }
+  },
+  "BindingVerifiedVia": {
+    "values": [
+      "LINE_ACCOUNT_LINK",
+      "IDP_VERIFIED_EMAIL",
+      "STAFF_VERIFIED"
+    ],
+    "th": {
+      "LINE_ACCOUNT_LINK": "LINE account link",
+      "IDP_VERIFIED_EMAIL": "อีเมลที่ผู้ให้บริการยืนยันตัวตนยืนยันแล้ว",
+      "STAFF_VERIFIED": "เจ้าหน้าที่ยืนยัน"
+    }
+  },
+  "WebhookStatus": {
+    "values": [
+      "RECEIVED",
+      "PROCESSED",
+      "IGNORED",
+      "FAILED"
+    ],
+    "th": {
+      "RECEIVED": "รับแล้ว",
+      "PROCESSED": "ประมวลผลแล้ว",
+      "IGNORED": "ไม่ต้องประมวลผล",
+      "FAILED": "ล้มเหลว"
+    }
+  },
+  "JournalStatus": {
+    "values": [
+      "PREPARED",
+      "COMMITTED",
+      "RECOVERY_REQUIRED",
+      "ABORTED"
+    ],
+    "th": {
+      "PREPARED": "เตรียมบันทึก",
+      "COMMITTED": "บันทึกครบ",
+      "RECOVERY_REQUIRED": "ต้องกู้คืนด้วยผู้ดูแล",
+      "ABORTED": "ยกเลิก"
+    }
+  },
+  "JobStatus": {
+    "values": [
+      "QUEUED",
+      "RUNNING",
+      "PAUSED",
+      "SUCCEEDED",
+      "FAILED",
+      "CANCELLED"
+    ],
+    "th": {
+      "QUEUED": "รอทำงาน",
+      "RUNNING": "กำลังทำงาน",
+      "PAUSED": "หยุดชั่วคราว",
+      "SUCCEEDED": "สำเร็จ",
+      "FAILED": "ล้มเหลว",
+      "CANCELLED": "ยกเลิก"
+    }
+  },
+  "ImportType": {
+    "values": [
+      "STUDENTS",
+      "CLASSES",
+      "ENROLLMENTS",
+      "GUARDIANS",
+      "STAFF",
+      "CALENDAR"
+    ],
+    "th": {
+      "STUDENTS": "นักเรียน",
+      "CLASSES": "ห้องเรียน",
+      "ENROLLMENTS": "การลงทะเบียนห้อง",
+      "GUARDIANS": "ผู้ปกครองและความสัมพันธ์",
+      "STAFF": "บุคลากรและบทบาท",
+      "CALENDAR": "ปฏิทินโรงเรียน"
+    }
+  },
+  "SourceFormat": {
+    "values": [
+      "CSV",
+      "XLSX"
+    ],
+    "th": {
+      "CSV": "CSV",
+      "XLSX": "XLSX"
+    }
+  },
+  "ImportStatus": {
+    "values": [
+      "UPLOADED",
+      "PREVIEWED",
+      "VALIDATED",
+      "APPLYING",
+      "APPLIED",
+      "FAILED",
+      "CANCELLED"
+    ],
+    "th": {
+      "UPLOADED": "อัปโหลดแล้ว",
+      "PREVIEWED": "ดูตัวอย่างแล้ว",
+      "VALIDATED": "ตรวจแล้ว",
+      "APPLYING": "กำลังนำเข้า",
+      "APPLIED": "นำเข้าแล้ว",
+      "FAILED": "ล้มเหลว",
+      "CANCELLED": "ยกเลิก"
+    }
+  },
+  "MigrationRunType": {
+    "values": [
+      "EXPORT",
+      "VALIDATE",
+      "IMPORT_SHEETS",
+      "IMPORT_POSTGRES",
+      "RECONCILE",
+      "CUTOVER",
+      "ROLLBACK"
+    ],
+    "th": {
+      "EXPORT": "ส่งออก",
+      "VALIDATE": "ตรวจ package",
+      "IMPORT_SHEETS": "นำเข้า Sheets ชุดใหม่",
+      "IMPORT_POSTGRES": "นำเข้า PostgreSQL",
+      "RECONCILE": "กระทบยอด",
+      "CUTOVER": "สลับระบบ",
+      "ROLLBACK": "ย้อนกลับ"
+    }
+  },
+  "MigrationMode": {
+    "values": [
+      "FULL_SNAPSHOT",
+      "PARTIAL",
+      "REPORT_EXPORT",
+      "REHEARSAL"
+    ],
+    "th": {
+      "FULL_SNAPSHOT": "ภาพรวมทั้งระบบ (freeze)",
+      "PARTIAL": "บางส่วน (ใช้ย้ายระบบทั้งชุดไม่ได้)",
+      "REPORT_EXPORT": "ส่งออกเพื่อรายงาน",
+      "REHEARSAL": "ซ้อมย้าย"
+    }
+  },
+  "MigrationState": {
+    "values": [
+      "PLANNED",
+      "SNAPSHOTTING",
+      "EXPORTED",
+      "VALIDATED",
+      "STAGED",
+      "RECONCILED",
+      "CUTOVER_READY",
+      "ACTIVE",
+      "ROLLED_BACK",
+      "FAILED",
+      "CANCELLED"
+    ],
+    "th": {
+      "PLANNED": "วางแผน",
+      "SNAPSHOTTING": "กำลังส่งออก",
+      "EXPORTED": "ส่งออกแล้ว",
+      "VALIDATED": "ตรวจผ่าน",
+      "STAGED": "นำเข้าพื้นที่พักแล้ว",
+      "RECONCILED": "กระทบยอดผ่าน",
+      "CUTOVER_READY": "พร้อมสลับระบบ",
+      "ACTIVE": "ระบบใหม่ใช้งาน",
+      "ROLLED_BACK": "ย้อนกลับแล้ว",
+      "FAILED": "ล้มเหลว",
+      "CANCELLED": "ยกเลิก"
+    }
+  },
+  "Completeness": {
+    "values": [
+      "COMPLETE",
+      "PARTIAL",
+      "FAILED"
+    ],
+    "th": {
+      "COMPLETE": "ครบถ้วน",
+      "PARTIAL": "ไม่ครบ",
+      "FAILED": "ล้มเหลว"
+    }
+  },
+  "BackupType": {
+    "values": [
+      "NIGHTLY_SNAPSHOT",
+      "MANUAL"
+    ],
+    "th": {
+      "NIGHTLY_SNAPSHOT": "สำรองประจำคืน",
+      "MANUAL": "สำรองด้วยผู้ดูแล"
+    }
+  },
+  "RunStatus": {
+    "values": [
+      "RUNNING",
+      "SUCCEEDED",
+      "FAILED"
+    ],
+    "th": {
+      "RUNNING": "กำลังทำงาน",
+      "SUCCEEDED": "สำเร็จ",
+      "FAILED": "ล้มเหลว"
+    }
+  },
+  "ReportCode": {
+    "values": [
+      "R01",
+      "R02",
+      "R03",
+      "R04",
+      "R05",
+      "R06",
+      "R07",
+      "R08",
+      "R09",
+      "R10",
+      "R11",
+      "R12"
+    ],
+    "th": {
+      "R01": "การมาเรียนประจำวัน",
+      "R02": "มาสาย",
+      "R03": "การลา",
+      "R04": "ประวัติรายบุคคล",
+      "R05": "ผู้เรียนที่ควรติดตาม",
+      "R06": "การติดต่อผู้ปกครอง",
+      "R07": "แนวโน้ม",
+      "R08": "งานค้าง/คุณภาพข้อมูล",
+      "R09": "การแจ้งเตือน",
+      "R10": "แบบฟอร์มรายกรณี",
+      "R11": "Audit",
+      "R12": "การสำรอง/ย้ายข้อมูล"
+    }
+  },
+  "ReportStatus": {
+    "values": [
+      "QUEUED",
+      "RUNNING",
+      "READY",
+      "FAILED",
+      "SUPERSEDED"
+    ],
+    "th": {
+      "QUEUED": "รอสร้าง",
+      "RUNNING": "กำลังสร้าง",
+      "READY": "พร้อม",
+      "FAILED": "ล้มเหลว",
+      "SUPERSEDED": "ถูกแทนที่ด้วยฉบับใหม่"
+    }
+  },
+  "OutputFormat": {
+    "values": [
+      "JSON",
+      "CSV",
+      "XLSX",
+      "PDF"
+    ],
+    "th": {
+      "JSON": "แสดงบนจอ",
+      "CSV": "CSV",
+      "XLSX": "XLSX",
+      "PDF": "PDF"
+    }
+  },
+  "AuditChannel": {
+    "values": [
+      "APP",
+      "JOB",
+      "WEBHOOK",
+      "EDITOR",
+      "MIGRATION",
+      "API"
+    ],
+    "th": {
+      "APP": "แอป",
+      "JOB": "งานเบื้องหลัง",
+      "WEBHOOK": "Webhook",
+      "EDITOR": "Apps Script Editor",
+      "MIGRATION": "ย้ายข้อมูล",
+      "API": "REST API"
+    }
+  },
+  "SchemaComponent": {
+    "values": [
+      "SHEETS",
+      "POSTGRES"
+    ],
+    "th": {
+      "SHEETS": "Google Sheets",
+      "POSTGRES": "PostgreSQL"
+    }
+  }
+}

@@ -1,0 +1,254 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/AttendanceEvents.schema.json",
+  "title": "AttendanceEvents",
+  "description": "เหตุการณ์ข้อเท็จจริงการมาเรียน (append-only) การแก้ไขใช้ supersedes_event_id; การเช็กชื่อเก็บเฉพาะรายการที่ไม่ใช่ \"มา\" ตามรายชื่อ",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "student_id",
+    "school_date",
+    "event_type",
+    "occurred_at",
+    "recorded_at",
+    "captured_at",
+    "synced_at",
+    "source",
+    "offline",
+    "station_id",
+    "actor_id",
+    "claimed_actor_id",
+    "reason_code",
+    "reason_text",
+    "linked_leave_id",
+    "supersedes_event_id",
+    "roll_call_session_id",
+    "class_id",
+    "dedupe_key",
+    "operation_id",
+    "created_at",
+    "created_by"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "student_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "school_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "GATE_ARRIVAL",
+        "CLASSROOM_ENTERED",
+        "ROLL_CALL_PRESENT",
+        "ROLL_CALL_ABSENT",
+        "ROLL_CALL_LATE",
+        "ROLL_CALL_LEAVE_REPORTED",
+        "ABSENCE_CONFIRMED",
+        "LATENESS_EXEMPTED",
+        "EVENT_VOIDED"
+      ]
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาที่เกิดจริง เช่น เวลามาถึง"
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาที่ server บันทึก"
+    },
+    "captured_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาเครื่องขณะบันทึกออฟไลน์ (อ้างโดยอุปกรณ์)"
+    },
+    "synced_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "SCAN_KEYBOARD",
+        "SCAN_CAMERA",
+        "SEARCH_CODE",
+        "SEARCH_NAME",
+        "MANUAL_TIME",
+        "QUEUE_BATCH",
+        "OFFLINE_SYNC",
+        "ROLL_CALL",
+        "IMPORT",
+        "CORRECTION",
+        "SYSTEM"
+      ]
+    },
+    "offline": {
+      "type": "boolean"
+    },
+    "station_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "actor_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้บันทึกที่ server ยืนยันตัวตน"
+    },
+    "claimed_actor_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "description": "ผู้บันทึกที่อุปกรณ์อ้าง (offline) ไม่ใช่หลักฐานสิทธิ์"
+    },
+    "reason_code": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 40
+    },
+    "reason_text": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500
+    },
+    "linked_leave_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "supersedes_event_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "roll_call_session_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "class_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "dedupe_key": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200,
+      "description": "กันบันทึกซ้ำ เช่น ARR|student|date"
+    },
+    "operation_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาบันทึก (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้บันทึก (ยืนยันโดย server)"
+    }
+  },
+  "x-cwk": {
+    "group": "Attendance",
+    "kind": "EVENT",
+    "partition": "TERM",
+    "partition_column": "school_date",
+    "sensitivity": "PERSONAL",
+    "retention": "ENROLLMENT_PLUS_5Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [
+      {
+        "columns": [
+          "dedupe_key"
+        ],
+        "where": null,
+        "nullsNotDistinct": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "column": "student_id",
+        "references": "Students.id",
+        "deferrable": false
+      },
+      {
+        "column": "station_id",
+        "references": "Stations.id",
+        "deferrable": false
+      },
+      {
+        "column": "actor_id",
+        "references": "Users.id",
+        "deferrable": false
+      },
+      {
+        "column": "linked_leave_id",
+        "references": "LeaveRequests.id",
+        "deferrable": false
+      },
+      {
+        "column": "supersedes_event_id",
+        "references": "AttendanceEvents.id",
+        "deferrable": true
+      },
+      {
+        "column": "roll_call_session_id",
+        "references": "RollCallSessions.id",
+        "deferrable": false
+      },
+      {
+        "column": "class_id",
+        "references": "Classes.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

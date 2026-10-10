@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/Terms.schema.json",
+  "title": "Terms",
+  "description": "ภาคเรียน และ partition key ของข้อมูลปฏิบัติการ",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "academic_year_id",
+    "term_no",
+    "code",
+    "start_date",
+    "end_date",
+    "status",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "academic_year_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "term_no": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3
+    },
+    "code": {
+      "type": "string",
+      "maxLength": 20,
+      "pattern": "^AY\\d{4}-T[1-3]$",
+      "description": "เช่น AY2026-T1 ใช้เป็น partition key"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date",
+      "description": "exclusive"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PLANNED",
+        "ACTIVE",
+        "CLOSED"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาสร้าง (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้สร้าง (Users.id; อ้างอิงแบบ soft ไม่บังคับ FK)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาแก้ไขล่าสุด (UTC)"
+    },
+    "updated_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้แก้ไขล่าสุด"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "row version สำหรับ optimistic concurrency"
+    }
+  },
+  "x-cwk": {
+    "group": "Configuration",
+    "kind": "CONFIG",
+    "partition": "NONE",
+    "partition_column": null,
+    "sensitivity": "PUBLIC",
+    "retention": "PERMANENT",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [
+      {
+        "columns": [
+          "code"
+        ],
+        "where": null,
+        "nullsNotDistinct": false
+      },
+      {
+        "columns": [
+          "academic_year_id",
+          "term_no"
+        ],
+        "where": null,
+        "nullsNotDistinct": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "column": "academic_year_id",
+        "references": "AcademicYears.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/SchoolCalendar.schema.json",
+  "title": "SchoolCalendar",
+  "description": "ข้อยกเว้นปฏิทิน (ค่าเริ่มต้น: จันทร์–ศุกร์ในภาคเรียนเป็นวันเรียน) ใช้ applies_to_level ว่าง = ทุกระดับ",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "school_id",
+    "calendar_date",
+    "day_type",
+    "applies_to_level",
+    "title_th",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "school_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "calendar_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "day_type": {
+      "type": "string",
+      "enum": [
+        "SCHOOL_DAY",
+        "HOLIDAY",
+        "NO_SCHOOL",
+        "EXAM_DAY",
+        "ACTIVITY_DAY"
+      ]
+    },
+    "applies_to_level": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "M1",
+        "M2",
+        "M3",
+        "M4",
+        "M5",
+        "M6",
+        null
+      ],
+      "description": "ว่าง = ทุกระดับชั้น"
+    },
+    "title_th": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาสร้าง (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้สร้าง (Users.id; อ้างอิงแบบ soft ไม่บังคับ FK)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาแก้ไขล่าสุด (UTC)"
+    },
+    "updated_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้แก้ไขล่าสุด"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "row version สำหรับ optimistic concurrency"
+    }
+  },
+  "x-cwk": {
+    "group": "Configuration",
+    "kind": "CONFIG",
+    "partition": "NONE",
+    "partition_column": null,
+    "sensitivity": "PUBLIC",
+    "retention": "PERMANENT",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [
+      {
+        "where": null,
+        "nullsNotDistinct": true,
+        "columns": [
+          "school_id",
+          "calendar_date",
+          "applies_to_level"
+        ]
+      }
+    ],
+    "foreign_keys": [
+      {
+        "column": "school_id",
+        "references": "Schools.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

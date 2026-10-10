@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/ChannelBindings.schema.json",
+  "title": "ChannelBindings",
+  "description": "การผูกช่องทาง LINE/อีเมลกับบัญชีแอป (แยกจากการยืนยันความสัมพันธ์ผู้ปกครอง-นักเรียน)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "user_id",
+    "channel",
+    "address",
+    "status",
+    "link_nonce_hash",
+    "link_expires_at",
+    "verified_at",
+    "verified_via",
+    "revoked_at",
+    "revoked_by",
+    "revoke_reason",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "user_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "EMAIL",
+        "LINE",
+        "SMS"
+      ]
+    },
+    "address": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 254,
+      "description": "LINE userId / อีเมล (ว่างระหว่าง PENDING)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PENDING",
+        "ACTIVE",
+        "REVOKED"
+      ]
+    },
+    "link_nonce_hash": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 64,
+      "description": "SHA-256 ของ nonce สำหรับ LINE account link"
+    },
+    "link_expires_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "verified_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "verified_via": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "LINE_ACCOUNT_LINK",
+        "IDP_VERIFIED_EMAIL",
+        "STAFF_VERIFIED",
+        null
+      ]
+    },
+    "revoked_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "revoked_by": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "revoke_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 300
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาสร้าง (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้สร้าง (Users.id; อ้างอิงแบบ soft ไม่บังคับ FK)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาแก้ไขล่าสุด (UTC)"
+    },
+    "updated_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้แก้ไขล่าสุด"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "row version สำหรับ optimistic concurrency"
+    }
+  },
+  "x-cwk": {
+    "group": "Notifications",
+    "kind": "ENTITY",
+    "partition": "NONE",
+    "partition_column": null,
+    "sensitivity": "PERSONAL",
+    "retention": "ACCOUNT_LIFETIME_PLUS_1Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [
+      {
+        "where": "status = 'ACTIVE'",
+        "nullsNotDistinct": false,
+        "columns": [
+          "channel",
+          "address"
+        ]
+      }
+    ],
+    "foreign_keys": [
+      {
+        "column": "user_id",
+        "references": "Users.id",
+        "deferrable": false
+      },
+      {
+        "column": "revoked_by",
+        "references": "Users.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [
+      "link_nonce_hash"
+    ],
+    "derived_columns": []
+  }
+}

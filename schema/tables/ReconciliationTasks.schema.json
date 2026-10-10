@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/ReconciliationTasks.schema.json",
+  "title": "ReconciliationTasks",
+  "description": "งานตรวจสอบเมื่อข้อมูลขัดกันหรือยังไม่ทราบสถานะ (ระบบไม่ตัดสินเอง)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "task_type",
+    "student_id",
+    "class_id",
+    "school_date",
+    "evidence_refs",
+    "description_th",
+    "assigned_to",
+    "assigned_role",
+    "due_at",
+    "status",
+    "resolution_note",
+    "resolved_by",
+    "resolved_at",
+    "dedupe_key",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "task_type": {
+      "type": "string",
+      "enum": [
+        "UNKNOWN_STATUS",
+        "CONFLICT_LEAVE_PRESENCE",
+        "CONFLICT_ROLLCALL_GATE",
+        "OFFLINE_REVIEW",
+        "IMPORT_REVIEW",
+        "LEAVE_REPORTED_NO_REQUEST",
+        "DATA_QUALITY"
+      ]
+    },
+    "student_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "class_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "school_date": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "evidence_refs": {
+      "type": [
+        "object",
+        "array"
+      ]
+    },
+    "description_th": {
+      "type": "string",
+      "maxLength": 1000
+    },
+    "assigned_to": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "assigned_role": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "SYSTEM_ADMIN",
+        "STUDENT_AFFAIRS",
+        "EXECUTIVE",
+        "HOMEROOM_TEACHER",
+        "SUBJECT_TEACHER",
+        "DUTY_TEACHER",
+        "GATE_STAFF",
+        "GUARDIAN",
+        "STUDENT",
+        null
+      ]
+    },
+    "due_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "OPEN",
+        "RESOLVED",
+        "DISMISSED"
+      ]
+    },
+    "resolution_note": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1000
+    },
+    "resolved_by": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "resolved_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "dedupe_key": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาสร้าง (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้สร้าง (Users.id; อ้างอิงแบบ soft ไม่บังคับ FK)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาแก้ไขล่าสุด (UTC)"
+    },
+    "updated_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้แก้ไขล่าสุด"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "row version สำหรับ optimistic concurrency"
+    }
+  },
+  "x-cwk": {
+    "group": "Attendance",
+    "kind": "ENTITY",
+    "partition": "NONE",
+    "partition_column": null,
+    "sensitivity": "PERSONAL",
+    "retention": "TERM_PLUS_1Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [
+      {
+        "columns": [
+          "dedupe_key"
+        ],
+        "where": null,
+        "nullsNotDistinct": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "column": "student_id",
+        "references": "Students.id",
+        "deferrable": false
+      },
+      {
+        "column": "class_id",
+        "references": "Classes.id",
+        "deferrable": false
+      },
+      {
+        "column": "assigned_to",
+        "references": "Users.id",
+        "deferrable": false
+      },
+      {
+        "column": "resolved_by",
+        "references": "Users.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

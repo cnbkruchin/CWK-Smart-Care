@@ -1,0 +1,201 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/AttendanceCorrections.schema.json",
+  "title": "AttendanceCorrections",
+  "description": "คำขอ/การแก้ไขข้อมูลการมาเรียนย้อนหลัง พร้อมเหตุผล ค่าเดิม/ใหม่ และผู้อนุมัติ",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "student_id",
+    "school_date",
+    "target_event_id",
+    "correction_type",
+    "requested_by",
+    "requested_at",
+    "reason",
+    "requested_change",
+    "status",
+    "decided_by",
+    "decided_at",
+    "decision_note",
+    "resulting_event_id",
+    "before_json",
+    "after_json",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "student_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "school_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "target_event_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "correction_type": {
+      "type": "string",
+      "enum": [
+        "VOID_EVENT",
+        "AMEND_ARRIVAL_TIME",
+        "ADD_ARRIVAL",
+        "CHANGE_ROLL_CALL_MARK",
+        "EXEMPT_LATENESS"
+      ]
+    },
+    "requested_by": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "requested_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 1000
+    },
+    "requested_change": {
+      "type": [
+        "object",
+        "array"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PENDING",
+        "APPLIED",
+        "REJECTED"
+      ]
+    },
+    "decided_by": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "decided_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "decision_note": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1000
+    },
+    "resulting_event_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "before_json": {
+      "type": [
+        "object",
+        "array",
+        "null"
+      ]
+    },
+    "after_json": {
+      "type": [
+        "object",
+        "array",
+        "null"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาสร้าง (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้สร้าง (Users.id; อ้างอิงแบบ soft ไม่บังคับ FK)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาแก้ไขล่าสุด (UTC)"
+    },
+    "updated_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้แก้ไขล่าสุด"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "row version สำหรับ optimistic concurrency"
+    }
+  },
+  "x-cwk": {
+    "group": "Attendance",
+    "kind": "ENTITY",
+    "partition": "TERM",
+    "partition_column": "school_date",
+    "sensitivity": "PERSONAL",
+    "retention": "ENROLLMENT_PLUS_5Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [],
+    "foreign_keys": [
+      {
+        "column": "student_id",
+        "references": "Students.id",
+        "deferrable": false
+      },
+      {
+        "column": "target_event_id",
+        "references": "AttendanceEvents.id",
+        "deferrable": false
+      },
+      {
+        "column": "requested_by",
+        "references": "Users.id",
+        "deferrable": false
+      },
+      {
+        "column": "decided_by",
+        "references": "Users.id",
+        "deferrable": false
+      },
+      {
+        "column": "resulting_event_id",
+        "references": "AttendanceEvents.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

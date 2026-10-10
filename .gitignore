@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.*
+!.env.example
+.local/
+*.log
+.DS_Store
+.clasp.json
+.clasprc.json
+export-package*/
+!tests/fixtures/**
+coverage/

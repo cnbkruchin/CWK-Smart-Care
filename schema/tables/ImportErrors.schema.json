@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/ImportErrors.schema.json",
+  "title": "ImportErrors",
+  "description": "ข้อผิดพลาดรายแถวของการนำเข้า",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "import_batch_id",
+    "row_no",
+    "column_name",
+    "error_code",
+    "message_th",
+    "raw_value_redacted",
+    "created_at",
+    "created_by"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "import_batch_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "row_no": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "column_name": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 100
+    },
+    "error_code": {
+      "type": "string",
+      "maxLength": 60
+    },
+    "message_th": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "raw_value_redacted": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาบันทึก (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้บันทึก (ยืนยันโดย server)"
+    }
+  },
+  "x-cwk": {
+    "group": "Operations",
+    "kind": "EVENT",
+    "partition": "NONE",
+    "partition_column": null,
+    "sensitivity": "PERSONAL",
+    "retention": "1Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [],
+    "foreign_keys": [
+      {
+        "column": "import_batch_id",
+        "references": "ImportBatches.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

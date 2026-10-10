@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/Schools.schema.json",
+  "title": "Schools",
+  "description": "ข้อมูลโรงเรียน (ระยะแรก single-school แต่เก็บ school_id เพื่อจัดขอบเขต)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "code",
+    "name_th",
+    "name_en",
+    "unit_th",
+    "timezone",
+    "locale",
+    "logo_file_id",
+    "brand_color",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "code": {
+      "type": "string",
+      "maxLength": 30
+    },
+    "name_th": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "name_en": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200
+    },
+    "unit_th": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200,
+      "description": "หน่วยงาน เช่น กลุ่มบริหารงานกิจการนักเรียน"
+    },
+    "timezone": {
+      "type": "string",
+      "maxLength": 40
+    },
+    "locale": {
+      "type": "string",
+      "maxLength": 10
+    },
+    "logo_file_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "description": "Attachments.id ของตราโรงเรียน (soft reference); ว่าง = แสดงชื่อโรงเรียน"
+    },
+    "brand_color": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 7,
+      "pattern": "^#[0-9A-Fa-f]{6}$",
+      "description": "สีหลัก (ค่าตัวอย่าง ไม่ใช่สีอัตลักษณ์ที่รับรอง)"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาสร้าง (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้สร้าง (Users.id; อ้างอิงแบบ soft ไม่บังคับ FK)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาแก้ไขล่าสุด (UTC)"
+    },
+    "updated_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้แก้ไขล่าสุด"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "row version สำหรับ optimistic concurrency"
+    }
+  },
+  "x-cwk": {
+    "group": "Configuration",
+    "kind": "CONFIG",
+    "partition": "NONE",
+    "partition_column": null,
+    "sensitivity": "PUBLIC",
+    "retention": "PERMANENT",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [
+      {
+        "columns": [
+          "code"
+        ],
+        "where": null,
+        "nullsNotDistinct": false
+      }
+    ],
+    "foreign_keys": [],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/Students.schema.json",
+  "title": "Students",
+  "description": "นักเรียน; student_code เป็น business key แบบ string (รักษาเลขศูนย์นำหน้า)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "school_id",
+    "student_code",
+    "prefix_th",
+    "first_name_th",
+    "last_name_th",
+    "first_name_en",
+    "last_name_en",
+    "nickname",
+    "gender",
+    "birth_date",
+    "photo_file_id",
+    "status",
+    "status_effective_date",
+    "search_name",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "school_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "student_code": {
+      "type": "string",
+      "maxLength": 20,
+      "pattern": "^[0-9A-Za-z-]{1,20}$"
+    },
+    "prefix_th": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 30
+    },
+    "first_name_th": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "last_name_th": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "first_name_en": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 100
+    },
+    "last_name_en": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 100
+    },
+    "nickname": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 50
+    },
+    "gender": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "MALE",
+        "FEMALE",
+        "OTHER",
+        "UNSPECIFIED",
+        null
+      ]
+    },
+    "birth_date": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date",
+      "description": "ไม่บังคับ"
+    },
+    "photo_file_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "description": "Attachments.id รูปถ่าย (soft reference)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ACTIVE",
+        "TRANSFERRED_OUT",
+        "GRADUATED",
+        "WITHDRAWN",
+        "SUSPENDED"
+      ]
+    },
+    "status_effective_date": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "search_name": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 300,
+      "description": "ค่าค้นหาที่ normalize (ตัดช่องว่าง/ตัวพิมพ์เล็ก) สร้างใหม่ได้จากชื่อจริง ไม่ใช้แทนชื่อ"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาสร้าง (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้สร้าง (Users.id; อ้างอิงแบบ soft ไม่บังคับ FK)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาแก้ไขล่าสุด (UTC)"
+    },
+    "updated_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้แก้ไขล่าสุด"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "row version สำหรับ optimistic concurrency"
+    }
+  },
+  "x-cwk": {
+    "group": "Student",
+    "kind": "ENTITY",
+    "partition": "NONE",
+    "partition_column": null,
+    "sensitivity": "PERSONAL",
+    "retention": "ENROLLMENT_PLUS_5Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [
+      {
+        "columns": [
+          "school_id",
+          "student_code"
+        ],
+        "where": null,
+        "nullsNotDistinct": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "column": "school_id",
+        "references": "Schools.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": [
+      "search_name"
+    ]
+  }
+}

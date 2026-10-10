@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/Acknowledgements.schema.json",
+  "title": "Acknowledgements",
+  "description": "การกดรับทราบ/ขอให้ติดต่อกลับจริงของผู้รับ (ผูก identity และ notification)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "recipient_id",
+    "notification_id",
+    "user_id",
+    "action",
+    "channel",
+    "acted_at",
+    "note",
+    "case_id",
+    "operation_id",
+    "created_at",
+    "created_by"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "recipient_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "notification_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "user_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "ACKNOWLEDGED",
+        "CALLBACK_REQUESTED"
+      ]
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "IN_APP",
+        "LINE"
+      ]
+    },
+    "acted_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "note": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1000
+    },
+    "case_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "operation_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาบันทึก (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้บันทึก (ยืนยันโดย server)"
+    }
+  },
+  "x-cwk": {
+    "group": "Notifications",
+    "kind": "EVENT",
+    "partition": "TERM",
+    "partition_column": "acted_at",
+    "sensitivity": "PERSONAL",
+    "retention": "TERM_PLUS_1Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [
+      {
+        "columns": [
+          "recipient_id",
+          "action"
+        ],
+        "where": null,
+        "nullsNotDistinct": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "column": "recipient_id",
+        "references": "NotificationRecipients.id",
+        "deferrable": false
+      },
+      {
+        "column": "notification_id",
+        "references": "Notifications.id",
+        "deferrable": false
+      },
+      {
+        "column": "user_id",
+        "references": "Users.id",
+        "deferrable": false
+      },
+      {
+        "column": "case_id",
+        "references": "Cases.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

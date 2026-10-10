@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/StaffAssignments.schema.json",
+  "title": "StaffAssignments",
+  "description": "ขอบเขตงานของบุคลากร: ครูที่ปรึกษา เวรประจำจุด สอน ผู้รักษาการแทน พร้อมช่วงเวลาที่มีผล",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "user_id",
+    "assignment_type",
+    "class_id",
+    "station_id",
+    "weekday",
+    "subject_code",
+    "delegate_for_user_id",
+    "effective_from",
+    "effective_to",
+    "notes",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "user_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "assignment_type": {
+      "type": "string",
+      "enum": [
+        "HOMEROOM",
+        "DUTY",
+        "TEACHING",
+        "DELEGATE"
+      ]
+    },
+    "class_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "station_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "weekday": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 7,
+      "description": "วันในสัปดาห์สำหรับเวร (1=จันทร์); ว่าง = ทุกวัน"
+    },
+    "subject_code": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 30
+    },
+    "delegate_for_user_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "description": "สำหรับ DELEGATE: รักษาการแทนผู้ใด"
+    },
+    "effective_from": {
+      "type": "string",
+      "format": "date"
+    },
+    "effective_to": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "notes": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาสร้าง (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้สร้าง (Users.id; อ้างอิงแบบ soft ไม่บังคับ FK)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาแก้ไขล่าสุด (UTC)"
+    },
+    "updated_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้แก้ไขล่าสุด"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "row version สำหรับ optimistic concurrency"
+    }
+  },
+  "x-cwk": {
+    "group": "Identity",
+    "kind": "ENTITY",
+    "partition": "NONE",
+    "partition_column": null,
+    "sensitivity": "INTERNAL",
+    "retention": "ACADEMIC_YEAR_PLUS_2Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [],
+    "foreign_keys": [
+      {
+        "column": "user_id",
+        "references": "Users.id",
+        "deferrable": false
+      },
+      {
+        "column": "class_id",
+        "references": "Classes.id",
+        "deferrable": false
+      },
+      {
+        "column": "station_id",
+        "references": "Stations.id",
+        "deferrable": false
+      },
+      {
+        "column": "delegate_for_user_id",
+        "references": "Users.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

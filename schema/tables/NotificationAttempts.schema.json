@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/NotificationAttempts.schema.json",
+  "title": "NotificationAttempts",
+  "description": "ผลการเรียกผู้ให้บริการแต่ละครั้ง (append-only)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "outbox_id",
+    "attempt_no",
+    "started_at",
+    "finished_at",
+    "result",
+    "http_status",
+    "provider_request_id",
+    "error_code",
+    "error_message",
+    "retry_key",
+    "created_at",
+    "created_by"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "outbox_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "attempt_no": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "finished_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "result": {
+      "type": "string",
+      "enum": [
+        "ACCEPTED",
+        "DUPLICATE_ACCEPTED",
+        "RETRYABLE_ERROR",
+        "FINAL_ERROR",
+        "OUTCOME_UNKNOWN",
+        "SKIPPED"
+      ]
+    },
+    "http_status": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "provider_request_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200
+    },
+    "error_code": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 60
+    },
+    "error_message": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500
+    },
+    "retry_key": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาบันทึก (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้บันทึก (ยืนยันโดย server)"
+    }
+  },
+  "x-cwk": {
+    "group": "Notifications",
+    "kind": "EVENT",
+    "partition": "TERM",
+    "partition_column": "started_at",
+    "sensitivity": "INTERNAL",
+    "retention": "TERM_PLUS_1Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [],
+    "foreign_keys": [
+      {
+        "column": "outbox_id",
+        "references": "NotificationOutbox.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

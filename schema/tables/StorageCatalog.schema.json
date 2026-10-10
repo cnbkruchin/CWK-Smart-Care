@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/StorageCatalog.schema.json",
+  "title": "StorageCatalog",
+  "description": "แผนที่ logical table + partition → workbook/sheet (Sheets adapter); ปลายทางอื่นเก็บเป็น metadata",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "logical_table",
+    "partition_key",
+    "workbook_id",
+    "sheet_name",
+    "schema_version",
+    "status",
+    "row_count",
+    "cell_count",
+    "measured_at",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "logical_table": {
+      "type": "string",
+      "maxLength": 60
+    },
+    "partition_key": {
+      "type": "string",
+      "maxLength": 30,
+      "description": "\"*\" = ไม่แบ่ง partition, หรือรหัสภาคเรียน เช่น AY2026-T1"
+    },
+    "workbook_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 100,
+      "description": "Spreadsheet ID (ไม่ใช่ secret แต่ไม่ฝังในโค้ด)"
+    },
+    "sheet_name": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ACTIVE",
+        "READONLY",
+        "ARCHIVED"
+      ]
+    },
+    "row_count": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "cell_count": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "measured_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาสร้าง (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้สร้าง (Users.id; อ้างอิงแบบ soft ไม่บังคับ FK)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาแก้ไขล่าสุด (UTC)"
+    },
+    "updated_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้แก้ไขล่าสุด"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "row version สำหรับ optimistic concurrency"
+    }
+  },
+  "x-cwk": {
+    "group": "Configuration",
+    "kind": "CONFIG",
+    "partition": "NONE",
+    "partition_column": null,
+    "sensitivity": "INTERNAL",
+    "retention": "PERMANENT",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [
+      {
+        "columns": [
+          "logical_table",
+          "partition_key"
+        ],
+        "where": null,
+        "nullsNotDistinct": false
+      }
+    ],
+    "foreign_keys": [],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

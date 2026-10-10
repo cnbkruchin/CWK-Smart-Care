@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/CaseEvents.schema.json",
+  "title": "CaseEvents",
+  "description": "ประวัติเรื่องติดตาม (append-only)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "case_id",
+    "event_type",
+    "actor_id",
+    "occurred_at",
+    "data_json",
+    "note",
+    "operation_id",
+    "created_at",
+    "created_by"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "case_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "OPENED",
+        "ASSIGNED",
+        "NOTE",
+        "CONTACT_LOGGED",
+        "APPOINTMENT_SET",
+        "STATUS_CHANGED",
+        "TRANSFERRED",
+        "CLOSED",
+        "REOPENED",
+        "CALLBACK_REQUESTED"
+      ]
+    },
+    "actor_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "data_json": {
+      "type": [
+        "object",
+        "array",
+        "null"
+      ]
+    },
+    "note": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2000
+    },
+    "operation_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาบันทึก (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้บันทึก (ยืนยันโดย server)"
+    }
+  },
+  "x-cwk": {
+    "group": "Follow-up",
+    "kind": "EVENT",
+    "partition": "NONE",
+    "partition_column": null,
+    "sensitivity": "SENSITIVE",
+    "retention": "ENROLLMENT_PLUS_5Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [],
+    "foreign_keys": [
+      {
+        "column": "case_id",
+        "references": "Cases.id",
+        "deferrable": false
+      },
+      {
+        "column": "actor_id",
+        "references": "Users.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

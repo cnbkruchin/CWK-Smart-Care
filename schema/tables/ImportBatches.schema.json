@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/ImportBatches.schema.json",
+  "title": "ImportBatches",
+  "description": "ชุดนำเข้า CSV/XLSX พร้อม mapping, dry-run และผลลัพธ์",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "import_type",
+    "source_attachment_id",
+    "source_format",
+    "mapping_json",
+    "status",
+    "dry_run_summary_json",
+    "row_count",
+    "valid_count",
+    "error_count",
+    "applied_count",
+    "job_id",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "import_type": {
+      "type": "string",
+      "enum": [
+        "STUDENTS",
+        "CLASSES",
+        "ENROLLMENTS",
+        "GUARDIANS",
+        "STAFF",
+        "CALENDAR"
+      ]
+    },
+    "source_attachment_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "source_format": {
+      "type": "string",
+      "enum": [
+        "CSV",
+        "XLSX"
+      ]
+    },
+    "mapping_json": {
+      "type": [
+        "object",
+        "array",
+        "null"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "UPLOADED",
+        "PREVIEWED",
+        "VALIDATED",
+        "APPLYING",
+        "APPLIED",
+        "FAILED",
+        "CANCELLED"
+      ]
+    },
+    "dry_run_summary_json": {
+      "type": [
+        "object",
+        "array",
+        "null"
+      ]
+    },
+    "row_count": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "valid_count": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "error_count": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "applied_count": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "job_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาสร้าง (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้สร้าง (Users.id; อ้างอิงแบบ soft ไม่บังคับ FK)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาแก้ไขล่าสุด (UTC)"
+    },
+    "updated_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้แก้ไขล่าสุด"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "row version สำหรับ optimistic concurrency"
+    }
+  },
+  "x-cwk": {
+    "group": "Operations",
+    "kind": "ENTITY",
+    "partition": "NONE",
+    "partition_column": null,
+    "sensitivity": "PERSONAL",
+    "retention": "1Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [],
+    "foreign_keys": [
+      {
+        "column": "source_attachment_id",
+        "references": "Attachments.id",
+        "deferrable": false
+      },
+      {
+        "column": "job_id",
+        "references": "Jobs.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

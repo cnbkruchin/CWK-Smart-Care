@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/NotificationRecipients.schema.json",
+  "title": "NotificationRecipients",
+  "description": "ผู้รับ (resolve จากความสัมพันธ์ที่ยืนยันแล้ว) = กล่องแจ้งเตือนในแอป และสถานะการรับทราบ",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "notification_id",
+    "recipient_user_id",
+    "recipient_role_context",
+    "in_app_state",
+    "read_at",
+    "ack_required",
+    "ack_state",
+    "ack_due_at",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "notification_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "recipient_user_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "recipient_role_context": {
+      "type": "string",
+      "enum": [
+        "SYSTEM_ADMIN",
+        "STUDENT_AFFAIRS",
+        "EXECUTIVE",
+        "HOMEROOM_TEACHER",
+        "SUBJECT_TEACHER",
+        "DUTY_TEACHER",
+        "GATE_STAFF",
+        "GUARDIAN",
+        "STUDENT"
+      ]
+    },
+    "in_app_state": {
+      "type": "string",
+      "enum": [
+        "UNREAD",
+        "READ"
+      ]
+    },
+    "read_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "ack_required": {
+      "type": "boolean"
+    },
+    "ack_state": {
+      "type": "string",
+      "enum": [
+        "NOT_REQUIRED",
+        "PENDING_ACK",
+        "ACKNOWLEDGED",
+        "FOLLOW_UP_REQUIRED"
+      ]
+    },
+    "ack_due_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาสร้าง (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้สร้าง (Users.id; อ้างอิงแบบ soft ไม่บังคับ FK)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาแก้ไขล่าสุด (UTC)"
+    },
+    "updated_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้แก้ไขล่าสุด"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "row version สำหรับ optimistic concurrency"
+    }
+  },
+  "x-cwk": {
+    "group": "Notifications",
+    "kind": "ENTITY",
+    "partition": "TERM",
+    "partition_column": "created_at",
+    "sensitivity": "PERSONAL",
+    "retention": "TERM_PLUS_1Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [
+      {
+        "columns": [
+          "notification_id",
+          "recipient_user_id"
+        ],
+        "where": null,
+        "nullsNotDistinct": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "column": "notification_id",
+        "references": "Notifications.id",
+        "deferrable": false
+      },
+      {
+        "column": "recipient_user_id",
+        "references": "Users.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

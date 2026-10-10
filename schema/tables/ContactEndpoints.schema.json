@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/ContactEndpoints.schema.json",
+  "title": "ContactEndpoints",
+  "description": "ช่องทางติดต่อ (เบอร์โทรเก็บเป็น string) การแก้ไขต้องยืนยันโดยเจ้าหน้าที่และมี audit",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "owner_type",
+    "owner_id",
+    "channel",
+    "value",
+    "label_th",
+    "is_primary",
+    "verified_at",
+    "verified_by",
+    "status",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "owner_type": {
+      "type": "string",
+      "enum": [
+        "GUARDIAN",
+        "STAFF",
+        "STUDENT"
+      ]
+    },
+    "owner_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Guardians.id / Users.id / Students.id ตาม owner_type (polymorphic)"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "PHONE",
+        "EMAIL",
+        "LINE",
+        "SMS",
+        "IN_PERSON",
+        "OTHER"
+      ]
+    },
+    "value": {
+      "type": "string",
+      "maxLength": 254
+    },
+    "label_th": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 100
+    },
+    "is_primary": {
+      "type": "boolean"
+    },
+    "verified_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "verified_by": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ACTIVE",
+        "INACTIVE"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาสร้าง (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้สร้าง (Users.id; อ้างอิงแบบ soft ไม่บังคับ FK)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาแก้ไขล่าสุด (UTC)"
+    },
+    "updated_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้แก้ไขล่าสุด"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "row version สำหรับ optimistic concurrency"
+    }
+  },
+  "x-cwk": {
+    "group": "Student",
+    "kind": "ENTITY",
+    "partition": "NONE",
+    "partition_column": null,
+    "sensitivity": "PERSONAL",
+    "retention": "ENROLLMENT_PLUS_5Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [],
+    "foreign_keys": [
+      {
+        "column": "verified_by",
+        "references": "Users.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

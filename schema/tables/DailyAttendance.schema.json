@@ -1,0 +1,294 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/DailyAttendance.schema.json",
+  "title": "DailyAttendance",
+  "description": "สรุปรายวันต่อคน (projection สร้างใหม่ได้จาก AttendanceEvents, RollCallSessions, LeaveSegments, Enrollments, ปฏิทินและกฎ) id = UUIDv5(student_id|school_date)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "student_id",
+    "school_date",
+    "class_id",
+    "school_day",
+    "eligible",
+    "presence_status",
+    "verification_level",
+    "is_late",
+    "late_minutes",
+    "late_counted",
+    "lateness_exempted",
+    "arrival_event_id",
+    "arrived_at",
+    "roll_call_mark",
+    "roll_call_session_id",
+    "full_day_leave",
+    "partial_leave",
+    "leave_units",
+    "leave_request_ids",
+    "confirmed_absence",
+    "has_conflict",
+    "conflicts",
+    "evidence_refs",
+    "calculated_rule_version_id",
+    "projection_version",
+    "computed_at",
+    "verified_by",
+    "verified_at",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUIDv5 จาก student_id|school_date"
+    },
+    "student_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "school_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "class_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "school_day": {
+      "type": "boolean"
+    },
+    "eligible": {
+      "type": "boolean"
+    },
+    "presence_status": {
+      "type": "string",
+      "enum": [
+        "PRESENT",
+        "ABSENT_CONFIRMED",
+        "ON_LEAVE_FULL_DAY",
+        "UNKNOWN",
+        "NOT_ELIGIBLE",
+        "NON_SCHOOL_DAY"
+      ]
+    },
+    "verification_level": {
+      "type": "string",
+      "enum": [
+        "NONE",
+        "GATE_RECORD",
+        "ROLL_CALL",
+        "VERIFIED"
+      ]
+    },
+    "is_late": {
+      "type": "boolean"
+    },
+    "late_minutes": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "late_counted": {
+      "type": "boolean"
+    },
+    "lateness_exempted": {
+      "type": "boolean"
+    },
+    "arrival_event_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "arrived_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "roll_call_mark": {
+      "type": "string",
+      "enum": [
+        "PRESENT",
+        "ABSENT",
+        "LATE",
+        "LEAVE_REPORTED",
+        "NOT_MARKED"
+      ]
+    },
+    "roll_call_session_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "full_day_leave": {
+      "type": "boolean"
+    },
+    "partial_leave": {
+      "type": "boolean"
+    },
+    "leave_units": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 100,
+      "description": "เช่น AM, PM, P1,P2"
+    },
+    "leave_request_ids": {
+      "type": [
+        "object",
+        "array",
+        "null"
+      ]
+    },
+    "confirmed_absence": {
+      "type": "boolean"
+    },
+    "has_conflict": {
+      "type": "boolean"
+    },
+    "conflicts": {
+      "type": [
+        "object",
+        "array",
+        "null"
+      ]
+    },
+    "evidence_refs": {
+      "type": [
+        "object",
+        "array",
+        "null"
+      ]
+    },
+    "calculated_rule_version_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "projection_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "computed_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "verified_by": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "verified_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาสร้าง (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้สร้าง (Users.id; อ้างอิงแบบ soft ไม่บังคับ FK)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาแก้ไขล่าสุด (UTC)"
+    },
+    "updated_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้แก้ไขล่าสุด"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "row version สำหรับ optimistic concurrency"
+    }
+  },
+  "x-cwk": {
+    "group": "Attendance",
+    "kind": "PROJECTION",
+    "partition": "TERM",
+    "partition_column": "school_date",
+    "sensitivity": "PERSONAL",
+    "retention": "ENROLLMENT_PLUS_5Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [
+      {
+        "columns": [
+          "student_id",
+          "school_date"
+        ],
+        "where": null,
+        "nullsNotDistinct": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "column": "student_id",
+        "references": "Students.id",
+        "deferrable": false
+      },
+      {
+        "column": "class_id",
+        "references": "Classes.id",
+        "deferrable": false
+      },
+      {
+        "column": "arrival_event_id",
+        "references": "AttendanceEvents.id",
+        "deferrable": false
+      },
+      {
+        "column": "roll_call_session_id",
+        "references": "RollCallSessions.id",
+        "deferrable": false
+      },
+      {
+        "column": "calculated_rule_version_id",
+        "references": "RuleVersions.id",
+        "deferrable": false
+      },
+      {
+        "column": "verified_by",
+        "references": "Users.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

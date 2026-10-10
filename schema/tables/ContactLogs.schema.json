@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/ContactLogs.schema.json",
+  "title": "ContactLogs",
+  "description": "บันทึกการติดต่อ (การกดปุ่มโทรไม่ถือว่าโทรสำเร็จจนบันทึกผล)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "student_id",
+    "case_id",
+    "guardian_id",
+    "channel",
+    "direction",
+    "contacted_at",
+    "contacted_by",
+    "outcome",
+    "summary",
+    "follow_up_required",
+    "next_follow_up_at",
+    "supersedes_id",
+    "operation_id",
+    "created_at",
+    "created_by"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "รหัสภายใน (UUID)"
+    },
+    "student_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "case_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "guardian_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "PHONE",
+        "EMAIL",
+        "LINE",
+        "SMS",
+        "IN_PERSON",
+        "OTHER"
+      ]
+    },
+    "direction": {
+      "type": "string",
+      "enum": [
+        "OUTBOUND",
+        "INBOUND"
+      ]
+    },
+    "contacted_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "contacted_by": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "REACHED",
+        "NO_ANSWER",
+        "ACKNOWLEDGED",
+        "APPOINTMENT_MADE",
+        "FOLLOW_UP_NEEDED",
+        "WRONG_CONTACT",
+        "ASSISTANCE_PROVIDED"
+      ]
+    },
+    "summary": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2000
+    },
+    "follow_up_required": {
+      "type": "boolean"
+    },
+    "next_follow_up_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "supersedes_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "operation_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาบันทึก (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้บันทึก (ยืนยันโดย server)"
+    }
+  },
+  "x-cwk": {
+    "group": "Follow-up",
+    "kind": "EVENT",
+    "partition": "NONE",
+    "partition_column": null,
+    "sensitivity": "SENSITIVE",
+    "retention": "ENROLLMENT_PLUS_5Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [],
+    "foreign_keys": [
+      {
+        "column": "student_id",
+        "references": "Students.id",
+        "deferrable": false
+      },
+      {
+        "column": "case_id",
+        "references": "Cases.id",
+        "deferrable": false
+      },
+      {
+        "column": "guardian_id",
+        "references": "Guardians.id",
+        "deferrable": false
+      },
+      {
+        "column": "contacted_by",
+        "references": "Users.id",
+        "deferrable": false
+      },
+      {
+        "column": "supersedes_id",
+        "references": "ContactLogs.id",
+        "deferrable": true
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

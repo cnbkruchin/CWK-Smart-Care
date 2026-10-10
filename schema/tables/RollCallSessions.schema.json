@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/RollCallSessions.schema.json",
+  "title": "RollCallSessions",
+  "description": "การเช็กชื่อประจำวันรายห้อง (ผู้ยืนยันและแหล่งข้อมูล) id = UUIDv5(class_id|school_date); นักเรียนในรายชื่อที่ไม่มีเหตุการณ์ยกเว้น = มาตามการเช็กชื่อ",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "class_id",
+    "school_date",
+    "status",
+    "roster_count",
+    "roster_hash",
+    "absent_count",
+    "late_count",
+    "leave_reported_count",
+    "submitted_by",
+    "submitted_at",
+    "verified_by",
+    "verified_at",
+    "source",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUIDv5 จาก class_id|school_date"
+    },
+    "class_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "school_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "OPEN",
+        "SUBMITTED",
+        "VERIFIED"
+      ]
+    },
+    "roster_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "roster_hash": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "SHA-256 ของรายชื่อ student_id ที่เช็ก (ตรวจว่ารายชื่อไม่เปลี่ยน)"
+    },
+    "absent_count": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "late_count": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "leave_reported_count": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "submitted_by": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "submitted_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "verified_by": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "verified_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "source": {
+      "type": "string",
+      "maxLength": 20
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาสร้าง (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้สร้าง (Users.id; อ้างอิงแบบ soft ไม่บังคับ FK)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาแก้ไขล่าสุด (UTC)"
+    },
+    "updated_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้แก้ไขล่าสุด"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "row version สำหรับ optimistic concurrency"
+    }
+  },
+  "x-cwk": {
+    "group": "Attendance",
+    "kind": "ENTITY",
+    "partition": "TERM",
+    "partition_column": "school_date",
+    "sensitivity": "INTERNAL",
+    "retention": "ENROLLMENT_PLUS_5Y",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [
+      {
+        "columns": [
+          "class_id",
+          "school_date"
+        ],
+        "where": null,
+        "nullsNotDistinct": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "column": "class_id",
+        "references": "Classes.id",
+        "deferrable": false
+      },
+      {
+        "column": "submitted_by",
+        "references": "Users.id",
+        "deferrable": false
+      },
+      {
+        "column": "verified_by",
+        "references": "Users.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}

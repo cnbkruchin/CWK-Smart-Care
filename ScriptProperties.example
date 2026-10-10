@@ -1,0 +1,44 @@
+# Script Properties (Apps Script → Project Settings → Script properties)
+# ค่าตัวอย่างเท่านั้น — ห้ามใส่ secret จริงในไฟล์นี้หรือในแชต ใส่ค่าจริงในหน้า Project Settings ของแต่ละ environment
+# บรรทัดที่ขึ้นต้นด้วย [SECRET] คือความลับ: ผู้ที่แก้ไขสคริปต์ได้จะอ่านได้ จึงต้องจำกัดรายชื่อ editor
+
+# ── Environment ──
+CWK_ENV=DEV                                   # DEV | STAGING | PROD
+CWK_SYSTEM_MODE=NORMAL                        # NORMAL | READ_ONLY (maintenance/freeze) — เปลี่ยนผ่านหน้า System Health หรือ editor
+CWK_SERVICE_BACKEND=GAS                       # GAS | REST (ขั้นที่ 2 ของเส้นทางอัปเกรด)
+CWK_DATA_ADAPTER=SHEETS                       # SHEETS เท่านั้นเมื่อ SERVICE_BACKEND=GAS
+
+# ── Storage (สร้างโดย adminSetup() แล้วบันทึกอัตโนมัติ) ──
+CWK_MASTER_SPREADSHEET_ID=
+CWK_DRIVE_ROOT_FOLDER_ID=
+CWK_REPORT_TEMPLATE_DOC_ID=
+
+# ── Identity ──
+CWK_AUTH_MODE=DEMO                            # GATEWAY (บังคับใน PROD) | DEMO (DEV/STAGING เท่านั้น)
+CWK_FIREBASE_PROJECT_ID=example-cwk-dev       # public web config
+CWK_FIREBASE_WEB_API_KEY=AIza-example-not-a-real-key   # public web config (ไม่ใช่ secret แต่จำกัด HTTP referrer ที่ Google Cloud)
+CWK_FIREBASE_AUTH_DOMAIN=example-cwk-dev.firebaseapp.com
+CWK_FIREBASE_TENANT_ID=                       # ว่าง = ไม่ใช้ multi-tenancy
+CWK_AUTH_PERSISTENCE=SESSION                  # SESSION | LOCAL | NONE (Firebase SDK persistence)
+CWK_GATEWAY_URL=https://cwk-gateway-example.a.run.app
+CWK_GATEWAY_KEY_ID=gas-dev-1
+[SECRET] CWK_GATEWAY_SECRET=                  # ≥ 32 ไบต์สุ่ม (base64) ค่าเดียวกับ GAS_SHARED_SECRET ของ gateway
+[SECRET] CWK_DEMO_PASSPHRASE=                 # DEV/STAGING เท่านั้น; PROD ปฏิเสธ DEMO
+
+# ── LINE (เปิดภายหลังเมื่อระบบหลักพร้อม) ──
+CWK_LINE_ENABLED=false
+[SECRET] CWK_LINE_CHANNEL_ACCESS_TOKEN=
+CWK_LINE_WEBHOOK_KEY_ID=line-dev-1
+[SECRET] CWK_LINE_WEBHOOK_SECRET=             # HMAC ของ envelope gateway → GAS (ไม่ใช่ channel secret)
+CWK_LINE_RETRY_WINDOW_HOURS=12
+
+# ── Email ──
+CWK_EMAIL_ENABLED=true
+CWK_EMAIL_SENDER_NAME=CWK Smart Care (ทดสอบ)
+CWK_NOTIFY_ALLOWLIST=teacher.test@example.com,guardian.test@example.com   # DEV/STAGING: ส่งได้เฉพาะผู้รับในรายการ; PROD ไม่ใช้
+
+# ── Web app ──
+CWK_WEBAPP_URL=                               # URL /exec ของ deployment (ใช้สร้างลิงก์ในข้อความ)
+CWK_ADMIN_TASKS_ENABLED_UNTIL=                # ISO เวลา UTC เช่น 2026-10-10T05:00:00Z — เปิดฟังก์ชัน admin* ใน editor ชั่วคราว (≤ 2 ชม.)
+CWK_INSTALL_OWNER_EMAIL=                      # อีเมลเจ้าของการติดตั้ง (ตั้งโดย adminSetup ครั้งแรก)
+CWK_TICK_MINUTES=1                            # 1 | 5 | 10 ความถี่ cronTick

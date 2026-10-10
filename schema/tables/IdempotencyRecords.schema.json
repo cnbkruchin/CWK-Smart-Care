@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/v1/tables/IdempotencyRecords.schema.json",
+  "title": "IdempotencyRecords",
+  "description": "ผลของคำสั่งตาม (actor, operation, idempotency_key) เพื่อคืนผลเดิมเมื่อส่งซ้ำ",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "scope_key",
+    "actor_id",
+    "operation",
+    "idempotency_key",
+    "request_hash",
+    "result_json",
+    "operation_id",
+    "expires_at",
+    "created_at",
+    "created_by"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUIDv5 จาก scope_key"
+    },
+    "scope_key": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "actor_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "operation": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "idempotency_key": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "request_hash": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "result_json": {
+      "type": [
+        "object",
+        "array"
+      ]
+    },
+    "operation_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "เวลาบันทึก (UTC)"
+    },
+    "created_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ผู้บันทึก (ยืนยันโดย server)"
+    }
+  },
+  "x-cwk": {
+    "group": "Operations",
+    "kind": "OPERATIONAL",
+    "partition": "TERM",
+    "partition_column": "created_at",
+    "sensitivity": "INTERNAL",
+    "retention": "30D",
+    "primary_key": [
+      "id"
+    ],
+    "unique": [
+      {
+        "columns": [
+          "scope_key"
+        ],
+        "where": null,
+        "nullsNotDistinct": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "column": "actor_id",
+        "references": "Users.id",
+        "deferrable": false
+      }
+    ],
+    "secret_columns": [],
+    "derived_columns": []
+  }
+}
