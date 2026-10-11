@@ -51,6 +51,7 @@ class Sheet {
   }
   getDataRange() { return this.getRange(1, 1, Math.max(1, this.getLastRow()), Math.max(1, this.getLastColumn())); }
   setFrozenRows(n) { this.frozen = n; return this; }
+  deleteRows(start, n) { this.rows.splice(start - 1, n); return this; }
   getFrozenRows() { return this.frozen; }
   cell(r, c) { return (this.rows[r - 1] && this.rows[r - 1][c - 1]) || null; }
   setCell(r, c, cell) {
@@ -168,6 +169,101 @@ class DriveFile {
   setDescription(d) { this.description = d; return this; }
   setSharing(access) { this.sharing = access; return this; }
   getSharingAccess() { return this.sharing; }
+  makeCopy(name, folder) {
+    const id = this.sim.newId(this.doc ? 'doc' : 'file');
+    const f = new DriveFile(this.sim, id, name || `Copy of ${this.name}`, this.blob.copyBlob(), folder || this.folder);
+    if (this.doc) { f.doc = this.doc.clone(id, f.name); this.sim.docs.set(id, f.doc); }
+    if (this.book) { const b = new Spreadsheet(this.sim, id, f.name); b.sheets = this.book.sheets.map((sh) => { const c = new Sheet(b, sh.name); c.rows = sh.rows.map((r) => (r ? r.map((x) => (x ? { ...x } : x)) : r)); return c; }); this.sim.books.set(id, b); f.book = b; }
+    this.sim.files.push(f);
+    return f;
+  }
+  getAs(mime) {
+    if (this.doc && mime === 'application/pdf') return new Blob(Buffer.from(`%PDF-EMULATOR\n${this.doc.renderText()}`, 'utf8'), 'application/pdf', `${this.name}.pdf`);
+    throw new Error(`Exception: Converting from ${this.getMimeType()} to ${mime} is not supported.`);
+  }
+}
+
+/** Minimal Google Docs model for DocumentApp/Docs emulation: a body of paragraphs and tables. */
+class SimText {
+  constructor(owner) { this.owner = owner; }
+  getText() { return this.owner.text; }
+  deleteText(a, b) { this.owner.text = this.owner.text.slice(0, a) + this.owner.text.slice(b + 1); return this; }
+  insertText(at, t) { this.owner.text = this.owner.text.slice(0, at) + t + this.owner.text.slice(at); return this; }
+  setFontFamily(f) { this.owner.font = f; return this; }
+  setFontSize(n) { this.owner.size = n; return this; }
+  setBold(b) { this.owner.bold = b; return this; }
+  getParent() { return this.owner; }
+  getType() { return 'TEXT'; }
+}
+class SimParagraph {
+  constructor(section, text) { this.section = section; this.text = text; this.heading = null; }
+  getType() { return 'PARAGRAPH'; }
+  getParent() { return this.section; }
+  setHeading(hd) { this.heading = hd; return this; }
+  setText(t) { this.text = t; return this; }
+  getText() { return this.text; }
+  editAsText() { return new SimText(this); }
+  asText() { return new SimText(this); }
+  asParagraph() { return this; }
+}
+class SimTable {
+  constructor(section, cells) { this.section = section; this.cells = cells.map((r) => [...r]); this.bold = {}; }
+  getType() { return 'TABLE'; }
+  getParent() { return this.section; }
+  getNumRows() { return this.cells.length; }
+  getRow(i) { const t = this; return { editAsText: () => ({ setBold: (b) => { t.bold[i] = b; return this; } }) }; }
+}
+class SimSection {
+  constructor(type) { this.type = type; this.children = []; this.page = {}; }
+  getType() { return this.type; }
+  getParent() { return null; }
+  clear() { this.children = []; return this; }
+  appendParagraph(t) { const p = new SimParagraph(this, t); this.children.push(p); return p; }
+  insertTable(i, cells) { const t = new SimTable(this, cells); this.children.splice(i, 0, t); return t; }
+  appendTable(cells) { return this.insertTable(this.children.length, cells); }
+  getChildIndex(el) { return this.children.indexOf(el); }
+  getNumChildren() { return this.children.length; }
+  getChild(i) { return this.children[i]; }
+  removeChild(el) { this.children = this.children.filter((x) => x !== el); return this; }
+  editAsText() { const sec = this; return { setFontFamily(f) { sec.font = f; return this; }, setFontSize(n) { sec.size = n; return this; } }; }
+  findText(pattern) {
+    const re = new RegExp(pattern);
+    for (const c of this.children) {
+      if (!(c instanceof SimParagraph)) continue;
+      const m = re.exec(c.text);
+      if (m) return { getElement: () => ({ asText: () => new SimText(c), getParent: () => c, getType: () => 'TEXT' }), getStartOffset: () => m.index, getEndOffsetInclusive: () => m.index + m[0].length - 1 };
+    }
+    return null;
+  }
+  setPageWidth(w) { this.page.width = w; return this; }
+  setPageHeight(v) { this.page.height = v; return this; }
+  setMarginTop(v) { this.page.top = v; return this; }
+  setMarginBottom(v) { this.page.bottom = v; return this; }
+  setMarginLeft(v) { this.page.left = v; return this; }
+  setMarginRight(v) { this.page.right = v; return this; }
+}
+class SimDocument {
+  constructor(sim, id, name) { Object.assign(this, { sim, id, name }); this.body = new SimSection('BODY_SECTION'); this.header = null; this.footer = null; this.requests = []; this.closed = false; }
+  getId() { return this.id; }
+  getName() { return this.name; }
+  getBody() { return this.body; }
+  getHeader() { return this.header; }
+  getFooter() { return this.footer; }
+  addHeader() { this.header = this.header || new SimSection('HEADER_SECTION'); return this.header; }
+  addFooter() { this.footer = this.footer || new SimSection('FOOTER_SECTION'); return this.footer; }
+  saveAndClose() { this.closed = true; }
+  clone(id, name) {
+    const d = new SimDocument(this.sim, id, name);
+    const copySec = (src, dst) => { dst.children = src.children.map((c) => (c instanceof SimParagraph ? Object.assign(new SimParagraph(dst, c.text), { heading: c.heading }) : new SimTable(dst, c.cells))); dst.page = { ...src.page }; return dst; };
+    copySec(this.body, d.body);
+    if (this.header) d.header = copySec(this.header, new SimSection('HEADER_SECTION'));
+    if (this.footer) d.footer = copySec(this.footer, new SimSection('FOOTER_SECTION'));
+    return d;
+  }
+  renderText() {
+    const sec = (s) => (s ? s.children.map((c) => (c instanceof SimParagraph ? c.text : c.cells.map((r) => r.join(' | ')).join('\n'))).join('\n') : '');
+    return [sec(this.header), sec(this.body), sec(this.footer)].filter(Boolean).join('\n');
+  }
 }
 
 class Folder {
@@ -178,6 +274,9 @@ class Folder {
   getFoldersByName(n) { return iter(this.sim.folders.filter((f) => f.parent === this && f.name === n)); }
   getFilesByName(n) { return iter(this.sim.files.filter((f) => f.folder === this && f.name === n && !f.trashed)); }
   getFiles() { return iter(this.sim.files.filter((f) => f.folder === this && !f.trashed)); }
+  getFolders() { return iter(this.sim.folders.filter((f) => f.parent === this && !f.trashed)); }
+  setTrashed(t) { this.trashed = !!t; return this; }
+  isTrashed() { return !!this.trashed; }
   createFile(blob) { const f = new DriveFile(this.sim, this.sim.newId('file'), blob.getName() || 'untitled', blob, this); this.sim.files.push(f); return f; }
 }
 
@@ -192,6 +291,7 @@ export class GasSim {
     this.activeEmail = activeEmail === null ? ownerEmail : activeEmail;
     this.props = { ...properties };
     this.books = new Map();
+    this.docs = new Map();
     this.files = [];
     this.folders = [];
     this.cache = new Map();
@@ -279,9 +379,42 @@ export class GasSim {
       Access: { PRIVATE: 'PRIVATE', ANYONE_WITH_LINK: 'ANYONE_WITH_LINK', ANYONE: 'ANYONE' },
       Permission: { VIEW: 'VIEW', EDIT: 'EDIT', NONE: 'NONE' },
     };
+    const DocumentApp = {
+      ElementType: { BODY_SECTION: 'BODY_SECTION', PARAGRAPH: 'PARAGRAPH', TABLE: 'TABLE', TEXT: 'TEXT' },
+      ParagraphHeading: { HEADING1: 'HEADING1', NORMAL: 'NORMAL' },
+      create(name) {
+        const id = sim.newId('doc');
+        const d = new SimDocument(sim, id, name);
+        d.body.appendParagraph('');
+        sim.docs.set(id, d);
+        sim.files.push(Object.assign(new DriveFile(sim, id, name, new Blob([], 'application/vnd.google-apps.document', name), sim.root), { doc: d }));
+        return d;
+      },
+      openById(id) { const d = sim.docs.get(id); if (!d) throw new Error(`Exception: Document ${id} is missing`); d.closed = false; return d; },
+    };
+    const Docs = {
+      Documents: {
+        get(id) {
+          const d = sim.docs.get(id);
+          let index = 1;
+          const content = d.body.children.map((c) => { const start = index; index += c instanceof SimTable ? 10 * c.cells.length : (c.text || '').length + 1; return c instanceof SimTable ? { startIndex: start, table: { rows: c.cells.length } } : { startIndex: start, paragraph: {} }; });
+          return { documentId: id, body: { content } };
+        },
+        batchUpdate(req, id) { const d = sim.docs.get(id); d.requests.push(...req.requests); return { replies: req.requests.map(() => ({})) }; },
+      },
+    };
     const MailApp = { sendEmail: (o) => { sim.mail.push(o); }, getRemainingDailyQuota: () => 100 - sim.mail.length };
     const UrlFetchApp = {
       fetch: (url, params = {}) => {
+        const exp = /^https:\/\/www\.googleapis\.com\/drive\/v3\/files\/([^/]+)\/export\?mimeType=(.+)$/.exec(url);
+        if (exp) {
+          // Drive files.export emulation: a fake XLSX (zip magic + JSON of the sheet values)
+          const book = sim.books.get(decodeURIComponent(exp[1]));
+          if (!book || !(params.headers && /^Bearer /.test(params.headers.Authorization || ''))) return { getResponseCode: () => 404, getContentText: () => '', getAllHeaders: () => ({}), getHeaders: () => ({}), getBlob: () => new Blob([], 'text/plain') };
+          sim.exports = (sim.exports || 0) + 1;
+          const bytes = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from(JSON.stringify(book.sheets.map((sh) => sh.getDataRange().getValues())), 'utf8')]);
+          return { getResponseCode: () => 200, getContentText: () => bytes.toString('latin1'), getAllHeaders: () => ({}), getHeaders: () => ({}), getBlob: () => new Blob(bytes, decodeURIComponent(exp[2])) };
+        }
         if (!sim.fetchHandler) throw new Error('Exception: DNS error (no handler in emulator)');
         const r = sim.fetchHandler(url, params);
         return { getResponseCode: () => r.status, getContentText: () => r.body, getAllHeaders: () => r.headers || {}, getHeaders: () => r.headers || {}, getBlob: () => new Blob(Buffer.from(r.body), 'application/json') };
@@ -318,7 +451,7 @@ export class GasSim {
     const logs = [];
     this.logs = logs;
     const consoleProxy = { log: (...a) => logs.push(['log', a.join(' ')]), info: (...a) => logs.push(['info', a.join(' ')]), warn: (...a) => logs.push(['warn', a.join(' ')]), error: (...a) => logs.push(['error', a.join(' ')]) };
-    return { SpreadsheetApp, LockService, PropertiesService, CacheService, Utilities, DriveApp, MailApp, UrlFetchApp, ScriptApp, Session, HtmlService, ContentService, Logger: { log: consoleProxy.log }, console: consoleProxy };
+    return { SpreadsheetApp, LockService, PropertiesService, CacheService, Utilities, DriveApp, DocumentApp, Docs, MailApp, UrlFetchApp, ScriptApp, Session, HtmlService, ContentService, Logger: { log: consoleProxy.log }, console: consoleProxy };
   }
 
   /** Load gas-dist files into a fresh V8 context exactly like Apps Script concatenates project files. */

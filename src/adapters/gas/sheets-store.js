@@ -267,6 +267,44 @@ export class SheetsStore {
     return G().PropertiesService.getScriptProperties().getProperty('CWK_SYSTEM_MODE') || 'NORMAL';
   }
 
+  /**
+   * Retention: clear every data row of one TERM partition of an operational table (header kept).
+   * Runs under the script lock; the caller (retention.purge) checks policy/eligibility and audits.
+   */
+  purgePartition(table, partition) {
+    if (getTable(table).partition !== 'TERM' || partition === '*') throw new AppError('VALIDATION_ERROR', 'only TERM partitions can be purged');
+    return this.withLock(() => {
+      this._catalog = null;
+      this._sheets.clear();
+      const sh = this._sheet(table, partition);
+      if (!sh) return 0;
+      const n = Math.max(0, sh.getLastRow() - 1);
+      if (n > 0) sh.deleteRows(2, n);
+      return n;
+    });
+  }
+
+  /**
+   * Retention for small non-partitioned operational tables (Jobs): rewrite the sheet without the rows
+   * matching `where`, under the script lock. Returns the number of rows removed.
+   */
+  purgeWhere(table, where) {
+    if (table !== 'Jobs') throw new AppError('VALIDATION_ERROR', 'purgeWhere is limited to the Jobs table');
+    return this.withLock(() => {
+      this._catalog = null;
+      this._sheets.clear();
+      const sh = this._sheet(table, '*');
+      const rows = this._readAll(table, '*');
+      const keep = rows.filter((x) => !matchesWhere(x.rec, where)).map((x) => encodeRow(table, x.rec));
+      const removed = rows.length - keep.length;
+      if (!removed) return 0;
+      const last = sh.getLastRow();
+      if (last >= 2) sh.deleteRows(2, last - 1);
+      if (keep.length) sh.getRange(2, 1, keep.length, headerOf(table).length).setValues(keep);
+      return removed;
+    });
+  }
+
   withLock(fn) {
     const lock = G().LockService.getScriptLock();
     const t0 = Date.now();

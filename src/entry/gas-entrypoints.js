@@ -47,3 +47,7 @@ function adminSchemaCheck() {
 function adminRecoverJournal() {
   return CWK.admin.recoverJournal();
 }
+
+function adminRestoreSnapshot() {
+  return CWK.admin.restoreSnapshot();
+}

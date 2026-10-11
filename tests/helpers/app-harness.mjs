@@ -26,7 +26,7 @@ export function makeHarness({ now = '2026-06-15T01:00:00.000Z', env = 'DEV', ide
   const deps = {
     store, mutations: store, clock, ids: nodeIds, crypto: nodeCrypto, cache, config,
     identity: identity || new DemoIdentityVerifier({ env, passphrase: PASS }),
-    registry: buildRegistry(), rateLimiter: new MemoryRateLimiter(clock), metrics: new MetricsRecorder(), logger: silentLogger,
+    registry: buildRegistry(), rateLimiter: new MemoryRateLimiter(clock), metrics: new MetricsRecorder(clock), logger: silentLogger,
     platform: { storage: new MemoryAttachmentStorage(), setSystemMode: (m) => { config.systemMode = m; store.mode = m; }, ...extraPlatform },
   };
   const h = {
@@ -109,4 +109,11 @@ export class FakeLineProvider {
   }
   reply(replyToken, messages) { this.replies.push({ replyToken, messages }); }
   issueLinkToken(lineUserId) { const t = `LinkTok${this.linkTokens.length + 1}abcdef`; this.linkTokens.push({ lineUserId, token: t }); return t; }
+}
+
+/** Report renderer double for XLSX/PDF (the real ones need Apps Script); records the prepared document. */
+export class FakeReportRenderer {
+  constructor() { this.calls = []; }
+  xlsx(doc) { this.calls.push(['XLSX', doc]); return new Uint8Array(Buffer.from(`PK-FAKE-XLSX rows=${doc.rows_data.length}`)); }
+  pdf(doc) { this.calls.push(['PDF', doc]); return new Uint8Array(Buffer.from(`%PDF-FAKE ${doc.title} rows=${doc.rows_display.length}`)); }
 }

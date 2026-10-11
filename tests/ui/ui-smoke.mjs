@@ -274,7 +274,30 @@ try {
     step('exemption keeps the real arrival and stops counting it', !errs.length && proj.is_late && proj.lateness_exempted && !proj.late_counted);
     const e3 = await visit(page, '#/notify-monitor', 'ติดตามการส่งแจ้งเตือน');
     step('notification monitor renders for student affairs', !e3.length, e3.join(' | '));
+    // reports: on-screen R01 equals the dashboard numbers; CSV file job; download through the browser
+    const e4 = await visit(page, '#/reports?code=R01', 'รายงาน');
+    await page.fill('input[name=date]', '2026-06-15');
+    await page.click('form button[type=submit]:has-text("แสดงบนจอ")');
+    await page.waitForSelector('main h3:has-text("R01")', { timeout: 10000 });
+    const cells = await page.$$eval('main table tbody tr:last-child td', (tds) => tds.map((td) => td.textContent.trim()));
+    const dash = h.ok(ids.affairs, 'dashboard.summary', { school_date: '2026-06-15' });
+    const want = ['รวม', dash.totals.school_days, dash.totals.present, dash.totals.late_counted, dash.totals.full_day_leave, dash.totals.partial_leave, dash.totals.absent_confirmed, dash.totals.unknown].map(String);
+    step('report R01 renders on screen with totals equal to the dashboard', !e4.length && want.every((v, i) => cells[i] === v), `${cells.slice(0, 8).join('|')} vs ${want.join('|')}`);
+    await page.click('button:has-text("สร้างไฟล์ CSV")');
+    await page.waitForFunction(() => [...document.querySelectorAll('.toast')].some((t) => t.textContent.includes('เข้าคิวสร้าง')), null, { timeout: 10000 });
+    h.runJobs();
+    await visit(page, '#/reports?code=R01', 'รายงาน');
+    await page.waitForSelector('button:has-text("ดาวน์โหลด")', { timeout: 10000 });
+    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.click('button:has-text("ดาวน์โหลด")')]);
+    const dlPath = await dl.path();
+    const bytes = fs.readFileSync(dlPath);
+    step('CSV file downloads with BOM and Thai header', dl.suggestedFilename().endsWith('.csv') && bytes[0] === 0xef && bytes.toString('utf8').includes('ผู้มีสิทธิ์มาเรียน'), dl.suggestedFilename());
     await page.close();
+    const adm = await openAs(ids.admin, 'admin');
+    const e5 = await visit(adm, '#/health', 'สถานะระบบ');
+    const panels = await adm.$$eval('main section h2', (hs) => hs.map((x) => x.textContent));
+    step('health page shows metrics, backups and retention panels', !e5.length && ['การสำรองข้อมูล', 'ระยะเวลาเก็บบันทึกระบบ'].every((t) => panels.includes(t)), panels.join(', '));
+    await adm.close();
   }
 } catch (e) {
   step('unexpected failure', false, e.message.split('\n')[0]);

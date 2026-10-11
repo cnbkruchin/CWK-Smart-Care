@@ -55,7 +55,7 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
 | EXTERNAL_SERVICE_ERROR | ใช่ | บริการภายนอกขัดข้อง ระบบจะลองใหม่อัตโนมัติ |
 | INTERNAL_ERROR | ใช่ | เกิดข้อผิดพลาดภายในระบบ กรุณาลองใหม่ หากยังพบปัญหาให้แจ้งรหัสอ้างอิงต่อผู้ดูแลระบบ |
 
-## Operations (111)
+## Operations (125)
 
 | operation | auth | permission | mutation | idempotency | rate/min | คำอธิบาย |
 |---|---|---|---|---|---|---|
@@ -79,6 +79,9 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
 | `auth.getCurrentUser` | IDENTITY | ตาม handler |  | NONE | 300 | ข้อมูลผู้ใช้ปัจจุบัน บทบาท และเมนูที่มีสิทธิ์ |
 | `auth.logout` | IDENTITY | ตาม handler |  | NONE | 300 | ออกจากระบบ (ล้างผลตรวจ token ที่ server cache; client เรียก signOut ของ SDK) |
 | `auth.redeemInvitation` | IDENTITY | ตาม handler | ✔ | REQUIRED | 10 | ใช้รหัสคำเชิญผูกบัญชีผู้ให้บริการยืนยันตัวตนกับผู้ใช้ในระบบ (ครั้งเดียว มีอายุ) |
+| `backup.list` | USER | backup.manage | system.health |  | NONE | 300 | ประวัติการสำรองข้อมูลและผลทดสอบ restore |
+| `backup.recordRestoreTest` | USER | backup.manage | ✔ | REQUIRED | 120 | บันทึกผลทดสอบ restore ไป environment ใหม่ (ผล + เวลาที่ใช้จริง) |
+| `backup.run` | USER | backup.manage | ✔ | REQUIRED | 120 | สั่งสำรองข้อมูลทันที (งานเบื้องหลัง) |
 | `calendar.set` | USER | settings.business | ✔ | REQUIRED | 120 | กำหนดวันหยุด/วันพิเศษ (ทับค่าเริ่มต้นจันทร์–ศุกร์) |
 | `case.assign` | USER | case.manage | ✔ | REQUIRED | 120 | มอบหมาย/ส่งต่อผู้รับผิดชอบ (ผู้รับต้องมีสิทธิ์ดูแลนักเรียน) |
 | `case.assignable` | USER | case.manage |  | NONE | 300 | รายชื่อผู้ที่รับมอบหมายเรื่องของนักเรียนคนนี้ได้ |
@@ -142,6 +145,16 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
 | `period.create` | USER | settings.business | ✔ | REQUIRED | 120 | กำหนดคาบเรียนพร้อมวันที่มีผล |
 | `reconciliation.list` | USER | attendance.reconcile |  | NONE | 300 | งานตรวจสอบข้อมูลขัดกัน/ยังไม่ทราบสถานะ ตามขอบเขต |
 | `reconciliation.resolve` | USER | attendance.reconcile | ✔ | REQUIRED | 120 | ปิดงานตรวจสอบพร้อมบันทึกข้อสรุป |
+| `report.catalog` | USER | report.view | notification.monitor | audit.read | system.health |  | NONE | 300 | รายงานที่บัญชีนี้ใช้ได้ พร้อมตัวกรองและรูปแบบไฟล์ |
+| `report.download` | USER | report.export |  | NONE | 30 | ดาวน์โหลดไฟล์รายงาน (ตรวจสิทธิ์อีกครั้งทุกครั้ง) |
+| `report.lock` | USER | report.lock | ✔ | REQUIRED | 120 | ล็อกรายงานเป็นฉบับทางการ (แก้ไขข้อมูลภายหลังต้องออกฉบับใหม่ ฉบับนี้ไม่เปลี่ยน) |
+| `report.preview` | USER | ตามรายงาน |  | NONE | 30 | แสดงรายงานบนจอ (ไม่เกิน 500 แถว) — ใช้ projection เดียวกับแดชบอร์ด |
+| `report.rerun` | USER | report.export | ✔ | REQUIRED | 120 | สร้างรายงานฉบับใหม่ด้วยตัวกรองเดิม (revision) — ฉบับเดิมยังเก็บไว้ |
+| `report.run` | USER | report.export + สิทธิ์ของรายงาน | ✔ | REQUIRED | 10 | สร้างไฟล์รายงาน (CSV/XLSX/PDF) เป็นงานเบื้องหลัง |
+| `report.runs` | USER | report.export | report.lock |  | NONE | 300 | รายการไฟล์รายงานที่สร้าง (ของฉัน หรือทั้งหมดสำหรับผู้ล็อกรายงานได้) |
+| `retention.preview` | USER | system.maintenance |  | NONE | 300 | ตารางบันทึกระบบที่ครบระยะเก็บแล้ว (ต่อภาคเรียน) และนโยบายไฟล์แนบ |
+| `retention.purge` | USER | system.maintenance | ✔ | REQUIRED | 120 | ล้างบันทึกระบบของภาคเรียนที่ครบระยะเก็บ (เฉพาะตารางปฏิบัติการ) |
+| `retention.purgeJobs` | USER | system.maintenance | ✔ | REQUIRED | 120 | ลบงานเบื้องหลังที่จบแล้วเกิน 90 วัน |
 | `role.grant` | USER | role.assign | ✔ | REQUIRED | 120 | กำหนดบทบาทพร้อมช่วงวันที่มีผล |
 | `role.revoke` | USER | role.assign | ✔ | REQUIRED | 120 | เพิกถอนบทบาท (มีผลทันที) |
 | `rollcall.get` | USER | attendance.rollcall | attendance.read |  | NONE | 300 | รายชื่อเช็กชื่อประจำวันตาม enrollment ของวันนั้น พร้อมข้อมูลประตูและใบลา |
@@ -164,6 +177,7 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
 | `student.setPhoto` | USER | student.manage | ✔ | REQUIRED | 120 | ตั้งรูปนักเรียน (ใช้ตรวจตัวบุคคลที่ประตู; ระบบย่อรูปที่เครื่องก่อนส่ง) |
 | `student.update` | USER | student.manage | ✔ | REQUIRED | 120 | แก้ไขข้อมูลนักเรียน (มี audit และ version) |
 | `system.health` | USER | system.health |  | NONE | 30 | สถานะระบบ (ไม่เปิดเผยความลับ) |
+| `system.metrics` | USER | system.health |  | NONE | 300 | เวลาตอบสนอง p50/p95 อัตราผิดพลาด และ lock wait ตาม operation (ช่วงล่าสุด) |
 | `system.setMode` | USER | system.maintenance | ✔ | REQUIRED | 120 | เปิด/ปิดโหมดอ่านอย่างเดียว (server บังคับทุกช่องทาง) |
 | `term.create` | USER | settings.business | ✔ | REQUIRED | 120 | สร้างภาคเรียน (สร้าง partition workbook ให้อัตโนมัติบน Sheets) |
 | `user.createStaff` | USER | user.manage + role.assign | ✔ | REQUIRED | 120 | สร้างบัญชีบุคลากร (สถานะรอเปิดใช้งาน) พร้อมบทบาท |
@@ -926,6 +940,75 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
       "maxLength": 40
     }
   }
+}
+```
+
+### backup.list
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "limit": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 200
+    }
+  }
+}
+```
+
+### backup.recordRestoreTest
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "backup_run_id",
+    "result",
+    "minutes",
+    "note"
+  ],
+  "properties": {
+    "backup_run_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "result": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "FAIL"
+      ]
+    },
+    "minutes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000
+    },
+    "note": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 1000
+    }
+  }
+}
+```
+
+### backup.run
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
 }
 ```
 
@@ -3297,6 +3380,279 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
 }
 ```
 
+### report.catalog
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+### report.download
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### report.lock
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "note": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500
+    }
+  }
+}
+```
+
+### report.preview
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "code"
+  ],
+  "properties": {
+    "code": {
+      "type": "string",
+      "enum": [
+        "R01",
+        "R02",
+        "R03",
+        "R04",
+        "R05",
+        "R06",
+        "R07",
+        "R08",
+        "R09",
+        "R10",
+        "R11",
+        "R12"
+      ]
+    },
+    "filter": {
+      "type": "object",
+      "maxProperties": 20,
+      "additionalProperties": {
+        "type": [
+          "string",
+          "boolean",
+          "null"
+        ],
+        "maxLength": 100
+      }
+    }
+  }
+}
+```
+
+### report.rerun
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### report.run
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "code",
+    "format"
+  ],
+  "properties": {
+    "code": {
+      "type": "string",
+      "enum": [
+        "R01",
+        "R02",
+        "R03",
+        "R04",
+        "R05",
+        "R06",
+        "R07",
+        "R08",
+        "R09",
+        "R10",
+        "R11",
+        "R12"
+      ]
+    },
+    "filter": {
+      "type": "object",
+      "maxProperties": 20,
+      "additionalProperties": {
+        "type": [
+          "string",
+          "boolean",
+          "null"
+        ],
+        "maxLength": 100
+      }
+    },
+    "format": {
+      "type": "string",
+      "enum": [
+        "CSV",
+        "XLSX",
+        "PDF"
+      ]
+    }
+  }
+}
+```
+
+### report.runs
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "code": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "R01",
+        "R02",
+        "R03",
+        "R04",
+        "R05",
+        "R06",
+        "R07",
+        "R08",
+        "R09",
+        "R10",
+        "R11",
+        "R12",
+        null
+      ]
+    },
+    "limit": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 200
+    }
+  }
+}
+```
+
+### retention.preview
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+### retention.purge
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "table",
+    "partition",
+    "reason"
+  ],
+  "properties": {
+    "table": {
+      "type": "string",
+      "enum": [
+        "IdempotencyRecords",
+        "MutationJournal",
+        "WebhookInbox",
+        "OperationMetrics",
+        "NotificationAttempts"
+      ]
+    },
+    "partition": {
+      "type": "string",
+      "pattern": "^AY[0-9]{4}-T[0-9]$"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 500
+    }
+  }
+}
+```
+
+### retention.purgeJobs
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "reason"
+  ],
+  "properties": {
+    "reason": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 500
+    }
+  }
+}
+```
+
 ### role.grant
 
 ```json
@@ -4056,6 +4412,26 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
   "additionalProperties": false,
   "required": [],
   "properties": {}
+}
+```
+
+### system.metrics
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "hours": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 168
+    }
+  }
 }
 ```
 

@@ -44,14 +44,31 @@ export class MemoryRateLimiter {
   }
 }
 
+export const METRIC_BUCKET_MS = 300000; // 5-minute buckets (same as Apps Script)
+
 export class MetricsRecorder {
-  constructor() { this.samples = new Map(); }
-  record(op, ms, ok) {
+  constructor(clock = null) { this.samples = new Map(); this.clock = clock; this.buckets = new Map(); }
+  record(op, ms, ok, lockWaitMs = 0) {
     if (!this.samples.has(op)) this.samples.set(op, { ms: [], errors: 0 });
     const s = this.samples.get(op);
     s.ms.push(ms);
     if (!ok) s.errors++;
     if (s.ms.length > 5000) s.ms.shift();
+    const now = this.clock ? Date.parse(this.clock.now()) : Date.now();
+    const b = Math.floor(now / METRIC_BUCKET_MS) * METRIC_BUCKET_MS;
+    if (!this.buckets.has(b)) this.buckets.set(b, []);
+    const list = this.buckets.get(b);
+    if (list.length < 2000) list.push([op, ms, ok ? 1 : 0, lockWaitMs]);
+  }
+  /** Remove and return closed buckets (bucket start < beforeMs): [{bucket_start_ms, samples:[[op, ms, ok, lockWait]]}]. */
+  drain(beforeMs) {
+    const out = [];
+    for (const [b, samples] of [...this.buckets.entries()].sort((x, y) => x[0] - y[0])) {
+      if (b >= beforeMs) continue;
+      out.push({ bucket_start_ms: b, samples });
+      this.buckets.delete(b);
+    }
+    return out;
   }
   summary() {
     const out = {};

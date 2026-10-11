@@ -1,0 +1,41 @@
+# THREAT MODEL — CWK Smart Care (สั้น โยงกับมาตรการและการทดสอบ)
+
+> ขอบเขต: เว็บแอป (Apps Script HtmlService), RPC dispatcher, Google Sheets/Drive, gateway (Node), LINE, อีเมล
+> สถานะการทดสอบ: "automated" = มีการทดสอบอัตโนมัติในโฟลเดอร์ `tests/` (ผ่านทั้งหมดในรอบล่าสุด) —
+> **ทุกการทดสอบรันบน memory adapter / Apps Script emulator / Chromium headless ไม่ใช่ Apps Script, Firebase, LINE จริง**
+> ส่วน "manual (UAT)" คือรายการที่ต้องทดสอบบนบัญชีจริงของโรงเรียน (docs/UAT ในชุดที่ 8)
+
+## ทรัพย์สินที่ต้องปกป้อง
+
+ข้อมูลระบุตัวนักเรียน/ผู้ปกครอง, การมาเรียน, ใบลาและใบรับรองแพทย์ (อ่อนไหว), บันทึกการติดต่อ/เรื่องติดตาม, บัญชีและบทบาท,
+secrets (gateway HMAC, LINE token/secret, envelope key, demo passphrase), สำเนาสำรอง และไฟล์รายงานที่ส่งออก
+
+## ผู้คุกคามที่พิจารณา
+
+ผู้ปกครอง/นักเรียนที่พยายามดูข้อมูลคนอื่น, บุคลากรที่ใช้สิทธิ์เกินหน้าที่, ผู้ที่ได้ URL `/exec` หรือข้อมูลที่หลุด,
+ผู้ปลอม webhook, ผู้ที่ขโมย token/อุปกรณ์, ความผิดพลาดของผู้ใช้/ผู้ดูแลเอง (ลบ/แก้ข้อมูลผิด)
+
+| # | ภัย | ตัวอย่าง | มาตรการ (ไฟล์) | การทดสอบ |
+|---|---|---|---|---|
+| T1 | **Impersonation** — อ้างเป็นผู้อื่น | ส่ง `user_id`/role ใน payload, ปลอม token | ตัวตนมาจาก IdentityVerifier เท่านั้น (Firebase `verifyIdToken(token, checkRevoked)` ผ่าน gateway + ตรวจ aud/iss/exp/sub ซ้ำใน GAS) → IdentityLinks → Users → roles จากฐานข้อมูล (`src/application/principal.js`, `src/adapters/gas/identity-gateway.js`); ไม่เชื่อ role/user_id จาก client; DEMO mode ถูกปฏิเสธใน PROD (`src/adapters/gas/config.js`) | automated: foundation "an unlinked identity cannot call USER operations…", "guardian sees only verified-linked child; payload tampering is refused"; gateway "identity verify: HMAC auth, skew, replay…" · manual (UAT): Firebase จริง |
+| T2 | **IDOR** — เปลี่ยน id เพื่อดูข้อมูลคนอื่น | `student.profile` / `attachment.download` / `report.download` / `notification.acknowledge` ด้วย id ของคนอื่น | ทุก operation เรียก `requirePermission` ด้วย resource (student/class/owner) บน server (`src/application/authz.js`); ตอบ NOT_FOUND-style เพื่อไม่ยืนยันการมีอยู่; รายงานสร้างด้วยสิทธิ์ของผู้ขอ ณ เวลาสร้าง และตรวจซ้ำตอนดาวน์โหลด (`src/application/ops/reports.js`) | automated: permissions "guardian of A cannot read, download or search child B…"; daily "guardian cannot open an unrelated student profile" (UI); reports "file runs… another homeroom cannot download"; followup "someone else cannot act on this recipient row" |
+| T3 | **XSS** | ชื่อ/เหตุผลที่มี `<script>` ถูกแสดงในหน้าจอ | สร้าง DOM ด้วย `h()`/`textContent` เท่านั้น ไม่มี innerHTML กับข้อมูลผู้ใช้; `href/src` จำกัด scheme (`frontend/src/lib/dom.js`); boot JSON escape `<`, U+2028/2029 (`src/entry/gas-main.js`); HtmlService sandbox | automated: GAS "doGet serves App.html with escaped boot JSON and no secrets"; UI smoke "no page errors or console errors" · manual: ทดสอบข้อมูลที่มี `<img onerror>` ใน UAT |
+| T4 | **Token leakage** | token อยู่ใน log, URL, localStorage | token ส่งใน envelope ตอน runtime เท่านั้น ไม่เก็บใน storage ของแอป (Firebase SDK จัดการ persistence ตามค่า `CWK_AUTH_PERSISTENCE`); cache ใช้ SHA-256 ของ token เป็น key และเก็บแค่ผลตรวจ ≤ 300 วินาที; logger รับเฉพาะ id/code; gateway log ไม่มี body/token/ลายเซ็น/LINE user ID; ลิงก์ดาวน์โหลดไม่มีข้อมูลลับ (ไฟล์ส่งผ่าน RPC ที่ตรวจสิทธิ์) | automated: GAS "doGet … no secrets"; outbox/compose ส่งเฉพาะลิงก์หน้าเว็บ · manual: ตรวจ Executions log และ Cloud Run log (GATEWAY_TH §9 #9) |
+| T5 | **Forged webhook** | POST ไป `/exec` หรือ `/line/webhook` ด้วยข้อมูลปลอม | gateway ตรวจ `x-line-signature` (HMAC-SHA256 ของ raw body) ก่อน parse; GAS รับเฉพาะ envelope ที่ลงลายเซ็นด้วย key แยก + key id + เวลา ±300 วินาที + schema (`gateway/src/app.mjs`, `src/application/webhook/line-webhook.js`) | automated: gateway "LINE: signature checked on raw bytes before parsing…", webhook "envelope: bad signature, wrong key id, stale timestamp and tampered payload are rejected…", GAS "a forged envelope is refused and nothing is stored" |
+| T6 | **Replay** | ส่ง webhook/คำขอซ้ำ, กดปุ่มซ้ำ, postback ของคนอื่น | WebhookInbox unique `(source, webhook_event_id)`; nonce + เวลาสำหรับ identity endpoint; idempotency key + request hash สำหรับทุก mutation; postback ทำในนามผู้ใช้ที่ผูก LINE นั้นและเฉพาะ recipient ของตน; LINE push ใช้ retry key เดิม (409) | automated: webhook "…replay is stored once", "postback ACK/callback acts only as the bound user…"; foundation "idempotency: same key + same payload replays…"; outbox "LINE: worker dies after LINE accepted → … delivered once" |
+| T7 | **Accidental data loss** | ลบแถวใน Sheets, process ตายกลางทาง, เขียนทับกัน, ล้างข้อมูลผิด | MutationJournal (redo log) + ScriptLock + recovery; optimistic concurrency (expected_version); การแก้ไขเป็นเหตุการณ์ใหม่ไม่ลบของเดิม; สำรองประจำคืนแบบ consistent (ถือ lock) + restore drill ไป environment ใหม่; retention ล้างเฉพาะบันทึกระบบของภาคเรียนที่ครบระยะ (ข้อมูลนักเรียนไม่ลบอัตโนมัติ) (`src/adapters/gas/sheets-store.js`, `src/adapters/gas/backup.js`, `src/application/ops/operations.js`) | automated: GAS "journal recovery…" ×2, "reports on Apps Script: … backup snapshot and restore drill"; foundation "optimistic concurrency…"; operations "retention: only operational logs…" · manual: restore drill จริงและบันทึกเวลา |
+| T8 | **Unauthorized export** | ครูเวร/ผู้ปกครองส่งออกรายงาน, ดาวน์โหลดไฟล์ของคนอื่น, CSV formula injection | `report.export`/`migration.export` เฉพาะบทบาทที่อนุญาต; scope ข้อมูลใช้ตอนสร้าง; ดาวน์โหลดตรวจสิทธิ์ใหม่ + checksum + audit; CSV/XLSX: ใส่ `'` หน้าข้อความที่ขึ้นต้น `= + - @` (CSV) และใช้รูปแบบ Plain text (XLSX); ไม่ตั้งไฟล์ใดเป็น anyone-with-link | automated: reports "scope: homeroom sees only own class…", "file runs: CSV (BOM, Thai, neutralised formulas)…", "a failing report run is marked FAILED…"; security "error envelopes never echo credentials…"; GAS "nothing shared" |
+| T9 | **Account takeover** | รหัสผ่านหลุด, อุปกรณ์หาย, ผู้ปกครองเปลี่ยน | Firebase Auth (ยืนยันอีเมล, reset); คำเชิญใช้ครั้งเดียว ผูกอีเมล นับครั้งผิด; ระงับบัญชีมีผลทันที; `revokeSessions` เพิกถอน refresh token; ยกเลิกการผูก LINE (ผู้ใช้/เจ้าหน้าที่/unfollow); ตรวจสิทธิ์ผู้รับซ้ำก่อนส่งทุกข้อความ; SoD (ให้บทบาทตนเองไม่ได้) | automated: foundation "first admin activation…", "separation of duties…", "disabled account is refused immediately…"; outbox "recipient eligibility is re-checked before sending…" · manual: MFA/นโยบายรหัสผ่านของ Firebase (ตั้งค่าโดยผู้ดูแล) |
+| T10 | **Admin surface exposure** | เรียกฟังก์ชัน setup/maintenance ผ่าน google.script.run หรือ URL | public functions จำกัด 11 ตัว (allowlist); admin* ต้องรันจาก editor โดยเจ้าของ + ช่วงเวลาไม่เกิน 2 ชั่วโมง; cronTick ตรวจ triggerUid; GET ไม่เปลี่ยนข้อมูลธุรกิจ | automated: GAS "public surface…", "admin functions refuse…", "cronTick refuses manual/client invocation…" |
+| T11 | **Abuse / DoS ระดับแอป** | ส่งคำขอถี่, payload ใหญ่ | จำกัดขนาด envelope/ไฟล์/หน้า, rate limit ต่อ operation (best effort บน CacheService), gateway จำกัด body 1 MB | automated: security "oversized envelopes are refused…", "page size is capped…", "per-operation rate limits apply per user…", "uploads: wrong type, mismatched content and oversize files are rejected…"; gateway oversize 413 · ข้อจำกัด: rate limit ไม่ atomic |
+
+## สิ่งที่ระบบ **ไม่** อ้าง
+
+- Audit บน Google Sheets **ไม่กันการแก้ไข** โดยผู้ที่แก้ไขสเปรดชีตหรือสคริปต์ได้ — ใช้ตรวจย้อนหลัง ถ้าต้องการหลักฐานแก้ไขไม่ได้ ให้ส่ง audit ไปที่เก็บแบบ immutable เพิ่ม (ไม่ส่งมอบในระยะแรก)
+- ไม่มี malware scanner สำหรับไฟล์แนบ — ตรวจเพียงนามสกุล ชนิด MIME magic bytes ขนาด และชื่อไฟล์ (`src/application/files.js`)
+- rate limit และ metrics บน CacheService เป็น best effort
+- การผ่านการทดสอบอัตโนมัติไม่แทนการทดสอบบน Apps Script/Firebase/LINE จริง และไม่ใช่การรับรองตาม PDPA
+
+## การทบทวน
+
+ทบทวนเอกสารนี้เมื่อ: เพิ่มช่องทางใหม่ (SMS, LINE Login), เปลี่ยน backend เป็น REST, เปิดโมดูลคะแนนพฤติกรรม/ออกนอกโรงเรียน, หรือหลังเหตุการณ์ด้านความปลอดภัย

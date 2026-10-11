@@ -50,6 +50,9 @@ components:
             - auth.getCurrentUser
             - auth.logout
             - auth.redeemInvitation
+            - backup.list
+            - backup.recordRestoreTest
+            - backup.run
             - calendar.set
             - case.assign
             - case.assignable
@@ -113,6 +116,16 @@ components:
             - period.create
             - reconciliation.list
             - reconciliation.resolve
+            - report.catalog
+            - report.download
+            - report.lock
+            - report.preview
+            - report.rerun
+            - report.run
+            - report.runs
+            - retention.preview
+            - retention.purge
+            - retention.purgeJobs
             - role.grant
             - role.revoke
             - rollcall.get
@@ -135,6 +148,7 @@ components:
             - student.setPhoto
             - student.update
             - system.health
+            - system.metrics
             - system.setMode
             - term.create
             - user.createStaff
@@ -1464,6 +1478,155 @@ paths:
         mutation: true
         idempotency: REQUIRED
         rate_limit_per_minute: 10
+  "/v1/ops/backup.list":
+    post:
+      operationId: backup_list
+      summary: "ประวัติการสำรองข้อมูลและผลทดสอบ restore"
+      tags:
+        - backup
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: []
+              properties:
+                limit:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 1
+                  maximum: 200
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: "backup.manage | system.health"
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 300
+  "/v1/ops/backup.recordRestoreTest":
+    post:
+      operationId: backup_recordRestoreTest
+      summary: "บันทึกผลทดสอบ restore ไป environment ใหม่ (ผล + เวลาที่ใช้จริง)"
+      tags:
+        - backup
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - backup_run_id
+                - result
+                - minutes
+                - note
+              properties:
+                backup_run_id:
+                  type: string
+                  format: uuid
+                result:
+                  type: string
+                  enum:
+                    - PASS
+                    - FAIL
+                minutes:
+                  type: integer
+                  minimum: 0
+                  maximum: 10000
+                note:
+                  type: string
+                  minLength: 3
+                  maxLength: 1000
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: backup.manage
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/backup.run":
+    post:
+      operationId: backup_run
+      summary: "สั่งสำรองข้อมูลทันที (งานเบื้องหลัง)"
+      tags:
+        - backup
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: []
+              properties: {}
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: backup.manage
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
   "/v1/ops/calendar.set":
     post:
       operationId: calendar_set
@@ -5250,6 +5413,527 @@ paths:
         mutation: true
         idempotency: REQUIRED
         rate_limit_per_minute: 120
+  "/v1/ops/report.catalog":
+    post:
+      operationId: report_catalog
+      summary: "รายงานที่บัญชีนี้ใช้ได้ พร้อมตัวกรองและรูปแบบไฟล์"
+      tags:
+        - report
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: []
+              properties: {}
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: "report.view | notification.monitor | audit.read | system.health"
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 300
+  "/v1/ops/report.download":
+    post:
+      operationId: report_download
+      summary: "ดาวน์โหลดไฟล์รายงาน (ตรวจสิทธิ์อีกครั้งทุกครั้ง)"
+      tags:
+        - report
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - run_id
+              properties:
+                run_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: report.export
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 30
+  "/v1/ops/report.lock":
+    post:
+      operationId: report_lock
+      summary: "ล็อกรายงานเป็นฉบับทางการ (แก้ไขข้อมูลภายหลังต้องออกฉบับใหม่ ฉบับนี้ไม่เปลี่ยน)"
+      tags:
+        - report
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - run_id
+              properties:
+                run_id:
+                  type: string
+                  format: uuid
+                note:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 500
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: report.lock
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/report.preview":
+    post:
+      operationId: report_preview
+      summary: "แสดงรายงานบนจอ (ไม่เกิน 500 แถว) — ใช้ projection เดียวกับแดชบอร์ด"
+      tags:
+        - report
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - code
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - R01
+                    - R02
+                    - R03
+                    - R04
+                    - R05
+                    - R06
+                    - R07
+                    - R08
+                    - R09
+                    - R10
+                    - R11
+                    - R12
+                filter:
+                  type: object
+                  maxProperties: 20
+                  additionalProperties:
+                    type:
+                      - string
+                      - boolean
+                      - "null"
+                    maxLength: 100
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: "ตามรายงาน"
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 30
+  "/v1/ops/report.rerun":
+    post:
+      operationId: report_rerun
+      summary: "สร้างรายงานฉบับใหม่ด้วยตัวกรองเดิม (revision) — ฉบับเดิมยังเก็บไว้"
+      tags:
+        - report
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - run_id
+              properties:
+                run_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: report.export
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/report.run":
+    post:
+      operationId: report_run
+      summary: "สร้างไฟล์รายงาน (CSV/XLSX/PDF) เป็นงานเบื้องหลัง"
+      tags:
+        - report
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - code
+                - format
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - R01
+                    - R02
+                    - R03
+                    - R04
+                    - R05
+                    - R06
+                    - R07
+                    - R08
+                    - R09
+                    - R10
+                    - R11
+                    - R12
+                filter:
+                  type: object
+                  maxProperties: 20
+                  additionalProperties:
+                    type:
+                      - string
+                      - boolean
+                      - "null"
+                    maxLength: 100
+                format:
+                  type: string
+                  enum:
+                    - CSV
+                    - XLSX
+                    - PDF
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: "report.export + สิทธิ์ของรายงาน"
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 10
+  "/v1/ops/report.runs":
+    post:
+      operationId: report_runs
+      summary: "รายการไฟล์รายงานที่สร้าง (ของฉัน หรือทั้งหมดสำหรับผู้ล็อกรายงานได้)"
+      tags:
+        - report
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: []
+              properties:
+                code:
+                  type:
+                    - string
+                    - "null"
+                  enum:
+                    - R01
+                    - R02
+                    - R03
+                    - R04
+                    - R05
+                    - R06
+                    - R07
+                    - R08
+                    - R09
+                    - R10
+                    - R11
+                    - R12
+                    - null
+                limit:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 1
+                  maximum: 200
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: "report.export | report.lock"
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 300
+  "/v1/ops/retention.preview":
+    post:
+      operationId: retention_preview
+      summary: "ตารางบันทึกระบบที่ครบระยะเก็บแล้ว (ต่อภาคเรียน) และนโยบายไฟล์แนบ"
+      tags:
+        - retention
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: []
+              properties: {}
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: system.maintenance
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 300
+  "/v1/ops/retention.purge":
+    post:
+      operationId: retention_purge
+      summary: "ล้างบันทึกระบบของภาคเรียนที่ครบระยะเก็บ (เฉพาะตารางปฏิบัติการ)"
+      tags:
+        - retention
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - table
+                - partition
+                - reason
+              properties:
+                table:
+                  type: string
+                  enum:
+                    - IdempotencyRecords
+                    - MutationJournal
+                    - WebhookInbox
+                    - OperationMetrics
+                    - NotificationAttempts
+                partition:
+                  type: string
+                  pattern: "^AY[0-9]{4}-T[0-9]$"
+                reason:
+                  type: string
+                  minLength: 5
+                  maxLength: 500
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: system.maintenance
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/retention.purgeJobs":
+    post:
+      operationId: retention_purgeJobs
+      summary: "ลบงานเบื้องหลังที่จบแล้วเกิน 90 วัน"
+      tags:
+        - retention
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+                  minLength: 5
+                  maxLength: 500
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: system.maintenance
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
   "/v1/ops/role.grant":
     post:
       operationId: role_grant
@@ -6516,6 +7200,49 @@ paths:
         mutation: false
         idempotency: NONE
         rate_limit_per_minute: 30
+  "/v1/ops/system.metrics":
+    post:
+      operationId: system_metrics
+      summary: "เวลาตอบสนอง p50/p95 อัตราผิดพลาด และ lock wait ตาม operation (ช่วงล่าสุด)"
+      tags:
+        - system
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: []
+              properties:
+                hours:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 1
+                  maximum: 168
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: system.health
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 300
   "/v1/ops/system.setMode":
     post:
       operationId: system_setMode

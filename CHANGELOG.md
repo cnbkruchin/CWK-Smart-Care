@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+### ชุดที่ 5 — รายงานและงานปฏิบัติการ (2026-10-11) — version 0.5.0
+
+- schema_version 1 (ไม่เปลี่ยนโครงสร้าง): ใช้ `ReportRuns`, `BackupRuns`, `OperationMetrics` ที่มีอยู่แล้ว; Settings เริ่มต้นใหม่ `backup.nightly_time` (01:30), `backup.retention_days` (30)
+- API v1: +14 operations (รวม 125) — report.catalog/preview/run/rerun/runs/download/lock, backup.list/run/recordRestoreTest, system.metrics, retention.preview/purge/purgeJobs
+- jobs/ticks: `report.render`, `backup.snapshot`, tick `ops.schedule` (flush metrics ทุก tick, สำรองประจำคืนวันละครั้ง)
+- รายงาน R01–R12 (นิยามใน docs/REPORTS_TH.md): ดูบนจอ, CSV (UTF-8 BOM, CRLF, กันสูตร), XLSX (Drive export จริง), PDF (Docs template + หัวตารางซ้ำทุกหน้า); ล็อก + revision; ดาวน์โหลดตรวจสิทธิ์ + checksum + audit
+- GAS: public function ใหม่ `adminRestoreSnapshot` (รวม 11) + Script Property `CWK_RESTORE_FROM_FOLDER_ID`; `adminSetup` สร้างแม่แบบรายงาน (`CWK_REPORT_TEMPLATE_DOC_ID`)
+- System health: jobs.heartbeat, backup.recent, backup.restore_tested, outbox.queue_age
+- หน้าจอ: รายงาน; สถานะระบบเพิ่ม metrics, การสำรองข้อมูล (สำรองทันที, บันทึกผลทดสอบ restore), ระยะเวลาเก็บบันทึกระบบ
+- เอกสาร: THREAT_MODEL.md, docs/OPERATIONS_TH.md, docs/REPORTS_TH.md, docs/PRIVACY_NOTICE_DRAFT_TH.md (ร่าง), DECISIONS D-023–D-025
+
 ### ชุดที่ 4 — Follow-up, outbox, email/LINE, gateway (2026-10-11) — version 0.4.0
 
 - schema_version 1 (ยังไม่ release): lookup/index เพิ่ม `NotificationOutbox.delivery_state`, `NotificationRecipients.ack_state`, `ContactLogs.direction`, `ContactLogs.supersedes_id`, `WebhookInbox.status`; คำอธิบาย `ContactLogs.supersedes_id` ครอบคลุมการปิดรายการติดต่อเข้า; state machine Case: RECORD_CONTACT จาก IN_PROGRESS ได้

@@ -67,6 +67,32 @@ export class MemoryStore {
     return this.tables.get(table).size;
   }
 
+  /** Retention for the Jobs table (same contract as the Sheets store). */
+  purgeWhere(table, where) {
+    if (table !== 'Jobs') throw new AppError('VALIDATION_ERROR', 'purgeWhere is limited to the Jobs table');
+    let n = 0;
+    for (const [id, r] of [...this.tables.get(table).entries()]) {
+      if (!applyListQuery([r], { where, limit: 1 }).items.length) continue;
+      this.tables.get(table).delete(id);
+      this.partitionOf.get(table).delete(id);
+      n++;
+    }
+    return n;
+  }
+
+  /** Retention: drop all rows of one TERM partition (same contract as the Sheets store). */
+  purgePartition(table, partition) {
+    if (getTable(table).partition !== 'TERM' || partition === '*') throw new AppError('VALIDATION_ERROR', 'only TERM partitions can be purged');
+    let n = 0;
+    for (const [id, p] of [...this.partitionOf.get(table).entries()]) {
+      if (p !== partition) continue;
+      this.tables.get(table).delete(id);
+      this.partitionOf.get(table).delete(id);
+      n++;
+    }
+    return n;
+  }
+
   // ───────── MutationStore ─────────
   commit(cs) {
     if (this.mode === 'READ_ONLY' && !cs.maintenance_allowed) {

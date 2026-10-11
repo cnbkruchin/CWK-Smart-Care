@@ -2,11 +2,11 @@
 
 | รายการ | ค่า |
 |---|---|
-| project version | 0.4.0 (ยังไม่ใช่ release) · gateway 0.4.0 |
+| project version | 0.5.0 (ยังไม่ใช่ release) · gateway 0.4.0 (ไม่เปลี่ยนในชุดที่ 5) |
 | schema version | 1 (`src/schema/tables.js`, 56 ตาราง) |
-| API version | v1 (111 operations ใน allowlist) |
+| API version | v1 (125 operations ใน allowlist) · public GAS functions 11 |
 | prompt version | MASTER_PROMPT 1.0 (2026-10-10) |
-| ชุดล่าสุดที่ส่งมอบ | ชุดที่ 4 — Follow-up, outbox, email/LINE, gateway |
+| ชุดล่าสุดที่ส่งมอบ | ชุดที่ 5 — รายงานและงานปฏิบัติการ (สำรอง/restore, metrics, retention, security) |
 | อัปเดตล่าสุด | 2026-10-11 |
 
 ## สมมติฐาน (แยกจากข้อมูลจริง)
@@ -19,6 +19,10 @@
 | ยืนยันขาด | เปิดงานตรวจสอบหลัง 10:00; แจ้งผู้ปกครองเมื่อครูยืนยัน | **ค่าตัวอย่าง** |
 | เช็กชื่อย้อนหลัง | 3 วัน (`attendance.rollcall_backdate_days`) | ค่าเริ่มต้น ปรับได้ |
 | เกณฑ์ติดตาม | สาย 3 ครั้ง/30 วันเรียน (cooldown 10), ขาดยืนยัน 3 ครั้ง/30 วันเรียน; ประเมิน 16:30 | **ค่าตัวอย่าง** ต้องให้โรงเรียนกำหนด |
+| สำรองข้อมูล | ทุกคืน 01:30 (`backup.nightly_time`), เก็บ 30 วัน (`backup.retention_days`) | ค่าเริ่มต้น ปรับได้ — โรงเรียนกำหนดระยะเก็บจริง |
+| ระยะเก็บบันทึกระบบ | IdempotencyRecords/MutationJournal 30 วัน, WebhookInbox 90, OperationMetrics/NotificationAttempts 365 (นับจากสิ้นภาคเรียน), Jobs ที่จบแล้ว 90 วัน | ค่าเริ่มต้นในโค้ด (D-025) |
+| ระยะเก็บข้อมูลส่วนบุคคล/ไฟล์แนบ | ไม่ลบอัตโนมัติ | **ต้องให้โรงเรียนอนุมัตินโยบาย** (workflow ลบยังไม่ส่งมอบ) |
+| ประกาศความเป็นส่วนตัว | ร่างใน docs/PRIVACY_NOTICE_DRAFT_TH.md | **ร่าง** — โรงเรียนต้องตรวจและอนุมัติ |
 | นโยบายแจ้งเตือน | งดส่ง 21:00–06:00; ขาดเรียน/งานติดตามใหม่ต้องรับทราบใน 24 ชม.; ส่งสูงสุด 6 ครั้ง; ช่องทางต่อประเภทตาม `NOTIFICATION_POLICY` | **ค่าตัวอย่าง** |
 | อายุ LINE retry key | 12 ชั่วโมง (`CWK_LINE_RETRY_WINDOW_HOURS`) | **ยังไม่ยืนยันจากหน้าเอกสาร LINE โดยตรง** ผู้ติดตั้งต้องตรวจ |
 | โดเมน/บัญชี/Firebase/LINE | example.com, ค่าตัวอย่าง | ตั้งในขั้นติดตั้ง |
@@ -26,7 +30,7 @@
 
 ## Architecture decisions
 
-DECISIONS.md D-001…D-022 (ชุดที่ 4 เพิ่ม D-020 กฎติดตาม/กันซ้ำ/เปิดใหม่, D-021 การส่งออกใน DEV/STAGING, D-022 ข้อความเข้าและปุ่มตอบกลับทาง LINE; ชุดที่ 3: รายละเอียด implement: DailyAttendance เป็น projection ที่คำนวณใหม่ใน changeset เดียวกับเหตุการณ์, การแก้ไขเป็นเหตุการณ์ใหม่ที่ supersede ของเดิม, config cache ล้างอัตโนมัติเมื่อ commit แตะตารางตั้งค่า)
+DECISIONS.md D-001…D-025 (ชุดที่ 5 เพิ่ม D-023 รายงานบนจอ vs ฉบับไฟล์/ล็อก/revision, D-024 snapshot + restore ไป environment ใหม่เท่านั้น, D-025 retention เฉพาะบันทึกระบบ; ชุดที่ 4 เพิ่ม D-020 กฎติดตาม/กันซ้ำ/เปิดใหม่, D-021 การส่งออกใน DEV/STAGING, D-022 ข้อความเข้าและปุ่มตอบกลับทาง LINE; ชุดที่ 3: รายละเอียด implement: DailyAttendance เป็น projection ที่คำนวณใหม่ใน changeset เดียวกับเหตุการณ์, การแก้ไขเป็นเหตุการณ์ใหม่ที่ supersede ของเดิม, config cache ล้างอัตโนมัติเมื่อ commit แตะตารางตั้งค่า)
 
 ## File inventory
 
@@ -41,7 +45,7 @@ DECISIONS.md D-001…D-022 (ชุดที่ 4 เพิ่ม D-020 กฎต
 | `src/application/jobs/attendance-jobs.js` openDay, recomputeStudent, recomputeDate, unknownCheck + tick `attendance.schedule` | ✔ ชุดที่ 3 |
 | `frontend/src/screens/` dashboard, gate, rollcall, leave, leave-detail, approvals, profile (+ extra.js routes) | ✔ ชุดที่ 3 |
 | `frontend/src/offline.js` (IndexedDB คิวลงเวลาออฟไลน์ ≤ 24 ชม.), `frontend/src/lib/dates.js` (วันที่ตามเขตเวลาโรงเรียน) | ✔ ชุดที่ 3 |
-| `gas-dist/` Code.js (~597 KB), Entrypoints.js, App.html (~193 KB), appsscript.json, BUILD_INFO.json | ✔ built (`npm run build`) |
+| `gas-dist/` Code.js (~763 KB), Entrypoints.js (11 public functions), App.html (~250 KB), appsscript.json, BUILD_INFO.json | ✔ built (`npm run build`) |
 | `tests/application/daily.test.mjs` (16 tests), `tests/gas/gas-runtime.test.mjs` (+ daily flows on Sheets), `tests/ui/ui-smoke.mjs` (Chromium) | ✔ ชุดที่ 3 |
 | `docs/USER_GUIDE_DAILY_TH.md` | ✔ ชุดที่ 3 |
 | `src/domain/followup.js` (นับตามกฎ, หน้าต่างวันเรียน, cooldown) | ✔ ชุดที่ 4 |
@@ -56,7 +60,18 @@ DECISIONS.md D-001…D-022 (ชุดที่ 4 เพิ่ม D-020 กฎต
 | `frontend/src/screens/` cases, notifications (+ line-link, notify-monitor) | ✔ ชุดที่ 4 |
 | `tests/application/` followup (6), outbox (7), webhook (5); `tests/gateway/gateway.test.mjs` (5); GAS emulator +1 | ✔ ชุดที่ 4 |
 | `docs/GATEWAY_TH.md`, `docs/USER_GUIDE_FOLLOWUP_TH.md`, INSTALL_GAS_TH §13, ScriptProperties.example | ✔ ชุดที่ 4 |
-| API_CONTRACT.md, openapi.yaml, DATA_DICTIONARY.md, 0001_init.sql | ✔ regenerated |
+| `src/application/services/daily-summary.js` (`dailySummary`, `tally`, นิยามการนับ — ใช้ร่วมกันระหว่าง dashboard และรายงาน) | ✔ ชุดที่ 5 |
+| `src/application/reports/definitions.js` (R01–R12: ตัวกรอง สิทธิ์ ขอบเขตห้อง ช่วงวันสูงสุด), `reports/render.js` (CSV BOM/CRLF/กันสูตร, ค่า ISO vs พ.ศ., จำกัดแถว) | ✔ ชุดที่ 5 |
+| `src/application/ops/reports.js` report.catalog/preview/run/rerun/runs/download/lock + job `report.render` | ✔ ชุดที่ 5 |
+| `src/application/ops/operations.js` backup.list/run/recordRestoreTest, system.metrics, retention.preview/purge/purgeJobs + jobs `backup.snapshot`, tick `ops.schedule` (flush metrics, สำรองประจำคืน) | ✔ ชุดที่ 5 |
+| `src/adapters/gas/report-renderer.js` (XLSX: Sheet ชั่วคราว → Drive export; PDF: Docs template + pinTableHeaderRows; `ensureReportTemplate`) | ✔ ชุดที่ 5 |
+| `src/adapters/gas/backup.js` (snapshot ใต้ lock + manifest sha256 + prune; `restoreSnapshot` → `adminRestoreSnapshot`) | ✔ ชุดที่ 5 |
+| stores: `purgePartition` (TERM partition), `purgeWhere` (Jobs เท่านั้น); metrics buckets 5 นาที + `drain` (GAS CacheService / Node memory) | ✔ ชุดที่ 5 |
+| System health: jobs.heartbeat, backup.recent, backup.restore_tested (FAIL ใน PROD ถ้ายังไม่ทดสอบ), outbox.queue_age | ✔ ชุดที่ 5 |
+| `frontend/src/screens/reports.js` (catalog, ตัวกรอง, ดูบนจอ, สร้างไฟล์, ดาวน์โหลด, ล็อก, ฉบับใหม่), health.js (+ metrics, สำรอง, retention) | ✔ ชุดที่ 5 |
+| `tests/application/` reports (7), operations (5), security (5); GAS emulator +1 (PDF/XLSX/CSV + backup + restore drill); GasSim: DocumentApp/Docs API/Drive export/makeCopy/getAs | ✔ ชุดที่ 5 |
+| THREAT_MODEL.md, docs/OPERATIONS_TH.md, docs/REPORTS_TH.md, docs/PRIVACY_NOTICE_DRAFT_TH.md (ร่าง), INSTALL_GAS_TH §7.1–7.2, ScriptProperties.example (`CWK_RESTORE_FROM_FOLDER_ID`) | ✔ ชุดที่ 5 |
+| API_CONTRACT.md, openapi.yaml, DATA_DICTIONARY.md, 0001_init.sql | ✔ regenerated (schema ไม่เปลี่ยนในชุดที่ 5) |
 
 ## Completed requirements (สะสม)
 
@@ -78,26 +93,31 @@ DECISIONS.md D-001…D-022 (ชุดที่ 4 เพิ่ม D-020 กฎต
 - §13 หน้าจอ: Gate (สแกน/พิมพ์/ชื่อ/กล้องเมื่อรองรับ, Enter ยืนยัน, เสียง, ออฟไลน์), Roll Call, Leave, Approval Inbox, Profile, Dashboard, Contact/Case Inbox, การแจ้งเตือน, Notification Monitor; ภาษาไทย, ใช้ได้ที่ 375px, ป้องกันกดซ้ำ, ข้อความผิดพลาดรายช่อง, ไม่เก็บร่างลง storage
 - §14 RPC allowlist, admin เฉพาะ editor + time window + owner, trigger handler ตรวจ triggerUid, health ไม่เปิดเผยความลับ, read-only mode บังคับที่ store
 - §16 envelope/response/error contract, idempotency, expected_version, stale response guard, OpenAPI
-- §17 คู่มือติดตั้งฉบับแรก, คู่มือใช้งานประจำวัน, คู่มือ gateway, คู่มืองานติดตาม/แจ้งเตือน
+- §12 รายงาน R01–R12: ดูบนจอ + CSV (UTF-8 BOM, กันสูตร) + XLSX (export จริง) + PDF (Docs template, หัวตารางซ้ำทุกหน้า, ช่องลงนาม); สร้างด้วยสิทธิ์ผู้ขอ ณ เวลาสร้าง; เก็บตัวกรอง/as_of/schema/rule versions/ผู้สร้าง; งานเบื้องหลัง + สถานะ + ล้มเหลวแสดงเหตุผล; ดาวน์โหลดตรวจสิทธิ์ + checksum + audit; ล็อก + revision; R01 ตรงกับ dashboard (ทดสอบ); R07 ตัวหาร = วัน-คน
+- §14 operations: metrics → OperationMetrics (p50/p95 ต่อ operation), สำรองประจำคืนแบบ consistent + manifest + prune, restore drill ไป environment ใหม่ + บันทึกผล, retention เฉพาะบันทึกระบบ (ตาม partition) + Jobs, health checks เพิ่ม; security: envelope ≤ 8 MB, page cap, rate limit ต่อ operation/ผู้ใช้, upload validation, error ไม่ echo ความลับ
+- §17 คู่มือติดตั้งฉบับแรก, คู่มือใช้งานประจำวัน, คู่มือ gateway, คู่มืองานติดตาม/แจ้งเตือน, คู่มือปฏิบัติการ (OPERATIONS_TH), นิยามรายงาน (REPORTS_TH), THREAT_MODEL, ร่างประกาศความเป็นส่วนตัว
 
 ## Pending requirements (ชุดถัดไป)
 
-ชุดที่ 5: รายงาน R01–R12 (CSV พร้อม BOM + กันสูตร, XLSX, PDF จาก Docs template), ReportRuns (lock + revision), metrics → OperationMetrics, สำรองข้อมูลรายคืน + restore, security hardening, THREAT_MODEL, OPERATIONS_TH, retention/purge, ประกาศความเป็นส่วนตัว (ร่าง), หน้าจอ Reports
-ชุดที่ 6–8 ตาม MASTER_PROMPT §20
+ชุดที่ 6: portable export (manifest + JSONL ต่อตาราง + ไฟล์แนบ + checksum, freeze/high-water mark), restore จาก portable package, `tools/migrate.mjs` (validate/plan/import --dry-run/--apply ผ่าน staging schema/reconcile) กับ PostgreSQL จริง, corruption tests, หน้าจอศูนย์ส่งออก/ย้ายข้อมูล, MIGRATION_RUNBOOK_TH, `replay_blocked` บน outbox ที่นำเข้า
+ชุดที่ 7–8 ตาม MASTER_PROMPT §20
 
 ## Test results (Node 22.22.0, 2026-10-11)
 
 | ชุดทดสอบ | คำสั่ง | ผล |
 |---|---|---|
 | domain + shared + purity + generated-freshness | `npm run test:domain` | automated pass |
-| application (memory adapter): daily 16, followup 6, outbox 7, webhook 5 + foundation/imports | `npm run test:app` | automated pass |
+| application (memory adapter): daily 16, followup 6, outbox 7, webhook 5, reports 7, operations 5, security 5 + foundation/imports | `npm run test:app` | automated pass |
 | gateway (node:http จริงบน localhost; Firebase แทนด้วยตัวทดสอบ; GAS แทนด้วย intake จริงบน memory store) | `node --test tests/gateway/` | automated pass (5) |
-| GAS bundle บน emulator (13 tests รวม MailApp, doPost envelope → account link, ข้อความไทยขาเข้า, envelope ปลอมถูกปฏิเสธ, LINE push + retry key) | `npm run test:gas` | automated pass **(emulator — ไม่ใช่ Apps Script จริง)** |
-| รวม | `npm test` | **119 pass / 0 fail** |
-| UI smoke (gas-dist/App.html ใน Chromium 141 headless, dispatcher จริงบน memory store) | `npm run test:ui` | **26/26 automated pass** — เพิ่ม: ผู้ปกครองกด "ขอให้ครูติดต่อกลับ" → case ของครูที่ปรึกษา, ครูบันทึกการติดต่อ + ปิดเรื่องจาก UI, หน้าแจ้งเตือนที่ 375px, หน้า Notification Monitor |
-| PostgreSQL DDL | `tools/pg-local.mjs` + psql | manual verified (2026-10-11, PG 16): `0001_init.sql` + `roles.sql` บน cluster ใหม่ — 57 ตาราง, index ใหม่ delivery_state/ack_state/direction/supersedes_id/status |
+| GAS bundle บน emulator (14 tests รวม MailApp, doPost envelope → account link, LINE push + retry key, รายงาน PDF จาก Docs template + หัวตารางปักหมุด, XLSX export, CSV, backup snapshot + restore drill) | `npm run test:gas` | automated pass **(emulator — ไม่ใช่ Apps Script จริง; Docs/Drive export จำลองพฤติกรรมเท่านั้น ไม่ได้ตรวจหน้าตา PDF/XLSX จริง)** |
+| รวม | `npm test` | **137 pass / 0 fail** |
+| UI smoke (gas-dist/App.html ใน Chromium 141 headless, dispatcher จริงบน memory store) | `npm run test:ui` | **29/29 automated pass** — ชุดที่ 5 เพิ่ม: R01 บนจอมีแถวรวมตรงกับ dashboard ทุกช่อง, ดาวน์โหลด CSV (BOM + หัวคอลัมน์ไทย), หน้าสถานะระบบแสดง metrics/สำรอง/retention |
+| PostgreSQL DDL | `tools/pg-local.mjs` + psql | manual verified (2026-10-11, PG 16): `0001_init.sql` + `roles.sql` บน cluster ใหม่ — 57 ตาราง (ไฟล์ไม่เปลี่ยนในชุดที่ 5 — `gen-docs --check` ยืนยัน) |
 | firebase-admin 14.4.0 API (initializeApp/getApps/applicationDefault, getAuth().verifyIdToken/revokeRefreshTokens/tenantManager) | ติดตั้งใน scratchpad + node -e | manual verified (มีฟังก์ชันจริง; token ผิดรูปแบบได้ code `auth/argument-error`) — **ยังไม่ได้ตรวจ token จริงกับโปรเจกต์ Firebase** |
 | Apps Script จริง / Firebase จริง / LINE จริง / Cloud Run จริง | — | **not run** — blocked by configuration (ยังไม่มีบัญชีโรงเรียน, โปรเจกต์ Firebase, LINE OA) — ทำตาม docs/GATEWAY_TH.md §9 |
+| PDF ภาษาไทย/เลขหน้า/หัวตารางซ้ำบน Google Docs จริง, XLSX ที่เปิดใน Excel, เวลาสร้างรายงาน/สำรองบน Apps Script จริง, restore drill จริง | — | **not run** — blocked by configuration (ต้องใช้บัญชี Google ของโรงเรียน) — รายการตรวจใน docs/OPERATIONS_TH.md §4 และ docs/REPORTS_TH.md |
+| generated files / gas-dist freshness | `npm run check:gen`, `node tools/build-gas.mjs --check` | automated pass (66 files; gas-dist up to date) |
+| secret scan ของไฟล์ที่เปลี่ยน (API key รูปแบบ Google, private key, token, อีเมลจริง) | grep patterns | manual verified — ไม่พบ |
 | กล้อง/เครื่องสแกน/IndexedDB บนอุปกรณ์โรงเรียน, screen reader, มือถือจริง | — | **not run** |
 
 ## Known issues / ข้อจำกัด
@@ -112,8 +132,12 @@ DECISIONS.md D-001…D-022 (ชุดที่ 4 เพิ่ม D-020 กฎต
 - ถ้านโยบาย Workspace ไม่อนุญาต web app แบบ Anyone gateway จะส่ง webhook เข้า GAS ไม่ได้ — ยังไม่มีโหมด pull (ไม่ส่งมอบในชุดนี้)
 - รายการติดต่อเข้าจาก LINE สร้างหนึ่งรายการต่อบุตรหลานที่เชื่อมโยง (ผู้ปกครองหลายบุตรจะเห็นข้อความเดียวกันในหลายห้อง) — ตั้งใจเพื่อไม่ตกหล่น (D-022)
 - outbox scan อ่านเฉพาะ partition 60 วันล่าสุด: รายการค้างจากภาคเรียนเก่ากว่านั้นจะไม่ถูกส่ง (ตั้งใจ — ไม่ส่งข้อความเก่าย้อนหลัง)
-- Dashboard นับจาก projection ที่คำนวณสด (preload รายห้อง) — ห้องจำนวนมากอาจช้าบน Sheets; ชุดที่ 5 จะเพิ่ม snapshot/รายงาน
+- Dashboard และรายงานนับจาก projection ที่คำนวณสด (preload รายห้อง) — ช่วงวันยาว/ทั้งโรงเรียนอาจช้าบน Sheets จึงจำกัดช่วงวันต่อรายงานและให้ไฟล์ใหญ่เป็นงานเบื้องหลัง; เวลาจริงต้องวัดใน UAT
+- เลขหน้าในรายงาน PDF ต้องแทรกเองครั้งเดียวในแม่แบบ (Docs API ไม่มีคำสั่ง) — INSTALL_GAS_TH §7.1
+- สำรองประจำคืนไม่คัดลอกไฟล์แนบ (เก็บเพียงรายการพร้อม sha256) — ชุดส่งออกแบบ portable (ชุดที่ 6) รวมไฟล์แนบ
+- metrics บน CacheService เป็น best effort (อาจหายเมื่อ cache ถูกล้างก่อน flush)
+- ยังไม่มี workflow ลบข้อมูลส่วนบุคคลตามนโยบายโรงเรียน (ไม่ส่งมอบในระยะแรก — D-025)
 
 ## Next exact task
 
-ชุดที่ 5 — `src/application/reports/` (นิยาม R01–R12 จาก projection เดียวกับ dashboard, ReportRuns lock + revision), renderers: CSV (BOM, neutralize `= + - @`), XLSX (temp spreadsheet → export), PDF (Docs template + pinTableHeaderRows ผ่าน Docs API), jobs สำหรับรายงานใหญ่, metrics flush (OperationMetrics), backup รายคืน (copy master + term workbooks + manifest) และ restore drill, retention/purge job, security hardening review, docs: THREAT_MODEL.md, OPERATIONS_TH.md, PRIVACY_NOTICE_DRAFT_TH.md, หน้าจอ Reports, tests
+ชุดที่ 6 — `docs/PORTABLE_FORMAT.md` + `schema/portable/manifest.schema.json`; export job (`migration.export`: freeze ด้วย READ_ONLY หรือ high-water mark จาก ChangeLog seq, JSONL แบ่ง chunk ต่อตาราง + sha256, ไฟล์แนบ + manifest) บน GAS และ memory; restore จาก portable package ไป Sheets ใหม่; `tools/migrate.mjs` (validate, plan, import --dry-run/--apply ผ่าน staging schema ใน PostgreSQL, reconcile นับแถว/checksum/FK) ทดสอบกับ PostgreSQL จริงผ่าน `tools/pg-local.mjs`; corruption tests (checksum ผิด, ไฟล์หาย, FK ขาด, schema version ไม่รองรับ); outbox ที่นำเข้าตั้ง `replay_blocked`; หน้าจอศูนย์ส่งออก/ย้ายข้อมูล; `docs/MIGRATION_RUNBOOK_TH.md`

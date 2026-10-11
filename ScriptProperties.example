@@ -43,3 +43,6 @@ CWK_WEBAPP_URL=                               # URL /exec ของ deployment (
 CWK_ADMIN_TASKS_ENABLED_UNTIL=                # ISO เวลา UTC เช่น 2026-10-10T05:00:00Z — เปิดฟังก์ชัน admin* ใน editor ชั่วคราว (≤ 2 ชม.)
 CWK_INSTALL_OWNER_EMAIL=                      # อีเมลเจ้าของการติดตั้ง (ตั้งโดย adminSetup ครั้งแรก)
 CWK_TICK_MINUTES=1                            # 1 | 5 | 10 ความถี่ cronTick
+
+# ── Restore drill (ตั้งเฉพาะใน environment ใหม่ตอนทดสอบ restore แล้วระบบลบให้เองหลังรัน adminRestoreSnapshot) ──
+CWK_RESTORE_FROM_FOLDER_ID=                   # id โฟลเดอร์สำรอง (backup-YYYYMMDD-HHMM) — ระบบปฏิเสธถ้า CWK_MASTER_SPREADSHEET_ID มีค่าแล้ว (docs/OPERATIONS_TH.md §4)

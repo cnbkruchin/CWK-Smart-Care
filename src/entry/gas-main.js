@@ -19,6 +19,8 @@ import { TICK_TASKS } from '../application/scheduler.js';
 import { AppError, toErrorEnvelope } from '../shared/errors.js';
 import { SCHEMA_VERSION } from '../schema/index.js';
 import { gasPlatformExtras } from '../adapters/gas/extras.js';
+import { GasReportRenderer, ensureReportTemplate } from '../adapters/gas/report-renderer.js';
+import { GasBackup, restoreSnapshot } from '../adapters/gas/backup.js';
 
 const G = () => globalThis;
 let deps = null;
@@ -45,6 +47,8 @@ export function buildDeps() {
       setSystemMode: (mode) => { setSystemModeProperty(mode); config.systemMode = mode; return mode; },
       ensurePartitions: (code) => store.withLock(() => store.provisionPartition(code)),
       health: () => platformHealth(config, store),
+      reportRenderer: config.driveRootFolderId ? new GasReportRenderer({ rootFolderId: config.driveRootFolderId, templateDocId: config.reportTemplateDocId }) : null,
+      backup: store && config.driveRootFolderId ? new GasBackup({ store, rootFolderId: config.driveRootFolderId, crypto: gasCrypto, env: config.env }) : null,
       ...gasPlatformExtras(() => deps),
     },
     rawStore: store,
@@ -182,6 +186,7 @@ export const admin = {
     if (!props.getProperty('CWK_INSTALL_OWNER_EMAIL')) props.setProperty('CWK_INSTALL_OWNER_EMAIL', email);
     const env = props.getProperty('CWK_ENV') || 'DEV';
     const prov = provisionMaster({ env, ids: gasIds, clock: gasClock });
+    prov.report_template = ensureReportTemplate(props.getProperty('CWK_DRIVE_ROOT_FOLDER_ID'), env);
     const d = adminDeps();
     recordSchemaVersion(d.rawStore, { ids: gasIds, clock: gasClock, appliedBy: email });
     const boot = runSync(bootstrapInstallation, d, {
@@ -224,6 +229,18 @@ export const admin = {
     assertEditorContext();
     const d = adminDeps();
     const res = schemaCheck(d.rawStore);
+    console.log(JSON.stringify(res, null, 2));
+    return res;
+  },
+  /** Restore drill: run in a NEW project/environment with CWK_RESTORE_FROM_FOLDER_ID = backup folder id. */
+  restoreSnapshot() {
+    assertEditorContext();
+    const props = G().PropertiesService.getScriptProperties();
+    const folderId = props.getProperty('CWK_RESTORE_FROM_FOLDER_ID');
+    if (!folderId) throw new Error('Set Script Property CWK_RESTORE_FROM_FOLDER_ID to the backup folder id first');
+    const res = restoreSnapshot(folderId, { crypto: gasCrypto });
+    props.deleteProperty('CWK_RESTORE_FROM_FOLDER_ID');
+    deps = null;
     console.log(JSON.stringify(res, null, 2));
     return res;
   },

@@ -9,7 +9,7 @@ import { GasSim, topLevelFunctions } from '../gas-sim/gas-sim.mjs';
 
 const DIST = path.resolve(import.meta.dirname, '../../gas-dist');
 const PASS = 'emulator-pass-123';
-const ALLOWED = ['doGet', 'doPost', 'rpc', 'cronTick', 'adminSetup', 'adminSeedDemo', 'adminInstallTriggers', 'adminSelfTest', 'adminSchemaCheck', 'adminRecoverJournal'];
+const ALLOWED = ['doGet', 'doPost', 'rpc', 'cronTick', 'adminSetup', 'adminSeedDemo', 'adminInstallTriggers', 'adminSelfTest', 'adminSchemaCheck', 'adminRecoverJournal', 'adminRestoreSnapshot'];
 
 function inTwoHours() { return new Date(Date.now() + 3600 * 1000).toISOString(); }
 
@@ -328,4 +328,64 @@ test('notifications on Apps Script: MailApp email, doPost envelope → LINE acco
   assert.equal(pushes[0].to, LINE_ID);
   assert.match(pushes[0].messages[0].text, /มาสาย|แจ้งมาสาย/);
   assert.ok(pushes[0].messages[1].template.actions.some((a) => a.type === 'postback'));
+});
+
+test('reports on Apps Script: PDF via Docs template (header row pinned), real XLSX export, CSV; backup snapshot and restore drill', () => {
+  const now = '2026-06-15T03:30:00.000Z';
+  const { sim, demo } = installed({ now });
+  const staff = Object.fromEntries(demo.staff.map((s) => [s.key, s.user_id]));
+  const ok = (r) => { assert.equal(r.ok, true, JSON.stringify(r.error)); return r.data; };
+  assert.ok(sim.props.CWK_REPORT_TEMPLATE_DOC_ID, 'adminSetup created the A4 report template');
+  const station = ok(env(sim, staff.duty, 'station.list', {})).items[0];
+  const someone = ok(env(sim, staff.affairs, 'student.search', { q: null, limit: 1 })).items[0];
+  ok(env(sim, staff.duty, 'attendance.recordArrival', { student_id: someone.id, station_id: station.id, source: 'SCAN_KEYBOARD' }, { mutation: true }));
+  sim.ctx.adminInstallTriggers();
+  const tick = () => JSON.parse(sim.ctx.cronTick({ triggerUid: sim.triggers[0].getUniqueId() }));
+  const pdf = ok(env(sim, staff.affairs, 'report.run', { code: 'R01', filter: { date: '2026-06-15' }, format: 'PDF' }, { mutation: true }));
+  const xlsx = ok(env(sim, staff.affairs, 'report.run', { code: 'R02', filter: { from: '2026-06-15', to: '2026-06-15' }, format: 'XLSX' }, { mutation: true }));
+  const csv = ok(env(sim, staff.affairs, 'report.run', { code: 'R02', filter: { from: '2026-06-15', to: '2026-06-15' }, format: 'CSV' }, { mutation: true }));
+  tick();
+  tick();
+  const runs = ok(env(sim, staff.affairs, 'report.runs', {})).items;
+  for (const id of [pdf.run_id, xlsx.run_id, csv.run_id]) assert.equal(runs.find((r) => r.id === id).status, 'READY', JSON.stringify(runs.map((r) => [r.report_code, r.status])));
+  const pdfFile = ok(env(sim, staff.affairs, 'report.download', { run_id: pdf.run_id }));
+  const pdfText = Buffer.from(pdfFile.content_base64, 'base64').toString('utf8');
+  assert.match(pdfText, /^%PDF-EMULATOR/);
+  assert.match(pdfText, /R01 การมาเรียนประจำวัน/);
+  assert.match(pdfText, /ผู้มีสิทธิ์มาเรียน \| มาแล้ว/, 'table header row present');
+  assert.match(pdfText, /ลงชื่อ/, 'signature lines');
+  assert.doesNotMatch(pdfText, /\{\{/, 'all placeholders filled');
+  const pinned = [...sim.docs.values()].flatMap((d) => d.requests).filter((r) => r.pinTableHeaderRows);
+  assert.equal(pinned.length, 1);
+  assert.equal(pinned[0].pinTableHeaderRows.pinnedHeaderRowsCount, 1);
+  const x = Buffer.from(ok(env(sim, staff.affairs, 'report.download', { run_id: xlsx.run_id })).content_base64, 'base64');
+  assert.deepEqual([...x.subarray(0, 4)], [0x50, 0x4b, 0x03, 0x04], 'Drive export produced a zip container (xlsx), not a renamed CSV');
+  const c = Buffer.from(ok(env(sim, staff.affairs, 'report.download', { run_id: csv.run_id })).content_base64, 'base64').toString('utf8');
+  assert.equal(c.charCodeAt(0), 0xfeff);
+  assert.ok(sim.files.filter((f) => /^cwk-report-tmp-/.test(f.name)).every((f) => f.trashed), 'temporary docs/sheets trashed');
+  assert.ok(sim.files.every((f) => f.sharing === 'PRIVATE'), 'nothing shared');
+  // backup snapshot (manual) → manifest + config without secrets
+  const b = ok(env(sim, staff.admin, 'backup.run', {}, { mutation: true }));
+  tick();
+  const run = ok(env(sim, staff.admin, 'backup.list', {})).items.find((r) => r.id === b.backup_run_id);
+  assert.equal(run.status, 'SUCCEEDED', JSON.stringify(run));
+  assert.equal(run.manifest_sha256.length, 64);
+  const folder = sim.folders.find((f) => f.id === run.package_location);
+  const names = sim.files.filter((f) => f.folder === folder).map((f) => f.name);
+  assert.ok(names.includes('manifest.json') && names.includes('config.json') && names.includes('attachments-manifest.json'));
+  const cfg = sim.files.find((f) => f.folder === folder && f.name === 'config.json').getBlob().getDataAsString();
+  assert.doesNotMatch(cfg, /CWK_DEMO_PASSPHRASE|emulator-pass|CWK_GATEWAY_SECRET/);
+  // restore drill into a NEW environment (same Drive owner): refuses while data exists
+  sim.props.CWK_RESTORE_FROM_FOLDER_ID = run.package_location;
+  assert.throws(() => sim.ctx.adminRestoreSnapshot(), /RESTORE_REFUSED/);
+  const oldMaster = sim.props.CWK_MASTER_SPREADSHEET_ID;
+  delete sim.props.CWK_MASTER_SPREADSHEET_ID;
+  delete sim.props.CWK_DRIVE_ROOT_FOLDER_ID;
+  const restored = sim.ctx.adminRestoreSnapshot();
+  assert.equal(restored.row_count_check, 'OK', JSON.stringify(restored.mismatches));
+  assert.notEqual(sim.props.CWK_MASTER_SPREADSHEET_ID, oldMaster);
+  const found = ok(env(sim, staff.affairs, 'student.search', { q: someone.student_code })).items;
+  assert.equal(found[0].id, someone.id, 'restored environment serves the same data');
+  const r2 = ok(env(sim, staff.affairs, 'report.preview', { code: 'R02', filter: { from: '2026-06-15', to: '2026-06-15' } }));
+  assert.equal(r2.rows.length, 1, 'term partition workbook restored and catalog re-pointed');
 });

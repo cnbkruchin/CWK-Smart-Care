@@ -141,6 +141,27 @@
 - ไม่ดาวน์โหลดสื่อ (รูป/ไฟล์) และไม่ประมวลผล event จากกลุ่ม/ห้องแชต — ลดการเก็บข้อมูลอ่อนไหวโดยไม่จำเป็น
 - ประมวลผล event ทันทีหลังบันทึกถาวร (เพื่อใช้ reply token ที่อายุสั้น); ถ้าล้มเหลว tick ประมวลผลซ้ำ (≤ 5 ครั้ง) โดยไม่ตอบกลับ
 
+## D-023 รายงาน: ดูบนจอ vs ฉบับไฟล์ (ชุดที่ 5)
+
+- `report.preview` คำนวณสด ไม่บันทึก (จำกัด 500 แถว แสดงว่าตัด) — ใช้ดูเร็ว; ไฟล์ CSV/XLSX/PDF สร้างผ่าน `report.run` เป็น `ReportRuns` + งาน `report.render` เบื้องหลัง เพื่อไม่ให้ RPC เกิน 6 นาที
+- งานสร้างไฟล์รันด้วยสิทธิ์ของ**ผู้ขอ** (`principalForBoundUser`) ณ เวลาสร้าง — สิทธิ์ที่ถูกถอนก่อนงานรันมีผลทันที; ดาวน์โหลดตรวจสิทธิ์ใหม่ + checksum ทุกครั้งและบันทึก audit
+- ทุกฉบับเก็บ ตัวกรอง, `as_of`, schema version, เวอร์ชันกฎ และผู้สร้าง; ฉบับที่**ล็อก**แล้วไม่เปลี่ยน — "สร้างฉบับใหม่" ได้ revision ใหม่ ฉบับเดิมเป็น SUPERSEDED (ยังดาวน์โหลดได้) — ไม่แก้ไฟล์เดิมทับ
+- ค่าในไฟล์ข้อมูล (CSV/XLSX) ใช้ ISO ค.ศ. ตามเวลาท้องถิ่น (นำไปคำนวณต่อได้); PDF และหน้าจอใช้ พ.ศ.; CSV ใส่ `'` หน้าข้อความที่ขึ้นต้น `= + - @ TAB CR`
+- จำกัดแถวต่อรูปแบบ (CSV 100,000 / XLSX 50,000 / PDF 2,000) และช่วงวันต่อรายงาน — เกินแล้วตอบ `VALIDATION_ERROR` พร้อมจำนวนแถวและคำแนะนำให้ใช้ตัวกรองแคบลง แทนที่จะตัดเงียบ ๆ (บนจอแสดง 500 แถวแรกพร้อมแจ้งว่าตัด)
+- XLSX สร้างจาก Google Sheet ชั่วคราว (Plain text) แล้ว export เป็น .xlsx จริง; PDF จาก Docs template ที่ปักหมุดหัวตาราง — ไม่ใช้ไลบรารี JS ภายนอกบน GAS
+
+## D-024 สำรองข้อมูลแบบ snapshot และ restore ไป environment ใหม่เท่านั้น
+
+- สำรองประจำคืน: คัดลอกทุก workbook (master + partition) **ภายใต้ ScriptLock** เพื่อให้ได้ภาพข้อมูลที่สอดคล้องกัน + `manifest.json` (sha256 ของ manifest เก็บใน `BackupRuns`) + `config.json` (เฉพาะค่าที่ไม่ใช่ความลับ) + รายการไฟล์แนบ; ลบชุดเก่าเกิน `backup.retention_days`
+- ไฟล์แนบไม่ถูกคัดลอกในชุดประจำคืน (อยู่ในโฟลเดอร์เดิมซึ่งไม่ถูกลบโดยระบบ) — ชุดส่งออกแบบ portable (ชุดที่ 6) รวมไฟล์แนบ
+- `adminRestoreSnapshot` ปฏิเสธเมื่อ environment มี `CWK_MASTER_SPREADSHEET_ID` อยู่แล้ว — ไม่มีการ restore ทับระบบจริง; การกู้ระบบจริงคือสลับไปใช้ environment ที่ restore และตรวจแล้ว (OPERATIONS_TH §4, §6)
+- PROD แสดง FAIL ใน System Health จนกว่าจะมีบันทึกผลทดสอบ restore — ทำให้การ "มีสำรองแต่ไม่เคยลองกู้" มองเห็นได้
+
+## D-025 Retention: ล้างเฉพาะบันทึกระบบ ไม่ลบข้อมูลส่วนบุคคลอัตโนมัติ
+
+- ล้างเป็น**ทั้ง partition ภาคเรียน**ที่ครบระยะของตารางบันทึกระบบ (IdempotencyRecords 30 วัน, MutationJournal 30, WebhookInbox 90, OperationMetrics 365, NotificationAttempts 365 — นับจากวันสิ้นภาคเรียน) และงาน `Jobs` ที่เสร็จแล้วเกิน 90 วัน — ต้องกดยืนยันโดย SYSTEM_ADMIN และบันทึก audit; ไม่ลบทีละแถวกระจัดกระจายใน Sheets
+- ข้อมูลนักเรียน/ผู้ปกครอง/การมาเรียน/การลา/การติดตาม/Audit **ไม่ลบอัตโนมัติ** จนกว่าโรงเรียนจะอนุมัตินโยบายการลบ (workflow ลบข้อมูลส่วนบุคคลยังไม่ส่งมอบ — LIMITATIONS)
+
 ---
 
 ## เอกสารทางการที่ตรวจ (2026-10-10)
@@ -152,7 +173,7 @@
 | Apps Script quotas | ผ่านผลค้นหา (ข้อความจากหน้าเอกสาร) | 6 นาที/execution; simultaneous executions 30/user, 1,000/script; triggers 20/user/script; trigger total runtime/day 90 นาที (consumer) / 6 ชม. (Workspace) ยืนยันจากแหล่งรองเท่านั้น → **ต้องตรวจหน้าโควตาก่อนติดตั้ง** |
 | LINE retry requests | ผ่านผลค้นหา | `X-Line-Retry-Key` = UUID; ใช้กับ push/multicast/narrowcast/broadcast; ส่งซ้ำหลังรับแล้วได้ 409 พร้อม `x-line-accepted-request-id`; ไม่รับประกันการส่งถึง; **อายุ key ยังไม่ยืนยัน** |
 | LINE webhook signature, account linking, LINE Notify termination | ตามความรู้ก่อนหน้า (ยังไม่ได้เปิดหน้าเอกสาร) | HMAC-SHA256 ด้วย channel secret บน raw body, Base64; link token → accountLink event + nonce; LINE Notify ยุติบริการแล้ว (ไม่ใช้) |
-| Firebase verifyIdToken / Admin SDK | ตามความรู้ก่อนหน้า | `verifyIdToken(idToken, true)` ตรวจ revoked/disabled; firebase-admin 14.5.0 (npm registry ตรวจได้ 2026-10-10) |
+| Firebase verifyIdToken / Admin SDK | ตามความรู้ก่อนหน้า | `verifyIdToken(idToken, true)` ตรวจ revoked/disabled; npm registry แสดง firebase-admin 14.5.0 เป็นรุ่นล่าสุด (2026-10-10); gateway ตรึง 14.4.0 ซึ่งเป็นรุ่นที่ติดตั้งและตรวจ API จริงใน scratchpad |
 | HtmlService / Web Apps / Session / LockService / triggers / batchUpdate / JDBC | ตามความรู้ก่อนหน้า | ระบุเป็นสมมติฐานใน docs/LIMITATIONS.md และมีรายการทดสอบบน deployment จริง |
 
 รายการที่ "ตามความรู้ก่อนหน้า" ต้องตรวจซ้ำโดยผู้ติดตั้งตาม checklist ใน docs/INSTALL_GAS_TH.md §0

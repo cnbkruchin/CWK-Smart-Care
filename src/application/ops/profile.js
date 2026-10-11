@@ -3,36 +3,14 @@ import { op } from '../dispatcher.js';
 import { obj, S, basicStudent, fullStudent } from './common.js';
 import { requirePermission, allows, scopeFor } from '../authz.js';
 import { requireStudent, getClass, enrollmentsOf } from '../queries.js';
-import { computeDay, preloadDay, listAll } from '../services/attendance-core.js';
+import { computeDay } from '../services/attendance-core.js';
+import { dailySummary, tally, COUNTING_NOTE_TH } from '../services/daily-summary.js';
 import { partitionsForDates, ruleFor } from '../context.js';
 import { activeEvents } from '../../domain/attendance.js';
-import { rosterForClass } from '../../domain/enrollment.js';
 import { dateInRange, addDays } from '../../shared/time.js';
 import { ENUMS } from '../../schema/enums.js';
 
-export const COUNTING_NOTE_TH = [
-  'มาเรียน = มีหลักฐานการมา (บันทึกที่ประตู หรือครูเช็กชื่อว่ามา/มาสาย)',
-  'มาสาย (นับ) = มาถึงหลังเวลาเริ่มสาย + ช่วงผ่อนผันของกฎที่มีผลวันนั้น ไม่นับเมื่อมีข้อยกเว้นหรือใบลาครอบคลุมช่วงเช้า; หนึ่งวันนับได้ครั้งเดียว',
-  'ลาทั้งวัน/บางช่วง = เฉพาะใบลาที่อนุมัติแล้ว; หน่วยวัน ครึ่งวัน และคาบ แสดงแยกกัน ไม่บวกปน',
-  'ขาด (ยืนยัน) = ครูตรวจสอบและยืนยันแล้วเท่านั้น; ไม่มีข้อมูล = รอตรวจสอบ (ไม่ใช่ขาด)',
-  'ตัวหาร = วันเรียนที่นักเรียนอยู่ในทะเบียน (enrollment) ของวันนั้น',
-];
-
-export function tally(rows) {
-  const t = { school_days: 0, present: 0, late_counted: 0, late_raw: 0, late_minutes: 0, full_day_leave: 0, partial_leave: 0, absent_confirmed: 0, unknown: 0 };
-  for (const r of rows) {
-    if (!r.eligible || !r.school_day) continue;
-    t.school_days++;
-    if (r.presence_status === 'PRESENT') t.present++;
-    if (r.presence_status === 'ON_LEAVE_FULL_DAY') t.full_day_leave++;
-    if (r.presence_status === 'ABSENT_CONFIRMED') t.absent_confirmed++;
-    if (r.presence_status === 'UNKNOWN') t.unknown++;
-    if (r.partial_leave) t.partial_leave++;
-    if (r.is_late) t.late_raw++;
-    if (r.late_counted) { t.late_counted++; t.late_minutes += r.late_minutes || 0; }
-  }
-  return t;
-}
+export { COUNTING_NOTE_TH, tally };
 
 function eventKind(e) {
   if (e.event_type === 'GATE_ARRIVAL' || e.event_type === 'ROLL_CALL_LATE') return 'late';
@@ -120,36 +98,18 @@ export const profileOps = [
     *handler(ctx, input) {
       const date = input.school_date || ctx.today;
       const scope = scopeFor(ctx, 'attendance.read');
-      let classIds;
-      const allClasses = (yield ctx.store.list('Classes', { limit: 500 })).items;
+      let classIds = null;
       if (input.class_id) { yield* requirePermission(ctx, 'attendance.read', { class_id: input.class_id }); classIds = [input.class_id]; }
-      else if (scope.all) classIds = allClasses.map((c) => c.id);
-      else classIds = [...(scope.classIds || [])];
-      const linkedOnly = !scope.all && !classIds.length && (scope.studentIds || new Set()).size;
-      const enrollments = yield* listAll(ctx, 'Enrollments', { where: { effective_from: { lte: date } } });
-      let roster = [];
-      if (linkedOnly) roster = enrollments.filter((e) => scope.studentIds.has(e.student_id) && dateInRange(date, e.effective_from, e.effective_to));
-      else for (const cid of classIds) roster = roster.concat(rosterForClass(enrollments, cid, date));
-      const pre = yield* preloadDay(ctx, date, roster.map((e) => e.student_id));
-      const perClass = new Map();
-      const rows = [];
-      for (const e of roster) {
-        const { computed } = yield* computeDay(ctx, e.student_id, date, { ...pre.get(e.student_id), enrollment: e });
-        rows.push(computed);
-        if (!perClass.has(e.class_id)) perClass.set(e.class_id, []);
-        perClass.get(e.class_id).push(computed);
-      }
-      const sessions = yield ctx.store.list('RollCallSessions', { where: { school_date: date }, partitions: partitionsForDates(ctx, [date]), limit: 500 });
-      const submitted = new Set(sessions.items.filter((x) => x.status !== 'OPEN').map((x) => x.class_id));
-      const byId = new Map(allClasses.map((c) => [c.id, c]));
-      const classes = [...perClass.entries()].map(([cid, list]) => ({ class_id: cid, class_name_th: (byId.get(cid) || {}).name_th, roll_call_submitted: submitted.has(cid), ...tally(list) })).sort((a, b) => ((a.class_name_th || '') < (b.class_name_th || '') ? -1 : 1));
-      const total = tally(rows);
-      const openTasks = scope.all || classIds.length ? (yield ctx.store.list('ReconciliationTasks', { where: scope.all ? { status: 'OPEN' } : { status: 'OPEN', class_id: { in: classIds } }, limit: 500 })).items.length : 0;
+      else if (!scope.all) classIds = [...(scope.classIds || [])];
+      const linkedOnly = !scope.all && !input.class_id && !(classIds || []).length && (scope.studentIds || new Set()).size > 0;
+      const sum = yield* dailySummary(ctx, { date, classIds: linkedOnly ? [] : classIds, studentIds: linkedOnly ? scope.studentIds : null });
+      const openTasks = scope.all || (classIds || []).length ? (yield ctx.store.list('ReconciliationTasks', { where: scope.all && !input.class_id ? { status: 'OPEN' } : { status: 'OPEN', class_id: { in: classIds } }, limit: 500 })).items.length : 0;
       const rule = yield* ruleFor(ctx, 'SCHOOL_LATENESS', date, { required: false });
       return {
-        school_date: date, totals: total, classes, roll_call: { classes_total: perClass.size, classes_submitted: [...perClass.keys()].filter((c) => submitted.has(c)).length },
+        school_date: date, totals: sum.totals, classes: sum.classes.map(({ grade_level, roll_call_verified, ...c }) => c),
+        roll_call: { classes_total: sum.rollCall.classes_total, classes_submitted: sum.rollCall.classes_submitted },
         open_tasks: openTasks, lateness_rule: rule ? { version_no: rule.version_no, cutoff_time: rule.params_json.cutoff_time, grace_minutes: rule.params_json.grace_minutes, is_example: rule.is_example } : null,
-        counting_note_th: COUNTING_NOTE_TH, students: linkedOnly ? rows.map((r) => ({ student_id: r.student_id, presence_status: r.presence_status, is_late: r.is_late, late_minutes: r.late_minutes, leave_units: r.leave_units })) : undefined,
+        counting_note_th: COUNTING_NOTE_TH, students: linkedOnly ? sum.rows.map((r) => ({ student_id: r.student_id, presence_status: r.presence_status, is_late: r.is_late, late_minutes: r.late_minutes, leave_units: r.leave_units })) : undefined,
       };
     },
   }),

@@ -2,7 +2,7 @@
 import { op } from '../dispatcher.js';
 import { obj, S, EMPTY, notFound } from './common.js';
 import { requirePermission, allows } from '../authz.js';
-import { commit, loadRules } from '../context.js';
+import { commit, loadRules, partitionsForDates } from '../context.js';
 import { AppError } from '../../shared/errors.js';
 import { selectRule } from '../../domain/rules.js';
 
@@ -27,6 +27,21 @@ export function* dataChecks(ctx) {
   add('admin.present', admins.some((r) => !r.revoked_at) ? 'OK' : 'REQUIRED_SETUP', 'ต้องมีผู้ดูแลระบบอย่างน้อย 1 คน');
   const failedJobs = (yield ctx.store.list('Jobs', { where: { status: 'FAILED' }, limit: 50 })).items.length;
   add('jobs.failed', failedJobs ? 'WARN' : 'OK', failedJobs ? `มีงานเบื้องหลังล้มเหลว ${failedJobs} รายการ` : 'ไม่มีงานล้มเหลว');
+  // job heartbeat: RUNNING past its lease means the worker died; the next tick re-claims it
+  const stuck = (yield ctx.store.list('Jobs', { where: { status: 'RUNNING' }, limit: 50 })).items.filter((j) => j.lease_until && j.lease_until < ctx.now).length;
+  add('jobs.heartbeat', stuck ? 'WARN' : 'OK', stuck ? `งาน ${stuck} รายการหยุดส่งสัญญาณ (lease หมด) — จะถูกรันใหม่ในรอบถัดไป ตรวจ trigger cronTick` : 'งานที่กำลังรันส่งสัญญาณปกติ');
+  // backups: last success within 2 days, and at least one restore drill recorded
+  const backups = (yield ctx.store.list('BackupRuns', { limit: 500 })).items;
+  const lastOk = backups.filter((b) => b.status === 'SUCCEEDED').sort((a, b) => (a.finished_at < b.finished_at ? 1 : -1))[0];
+  const twoDaysAgo = new Date(Date.parse(ctx.now) - 2 * 86400000).toISOString();
+  add('backup.recent', lastOk && lastOk.finished_at > twoDaysAgo ? 'OK' : 'WARN', lastOk ? `สำรองสำเร็จล่าสุด ${lastOk.finished_at}` : 'ยังไม่มีการสำรองข้อมูลที่สำเร็จ');
+  add('backup.restore_tested', backups.some((b) => b.restore_tested_at) ? 'OK' : (ctx.config.env === 'PROD' ? 'FAIL' : 'WARN'), backups.some((b) => b.restore_tested_at) ? 'มีการทดสอบ restore แล้ว' : 'ยังไม่เคยทดสอบ restore ไป environment ใหม่ (ต้องทำก่อนใช้งานจริง)');
+  // outbox queue age (recent partitions only)
+  const recent = partitionsForDates(ctx, [new Date(Date.parse(ctx.now) - 60 * 86400000).toISOString().slice(0, 10), ctx.today]);
+  const queued = (yield ctx.store.list('NotificationOutbox', { where: { delivery_state: { in: ['QUEUED', 'RETRY_WAIT'] } }, partitions: recent, limit: 2000 })).items;
+  const oldest = queued.reduce((m, o) => (!m || o.created_at < m ? o.created_at : m), null);
+  const ageMin = oldest ? Math.round((Date.parse(ctx.now) - Date.parse(oldest)) / 60000) : 0;
+  add('outbox.queue_age', ageMin > 60 ? 'WARN' : 'OK', queued.length ? `ค้างส่ง ${queued.length} รายการ เก่าสุด ${ageMin} นาที (รวมที่รอพ้นช่วงงดส่ง)` : 'ไม่มีรายการค้างส่ง');
   return checks;
 }
 

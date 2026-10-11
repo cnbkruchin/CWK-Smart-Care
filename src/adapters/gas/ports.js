@@ -59,15 +59,34 @@ export const gasLogger = {
 };
 
 /** Per-execution metrics, flushed to a 5-minute CacheService bucket for the metrics job. */
+/**
+ * Request metrics buffered in CacheService per 5-minute bucket and flushed to OperationMetrics by
+ * the tick. Best effort: concurrent requests may overwrite each other's sample (no atomic append in
+ * CacheService) and a bucket not flushed within 1 h expires — metrics are an operations aid, not audit.
+ */
 export function gasMetrics() {
+  const readList = (k) => { try { return JSON.parse(gasCache.get(k) || '[]'); } catch (_) { return []; } };
   return {
     record(op, ms, ok, lockWaitMs = 0) {
       const bucket = Math.floor(Date.now() / 300000) * 300000;
       const k = `metrics:${bucket}`;
-      let list = [];
-      try { list = JSON.parse(gasCache.get(k) || '[]'); } catch (_) { list = []; }
+      const list = readList(k);
       if (list.length < 2000) list.push([op, ms, ok ? 1 : 0, lockWaitMs]);
       gasCache.put(k, JSON.stringify(list), 3600);
+      const idx = readList('metrics:index');
+      if (!idx.includes(bucket)) { idx.push(bucket); gasCache.put('metrics:index', JSON.stringify(idx.slice(-24)), 3600); }
+    },
+    drain(beforeMs) {
+      const idx = readList('metrics:index');
+      const out = [];
+      const keep = [];
+      for (const b of idx) {
+        if (b >= beforeMs) { keep.push(b); continue; }
+        out.push({ bucket_start_ms: b, samples: readList(`metrics:${b}`) });
+        gasCache.remove(`metrics:${b}`);
+      }
+      gasCache.put('metrics:index', JSON.stringify(keep), 3600);
+      return out;
     },
   };
 }

@@ -92,6 +92,21 @@ npx @google/clasp push            # rootDir = gas-dist
 
 การอัปเกรด schema ในอนาคต: สำรองข้อมูล (docs/OPERATIONS_TH.md) → รัน `adminSetup` ของเวอร์ชันใหม่ (เพิ่มเฉพาะชีต/คอลัมน์ใหม่ตาม migration) → `adminSchemaCheck` → ตรวจรับ; ห้ามลบชีตเพื่อสร้างใหม่
 
+### 7.1 แม่แบบรายงาน PDF (ทำครั้งเดียว)
+
+`adminSetup` สร้าง Google Docs แม่แบบรายงาน (A4, ฟอนต์ Sarabun, ตัวแทน `{{title}}` `{{table}}` ฯลฯ) ในโฟลเดอร์ระบบ และบันทึก id ไว้ที่ `CWK_REPORT_TEMPLATE_DOC_ID`
+
+1. เปิดแม่แบบจาก Drive → ดับเบิลคลิกส่วนท้ายกระดาษ (footer) → **แทรก → หมายเลขหน้า** (Apps Script/Docs API ไม่มีคำสั่งแทรกเลขหน้า จึงต้องทำด้วยมือครั้งเดียว)
+2. แก้หัวกระดาษ/ตราโรงเรียนได้ แต่**ห้ามลบตัวแทน** `{{...}}` — ถ้าลบ รายงาน PDF จะขาดส่วนนั้น
+3. ห้ามแชร์แม่แบบแบบ "ทุกคนที่มีลิงก์"
+4. 🧪 สร้างรายงาน R01 เป็น PDF จากหน้า "รายงาน" → ตรวจภาษาไทย หัวตารางซ้ำทุกหน้า เลขหน้า และช่องลงนาม (รายละเอียด docs/REPORTS_TH.md)
+
+### 7.2 การสำรองและทดสอบ restore
+
+- cronTick สำรองข้อมูลทุกคืนตามค่า `backup.nightly_time` (ค่าเริ่มต้น 01:30) เก็บ `backup.retention_days` วัน — ดูผลที่ "สถานะระบบ → การสำรองข้อมูล"
+- ทดสอบ restore ไป **environment ใหม่** ด้วยฟังก์ชัน `adminRestoreSnapshot` และ Script Property `CWK_RESTORE_FROM_FOLDER_ID` ตามขั้นตอนใน docs/OPERATIONS_TH.md §4 — ระบบปฏิเสธการ restore ทับ environment ที่มีข้อมูลแล้ว
+- PROD: หน้า "สถานะระบบ" แสดง FAIL ที่ `backup.restore_tested` จนกว่าจะบันทึกผลทดสอบ restore อย่างน้อยหนึ่งครั้ง
+
 ## 8. เขตเวลา
 
 - appsscript.json ตั้ง `Asia/Bangkok`; setup ตั้ง timezone ของทุก spreadsheet เป็น Asia/Bangkok
