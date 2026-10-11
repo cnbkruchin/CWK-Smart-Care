@@ -1,6 +1,6 @@
 {
-  "app_version": "0.7.0",
-  "build_hash": "c2099597c193383e",
+  "app_version": "0.8.0",
+  "build_hash": "cc8ffe60d4fd77ad",
   "files": [
     "App.html",
     "Code.js",

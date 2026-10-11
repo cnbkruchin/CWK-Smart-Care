@@ -59,7 +59,8 @@ export function validateUpload(f, classification) {
 
 /**
  * Store bytes as a STAGED attachment (not linked yet). External side effect happens BEFORE the
- * metadata commit; if the commit fails the object is an orphan and the cleanup job removes it.
+ * metadata commit; if the commit fails the object is an orphan that the daily cleanup job removes after 24 h
+ * (jobs/files-jobs.js — it also moves linked objects out of the staging area).
  */
 export function* stageAttachment(ctx, cs, { bytes, filename, mime, size }, classification) {
   const school = (yield ctx.store.list('Schools', { limit: 1 })).items[0];

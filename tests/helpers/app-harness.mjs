@@ -27,7 +27,7 @@ export function makeHarness({ now = '2026-06-15T01:00:00.000Z', env = 'DEV', ide
     store, mutations: store, clock, ids: nodeIds, crypto: nodeCrypto, cache, config,
     identity: identity || new DemoIdentityVerifier({ env, passphrase: PASS }),
     registry: buildRegistry(), rateLimiter: new MemoryRateLimiter(clock), metrics: new MetricsRecorder(clock), logger: silentLogger,
-    platform: { storage: new MemoryAttachmentStorage(), setSystemMode: (m) => { config.systemMode = m; store.mode = m; }, ...extraPlatform },
+    platform: { storage: new MemoryAttachmentStorage(clock), setSystemMode: (m) => { config.systemMode = m; store.mode = m; }, ...extraPlatform },
   };
   const h = {
     deps, store, clock, cache, config,

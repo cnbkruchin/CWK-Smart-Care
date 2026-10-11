@@ -26,6 +26,7 @@ export class PgStore {
     this.pool = pool;
     this.platformName = 'POSTGRES';
     this.tzMinutes = tzOffset(timezone);
+    this.onLockWait = null; // optional (ms) => void: time spent waiting for the ChangeLog sequence lock
   }
 
   /**
@@ -168,7 +169,9 @@ export class PgStore {
       const writes = cs.idempotency ? [...cs.writes, { table: 'IdempotencyRecords', op: 'insert', record: cs.idempotency.record, expected_version: null }] : cs.writes;
       let seq = null;
       if (writes.some((w) => w.assign_seq)) {
+        const waitStart = Date.now();
         await client.query('SELECT pg_advisory_xact_lock($1)', [CHANGE_LOG_LOCK]);
+        if (this.onLockWait) this.onLockWait(Date.now() - waitStart); // observability hook (load test, metrics)
         seq = Number((await client.query('SELECT COALESCE(MAX(seq), 0) AS m FROM change_log')).rows[0].m);
       }
       // updates first (they may free a unique key an insert takes); FKs are deferred to COMMIT

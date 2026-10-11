@@ -2,8 +2,8 @@
 
 ระบบแจ้งลา ลงเวลาสาย ติดตามการมาเรียน และดูแลช่วยเหลือนักเรียน — โรงเรียนจุนวิทยาคม อำเภอจุน จังหวัดพะเยา (กลุ่มบริหารงานกิจการนักเรียน)
 
-> สถานะ: **อยู่ระหว่างพัฒนา** — ดูความคืบหน้าและผลทดสอบจริงใน [BUILD_STATE.md](BUILD_STATE.md)
-> ยังไม่พร้อมเปิดใช้งานจริงกับโรงเรียน จนกว่าจะผ่าน UAT บน deployment จริงตาม docs/UAT_CHECKLIST_TH.md
+> สถานะ (0.8.0): **ส่งมอบโค้ดครบ 8 ชุดตามขอบเขตระยะแรกและชุดย้ายข้อมูล** — ผลทดสอบจริงใน [BUILD_STATE.md](BUILD_STATE.md), ข้อจำกัดใน [docs/LIMITATIONS.md](docs/LIMITATIONS.md)
+> **ยังไม่พร้อมเปิดใช้งานจริงกับโรงเรียน** จนกว่าจะผ่าน UAT บน deployment จริงตาม [docs/UAT_CHECKLIST_TH.md](docs/UAT_CHECKLIST_TH.md) (ยังไม่ได้ทดสอบบน Apps Script / Firebase / LINE จริง) และโรงเรียนกำหนดค่าธุรกิจที่ยังเป็นค่าตัวอย่าง
 
 ## ภาพรวม
 
@@ -12,6 +12,18 @@
 - แจ้งเตือน: ในแอป + อีเมล (เริ่มต้น), LINE Official Account Messaging API (เปิดภายหลังผ่าน webhook gateway ที่ตรวจลายเซ็น)
 - ย้ายข้อมูล: portable package (JSONL + checksum + ไฟล์แนบ) → PostgreSQL อ้างอิงพร้อม migration CLI และ reconciliation
 - เส้นทางอัปเกรด: GAS → REST backend อ้างอิง (Node.js + PostgreSQL, `future-platform/api`) ผ่าน GAS HttpApiAdapter → เว็บใหม่ (`future-platform/web` รุ่นเริ่มต้น) (ARCHITECTURE.md §6, docs/REST_BACKEND_TH.md)
+
+## ขอบเขตที่เสร็จ (โค้ด + การทดสอบอัตโนมัติ)
+
+| ส่วน | สิ่งที่ใช้งานได้ |
+|---|---|
+| ตัวตนและสิทธิ์ | Firebase Authentication ผ่าน gateway (ตรวจ token ซ้ำ), คำเชิญครั้งเดียว, บทบาท × ขอบเขตข้อมูล, SoD, DEMO เฉพาะ DEV/STAGING |
+| งานประจำวัน | ลงเวลาที่ประตู (สแกน/ค้นหา/ออฟไลน์), เช็กชื่อ, ยืนยันขาด, ใบลา + อนุมัติ + เอกสารแนบ, แก้ไขย้อนหลัง, หน้าประวัตินักเรียน, Dashboard |
+| ติดตามและแจ้งเตือน | เรื่องติดตาม/การติดต่อ/นัดหมาย, outbox ในแอป + อีเมล + LINE (เปิดเมื่อพร้อม), รับทราบ, webhook gateway |
+| รายงานและปฏิบัติการ | R01–R12 (จอ/CSV/XLSX/PDF), สำรอง/restore drill, metrics, retention, ล้างไฟล์กำพร้า, สถานะระบบ |
+| ย้ายข้อมูล | ศูนย์ส่งออก, portable package, ตรวจ/นำเข้า Sheets ชุดใหม่ และ PostgreSQL, กระทบยอด, cutover/rollback |
+| เส้นทางอัปเกรด | REST backend อ้างอิง (Node + PostgreSQL), GAS HttpApiAdapter, เว็บรุ่นเริ่มต้น |
+| ตรวจรับ | test matrix ตาม §18, UAT checklist ทุกบทบาท, ผลทดสอบโหลด (เครื่องพัฒนา), inventory การส่งมอบ |
 
 ## เอกสาร
 
@@ -34,6 +46,11 @@
 | [docs/REST_BACKEND_TH.md](docs/REST_BACKEND_TH.md) | REST backend อ้างอิง + PostgreSQL, admin CLI, HttpApiAdapter (ขั้นที่ 2), เว็บรุ่นเริ่มต้น (ขั้นที่ 3), สิ่งที่ยังไม่ส่งมอบ |
 | [future-platform/web/README_TH.md](future-platform/web/README_TH.md) | หน้าที่เว็บรุ่นเริ่มต้นมี และหน้าที่ยังต้องย้าย |
 | [API_CONTRACT.md](API_CONTRACT.md), [openapi.yaml](openapi.yaml) | operation ทั้งหมด, envelope, รหัสข้อผิดพลาด + HTTP status (สร้างจาก registry) |
+| [docs/UAT_CHECKLIST_TH.md](docs/UAT_CHECKLIST_TH.md) | ตรวจรับทุกบทบาทบน deployment จริง พร้อมผลที่คาดหวัง |
+| [docs/TEST_MATRIX.md](docs/TEST_MATRIX.md) | กลุ่มทดสอบบังคับ §18 → ชื่อทดสอบจริง และสิ่งที่ต้องทำบน deployment จริง |
+| [docs/LOAD_TEST_TH.md](docs/LOAD_TEST_TH.md) | ผลทดสอบโหลดช่วงพีค (memory / REST+PostgreSQL / emulator — ไม่ใช่ Apps Script จริง) |
+| [docs/LIMITATIONS.md](docs/LIMITATIONS.md) | ข้อจำกัด, dependency, สิ่งที่ยังไม่ได้ทดสอบ/ไม่ได้ส่งมอบ |
+| [docs/DELIVERY_INVENTORY.md](docs/DELIVERY_INVENTORY.md) | รายการไฟล์ส่งมอบตาม §19 และวิธีประกอบโครงการ |
 | [docs/PRIVACY_NOTICE_DRAFT_TH.md](docs/PRIVACY_NOTICE_DRAFT_TH.md) | ร่างประกาศความเป็นส่วนตัว (โรงเรียนต้องตรวจและอนุมัติ) |
 | [BUILD_STATE.md](BUILD_STATE.md) | ความคืบหน้า ผลทดสอบ งานถัดไป |
 
@@ -50,6 +67,7 @@ npm run test:pg        # PostgreSQL จริง (cluster ชั่วครา�
 npm run test:web       # เว็บรุ่นเริ่มต้นกับ REST API + PostgreSQL ใน Chromium (ต้องมี Playwright)
 npm run api            # REST backend อ้างอิง (ตั้ง environment ตาม .env.example / docs/REST_BACKEND_TH.md §3)
 npm run test:ui        # smoke test หน้าจอใน Chromium (ต้องมี Playwright)
+npm run load -- --target memory                 # ทดสอบโหลดช่วงพีค (ดู docs/LOAD_TEST_TH.md สำหรับ rest/gas-emulator)
 npm run fixtures -- --out ./tmp/packages       # package ข้อมูลสังเคราะห์
 DATABASE_URL=… npm run rehearse:pg -- --init-schema   # ซ้อมย้ายครบขั้นกับฐานข้อมูลทิ้งได้
 ```

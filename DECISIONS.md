@@ -238,6 +238,12 @@
 - ครบหนึ่งกระบวนการตามที่ MASTER_PROMPT กำหนด (login, รายชื่อนักเรียน, หน้ารายบุคคล, ลงเวลามาสาย) และระบุหน้าที่ยังต้องย้ายใน future-platform/web/README_TH.md — ไม่อ้างว่าเป็น frontend ครบ
 - endpoint ที่ใช้ (`identitytoolkit.googleapis.com/v1/accounts:signInWithPassword|signUp|sendOobCode`, `securetoken.googleapis.com/v1/token`) เขียนตาม Firebase Auth REST API ที่รู้จัก **แต่ยังไม่ได้ตรวจกับหน้าเอกสารในชุดนี้** (network policy ของสภาพแวดล้อมพัฒนาปิดการเข้าถึง firebase.google.com) และยังไม่ได้ทดสอบกับโปรเจกต์จริง → ต้องตรวจเอกสารและทดสอบใน UAT ก่อนใช้
 
+## D-038 ล้างไฟล์กำพร้า (ชุดที่ 8)
+
+- **บริบท:** การอัปโหลดเขียน object ก่อน commit metadata (ไฟล์ภายนอกอยู่นอก transaction) — ถ้า commit ล้ม object ไม่มีรายการใดอ้างถึง; ชุดก่อนหน้ามีเพียงคอมเมนต์ว่า "มีงานล้าง" แต่ยังไม่มีงานจริง และ `promote()` ของ Drive ไม่เคยถูกเรียก (ไฟล์ที่ผูกแล้วค้างใน `staging/`)
+- **การตัดสินใจ:** งาน `files.cleanupOrphans` วันละครั้ง (Settings `files.cleanup_time` 02:30) ทำ 3 ขั้นแบบ resumable: (A) Attachments ที่ STAGED และไม่ถูกผูกเกิน 24 ชม. → DELETED + ลบ object; (B) ย้าย object ที่ผูกแล้วออกจาก staging; (C) object ใน staging ที่เก่ากว่า 24 ชม. และ **ไม่มีแถว Attachments** → ลบ (Drive = ย้ายไปถังขยะ กู้ได้ตามนโยบาย Drive); ทุกครั้งมี AuditEvents `attachment.orphan_cleanup`
+- **ข้อจำกัดความปลอดภัย:** ไม่ลบสิ่งที่มีแถวอ้างถึง; ไม่ทำงานใน READ_ONLY (ระหว่าง freeze/นำเข้า); บน Drive อ่าน staging ได้ครั้งละ 5,000 ไฟล์ (staging เล็กเพราะขั้น B)
+
 ## เอกสารทางการที่ตรวจ (2026-10-10)
 
 สภาพแวดล้อมพัฒนามี network policy ปิดการเข้าถึง developers.google.com, developers.line.biz และ gstatic.com โดยตรง จึงตรวจผ่าน web search เท่านั้น:

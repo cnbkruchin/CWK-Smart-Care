@@ -11,6 +11,7 @@ import { operationsOps, OPS_JOB_HANDLERS } from './ops/operations.js';
 import { migrationOps, MIGRATION_JOB_HANDLERS } from './ops/migration.js';
 import { ATTENDANCE_JOB_HANDLERS } from './jobs/attendance-jobs.js';
 import { FOLLOWUP_JOB_HANDLERS } from './jobs/followup-jobs.js';
+import { FILES_JOB_HANDLERS } from './jobs/files-jobs.js';
 
 export const EXTRA_OPS = [...attendanceOps, ...leaveOps, ...attachmentOps, ...profileOps, ...followupOps, ...notificationOps, ...reportOps, ...operationsOps, ...migrationOps];
-export const EXTRA_JOB_HANDLERS = { ...ATTENDANCE_JOB_HANDLERS, ...FOLLOWUP_JOB_HANDLERS, ...REPORT_JOB_HANDLERS, ...OPS_JOB_HANDLERS, ...MIGRATION_JOB_HANDLERS };
+export const EXTRA_JOB_HANDLERS = { ...ATTENDANCE_JOB_HANDLERS, ...FOLLOWUP_JOB_HANDLERS, ...REPORT_JOB_HANDLERS, ...OPS_JOB_HANDLERS, ...MIGRATION_JOB_HANDLERS, ...FILES_JOB_HANDLERS };

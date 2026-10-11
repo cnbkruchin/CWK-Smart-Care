@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+### ชุดที่ 8 — ตรวจรับขั้นสุดท้าย (2026-10-11) — version 0.8.0
+
+- **งานล้างไฟล์กำพร้า** `files.cleanupOrphans` (tick `files.schedule`, Settings ใหม่ `files.cleanup_time` 02:30): Attachments ที่ STAGED ไม่ถูกผูกเกิน 24 ชม. → DELETED; ย้ายไฟล์ที่ผูกแล้วออกจาก `staging/`; ลบ object ที่ไม่มีแถวอ้างถึง (Drive = ถังขยะ); ไม่ทำงานขณะ READ_ONLY (D-038) — ชุดก่อนหน้ามีเพียงคอมเมนต์ที่อ้างว่ามีงานนี้
+- storage port (ไม่บังคับ): `listStaged`, `isStaged`, `promote` บน Drive/memory, `listStaged` บน filesystem; PgStore `onLockWait` (สังเกต lock wait)
+- schema_version 1 (ไม่เปลี่ยนโครงสร้าง); API v1 ไม่เปลี่ยน (139 operations); public GAS functions 13
+- ทดสอบใหม่: identity-gateway (GAS verifier ↔ gateway จริง: token หมดอายุ/ถูกเพิกถอน/ระงับ/ผิด project/tenant, คำตอบปลอม), jobs (resume, lease หมดอายุ, quota backoff, quota ระหว่างคำขอไม่บันทึก), files (ล้างไฟล์กำพร้า memory + Drive บน emulator), execute-as-owner ไม่ใช้ตัวตนเจ้าของ
+- `tools/load-test.mjs` (`npm run load`): memory / REST+PostgreSQL / gas-emulator — ผลใน docs/LOAD_TEST_TH.md (พบคอขวด: แดชบอร์ดทั้งโรงเรียน)
+- เอกสาร: docs/UAT_CHECKLIST_TH.md, docs/LIMITATIONS.md, docs/TEST_MATRIX.md, docs/LOAD_TEST_TH.md, docs/DELIVERY_INVENTORY.md, README_TH (ขอบเขตที่เสร็จ), ARCHITECTURE §3.4, THREAT_MODEL T8, DECISIONS D-038
+
 ### ชุดที่ 7 — Platform upgrade reference (2026-10-11) — version 0.7.0
 
 - **REST backend อ้างอิง** `future-platform/api` (Node 22, `pg` 8.23.1, `firebase-admin` 14.4.0): `POST /v1/rpc`, `POST /v1/ops/{operation}` (Idempotency-Key, If-Match, X-Request-Id), `POST /v1/webhook/line` (ปิดจนมี LINE provider บน Node), `GET /healthz`, `GET /readyz`; HTTP status ตามรหัสข้อผิดพลาด (API_CONTRACT.md, `x-cwk-http-status` ใน openapi.yaml); CORS allowlist; worker (tick + jobs, advisory lock); admin CLI `init-db/bootstrap/seed-demo/set-mode/status/export-delta`; Dockerfile + docker-compose profile `api`

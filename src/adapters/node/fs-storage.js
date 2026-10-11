@@ -30,6 +30,18 @@ export class FsAttachmentStorage {
     try { return new Uint8Array(fs.readFileSync(this._abs(mapping.object_key))); } catch (e) { throw Object.assign(new Error('object missing'), { code: 'STORAGE_UNAVAILABLE' }); }
   }
   delete(mapping) { try { fs.unlinkSync(this._abs(mapping.object_key)); } catch (_) { /* already gone */ } return true; }
+  /** No separate staging area on the filesystem: every object, ordered by logical id, for the orphan cleanup. */
+  listStaged({ after = null, limit = 500 } = {}) {
+    const items = [];
+    for (const shard of fs.readdirSync(this.root).filter((d) => /^[0-9a-f]{2}$/.test(d)).sort()) {
+      for (const name of fs.readdirSync(path.join(this.root, shard)).filter((n) => ID.test(n)).sort()) {
+        if (after && name <= after) continue;
+        items.push({ logical_id: name, object_key: `${shard}/${name}`, created_at: fs.statSync(path.join(this.root, shard, name)).mtime.toISOString() });
+        if (items.length > limit) return { items: items.slice(0, limit), next_after: items[limit - 1].logical_id };
+      }
+    }
+    return { items, next_after: null };
+  }
   metadata(mapping) {
     try {
       const b = fs.readFileSync(this._abs(mapping.object_key));

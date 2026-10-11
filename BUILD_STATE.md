@@ -2,11 +2,11 @@
 
 | รายการ | ค่า |
 |---|---|
-| project version | 0.7.0 (ยังไม่ใช่ release) · REST API `cwk-api` 0.7.0 · gateway 0.4.0 (ไม่เปลี่ยนตั้งแต่ชุดที่ 4) · portable format v1 |
+| project version | 0.8.0 (ยังไม่ใช่ release — ส่งมอบโค้ดครบ 8 ชุด; ยังไม่ผ่าน UAT บน deployment จริง) · REST API `cwk-api` 0.7.0 · gateway 0.4.0 (ไม่เปลี่ยนตั้งแต่ชุดที่ 4) · portable format v1 |
 | schema version | 1 (`src/schema/tables.js`, 56 ตาราง; DDL ชุดที่ 7: FK ทุกตัว DEFERRABLE — ยังไม่ release) |
 | API version | v1 (139 operations ใน allowlist) · public GAS functions 13 |
 | prompt version | MASTER_PROMPT 1.0 (2026-10-10) |
-| ชุดล่าสุดที่ส่งมอบ | ชุดที่ 7 — Platform upgrade reference (REST backend + PostgreSQL, GAS HttpApiAdapter, เว็บรุ่นเริ่มต้น) |
+| ชุดล่าสุดที่ส่งมอบ | ชุดที่ 8 — ตรวจรับขั้นสุดท้าย (test matrix §18, UAT checklist, ทดสอบโหลด, LIMITATIONS, inventory, ล้างไฟล์กำพร้า) — ครบทุกชุดตาม §20 |
 | อัปเดตล่าสุด | 2026-10-11 |
 
 ## สมมติฐาน (แยกจากข้อมูลจริง)
@@ -30,7 +30,7 @@
 
 ## Architecture decisions
 
-DECISIONS.md D-001…D-037 (ชุดที่ 7 เพิ่ม D-032 PostgreSQL adapter, D-033 HTTP layer, D-034 ตัวตนบน REST/การส่ง credential จาก GAS, D-035 worker, D-036 ความสามารถที่ REST ยังไม่มี, D-037 เว็บรุ่นเริ่มต้น; ชุดที่ 6 เพิ่ม D-026 รูปแบบ package, D-027 snapshot ที่พิสูจน์ความสอดคล้อง, D-028 แกนตรวจเดียว/ปลายทางใหม่เท่านั้น/staging+merge, D-029 reconciliation ด้วยตัวอย่างธุรกิจ, D-030 cutover/rollback, D-031 แก้การอ่านข้อมูลที่ถูกตัดที่ 500 แถว; ชุดที่ 5 เพิ่ม D-023 รายงานบนจอ vs ฉบับไฟล์/ล็อก/revision, D-024 snapshot + restore ไป environment ใหม่เท่านั้น, D-025 retention เฉพาะบันทึกระบบ; ชุดที่ 4 เพิ่ม D-020 กฎติดตาม/กันซ้ำ/เปิดใหม่, D-021 การส่งออกใน DEV/STAGING, D-022 ข้อความเข้าและปุ่มตอบกลับทาง LINE; ชุดที่ 3: รายละเอียด implement: DailyAttendance เป็น projection ที่คำนวณใหม่ใน changeset เดียวกับเหตุการณ์, การแก้ไขเป็นเหตุการณ์ใหม่ที่ supersede ของเดิม, config cache ล้างอัตโนมัติเมื่อ commit แตะตารางตั้งค่า)
+DECISIONS.md D-001…D-038 (ชุดที่ 8 เพิ่ม D-038 ล้างไฟล์กำพร้า; ชุดที่ 7 เพิ่ม D-032 PostgreSQL adapter, D-033 HTTP layer, D-034 ตัวตนบน REST/การส่ง credential จาก GAS, D-035 worker, D-036 ความสามารถที่ REST ยังไม่มี, D-037 เว็บรุ่นเริ่มต้น; ชุดที่ 6 เพิ่ม D-026 รูปแบบ package, D-027 snapshot ที่พิสูจน์ความสอดคล้อง, D-028 แกนตรวจเดียว/ปลายทางใหม่เท่านั้น/staging+merge, D-029 reconciliation ด้วยตัวอย่างธุรกิจ, D-030 cutover/rollback, D-031 แก้การอ่านข้อมูลที่ถูกตัดที่ 500 แถว; ชุดที่ 5 เพิ่ม D-023 รายงานบนจอ vs ฉบับไฟล์/ล็อก/revision, D-024 snapshot + restore ไป environment ใหม่เท่านั้น, D-025 retention เฉพาะบันทึกระบบ; ชุดที่ 4 เพิ่ม D-020 กฎติดตาม/กันซ้ำ/เปิดใหม่, D-021 การส่งออกใน DEV/STAGING, D-022 ข้อความเข้าและปุ่มตอบกลับทาง LINE; ชุดที่ 3: รายละเอียด implement: DailyAttendance เป็น projection ที่คำนวณใหม่ใน changeset เดียวกับเหตุการณ์, การแก้ไขเป็นเหตุการณ์ใหม่ที่ supersede ของเดิม, config cache ล้างอัตโนมัติเมื่อ commit แตะตารางตั้งค่า)
 
 ## File inventory
 
@@ -45,7 +45,7 @@ DECISIONS.md D-001…D-037 (ชุดที่ 7 เพิ่ม D-032 PostgreSQ
 | `src/application/jobs/attendance-jobs.js` openDay, recomputeStudent, recomputeDate, unknownCheck + tick `attendance.schedule` | ✔ ชุดที่ 3 |
 | `frontend/src/screens/` dashboard, gate, rollcall, leave, leave-detail, approvals, profile (+ extra.js routes) | ✔ ชุดที่ 3 |
 | `frontend/src/offline.js` (IndexedDB คิวลงเวลาออฟไลน์ ≤ 24 ชม.), `frontend/src/lib/dates.js` (วันที่ตามเขตเวลาโรงเรียน) | ✔ ชุดที่ 3 |
-| `gas-dist/` Code.js (980,138 ไบต์), Entrypoints.js (13 public functions), App.html (275,325 ไบต์), appsscript.json, BUILD_INFO.json | ✔ built (`npm run build`, ชุดที่ 7) |
+| `gas-dist/` Code.js (986,484 ไบต์), Entrypoints.js (13 public functions), App.html (275,325 ไบต์), appsscript.json, BUILD_INFO.json | ✔ built (`npm run build`, ชุดที่ 8) |
 | `tests/application/daily.test.mjs` (16 tests), `tests/gas/gas-runtime.test.mjs` (+ daily flows on Sheets), `tests/ui/ui-smoke.mjs` (Chromium) | ✔ ชุดที่ 3 |
 | `docs/USER_GUIDE_DAILY_TH.md` | ✔ ชุดที่ 3 |
 | `src/domain/followup.js` (นับตามกฎ, หน้าต่างวันเรียน, cooldown) | ✔ ชุดที่ 4 |
@@ -87,6 +87,10 @@ DECISIONS.md D-001…D-037 (ชุดที่ 7 เพิ่ม D-032 PostgreSQ
 | `docker-compose.yml` profile `api` (api-init + api) | ✔ ชุดที่ 7 (ไฟล์เท่านั้น — ยังไม่ได้รัน) |
 | `tests/contract/store-contract.test.mjs` (8 × memory + 8 × PostgreSQL), `tests/api/` api (11), gas-http-adapter (4), unit (4); `tests/ui/web-starter-smoke.mjs`; helpers api-server, pg-api-fixture, sync-fetch | ✔ ชุดที่ 7 |
 | docs/REST_BACKEND_TH.md, ARCHITECTURE §2/§4/§6.2, DECISIONS D-032–D-037, THREAT_MODEL T13–T15, MIGRATION_RUNBOOK §6.5/§8, README_TH, .env.example, ScriptProperties.example (`CWK_REST_BASE_URL`) | ✔ ชุดที่ 7 |
+| `src/application/jobs/files-jobs.js` (งาน `files.cleanupOrphans` + tick `files.schedule`), storage `listStaged`/`isStaged`/`promote` (Drive, memory, filesystem), Settings `files.cleanup_time`, PgStore `onLockWait` | ✔ ชุดที่ 8 |
+| `tests/application/` files (1), identity-gateway (4), jobs (3); GAS emulator +2 (Drive cleanup, execute-as-owner); helpers `gateway-server.mjs`; GasSim `getDateCreated` | ✔ ชุดที่ 8 |
+| `tools/load-test.mjs` (`npm run load`: memory / rest / gas-emulator) | ✔ ชุดที่ 8 |
+| docs/UAT_CHECKLIST_TH.md, docs/LIMITATIONS.md, docs/TEST_MATRIX.md, docs/LOAD_TEST_TH.md, docs/DELIVERY_INVENTORY.md; README_TH (ขอบเขตที่เสร็จ), ARCHITECTURE §3.4, THREAT_MODEL T8, DECISIONS D-038 | ✔ ชุดที่ 8 |
 
 ## Completed requirements (สะสม)
 
@@ -113,13 +117,18 @@ DECISIONS.md D-001…D-037 (ชุดที่ 7 เพิ่ม D-032 PostgreSQ
 - §15 ศูนย์ส่งออกและย้ายข้อมูล: inventory, ส่งออก FULL_SNAPSHOT/REHEARSAL/PARTIAL เป็นงานเบื้องหลังมี checkpoint (หยุดชั่วคราว/ทำต่อ/ยกเลิก), package ตาม PORTABLE_FORMAT (manifest + sha256, JSONL canonical, CSV กันสูตร + data dictionary, ไฟล์แนบ bytes จริง + index, metadata, schema, docs), freeze ที่ server + high-water mark + พิสูจน์ความสอดคล้อง, ไม่มี secrets, outbox `replay_blocked`, ตรวจ package (FULL/INTEGRITY), นำเข้า Sheets ชุดใหม่ (adminImportPackage) และ PostgreSQL (CLI: staging + merge transaction เดียว, resume, idempotent, conflict ไม่เขียนทับ, ปฏิเสธ schema ไม่รองรับ, ZIP ปลอดภัย, role cwk_migrator), reconciliation ครบ §15.6 (จำนวน/ID/checksum แยก derived/partition/ช่วงวัน+พ.ศ./ความสัมพันธ์/outbox/ไฟล์แนบ/ยอด R01–R07/สิทธิ์ตัวอย่าง/FK SQL), state machine + หลักฐาน + readiness checklist + cutover (archive อ่านอย่างเดียว) + rollback (DELTA + APPLY_NEWER ไม่ทิ้งข้อมูลใหม่)
 - §10.3/§14 งานตามเวลาใน READ_ONLY รันเฉพาะงานบำรุงรักษา; การอ่านทั้งหมดฝั่ง server ไม่ถูกตัดที่ 500 แถว (D-031)
 - §2.3/§16 เส้นทางอัปเกรด: REST backend อ้างอิงใช้ dispatcher/operations/jobs เดิมทั้งหมด (139 operations ผ่าน contract เดียว), PostgreSQL unit of work = transaction เดียว (outbox ใน transaction), constraint เป็นการบังคับเพิ่ม, credential ของ app (`cwk_app`) แยกจาก migration (`cwk_migrator`) และ owner (DDL), OpenAPI + health/readiness + contract tests, ตรวจตัวตนซ้ำที่ backend; GAS HttpApiAdapter ส่ง credential ของผู้ใช้ให้ backend ตรวจ (ไม่เชื่อ user_id จาก GAS, ไม่ dual-write) ใช้ได้กับทุก operation; เว็บรุ่นเริ่มต้นมี login + รายชื่อนักเรียน + หน้ารายบุคคล + ลงเวลาสายครบหนึ่งกระบวนการ พร้อมรายการหน้าที่ต้องย้าย; Docker Compose (ไฟล์); ส่งออกจาก PostgreSQL ใช้ package format เดียวกัน; rollback DELTA จาก PostgreSQL ด้วย `admin.mjs export-delta`
+- §18 test matrix ครบทุกกลุ่ม (docs/TEST_MATRIX.md) รวม Identity ฝั่ง GAS ↔ gateway จริง, Files/orphan cleanup, Quota/jobs; ทดสอบโหลดตามสมมติฐาน §3 พร้อม p50/p95, error rate, lock wait, queue latency, quota impact แยกผลเครื่องพัฒนาออกจาก Apps Script จริง (docs/LOAD_TEST_TH.md); UAT checklist ทุกบทบาทพร้อมผลที่คาดหวัง; LIMITATIONS; delivery inventory ตาม §19
 - §17 คู่มือติดตั้งฉบับแรก, คู่มือใช้งานประจำวัน, คู่มือ gateway, คู่มืองานติดตาม/แจ้งเตือน, คู่มือปฏิบัติการ (OPERATIONS_TH), นิยามรายงาน (REPORTS_TH), THREAT_MODEL, ร่างประกาศความเป็นส่วนตัว
 
-## Pending requirements (ชุดถัดไป)
+## Pending requirements
 
-ชุดที่ 8: UAT_CHECKLIST_TH, LIMITATIONS.md, load test, README/BUILD_STATE ฉบับสุดท้าย, inventory การส่งมอบ
+ไม่มีงานเขียนโค้ดค้างตามขอบเขตบังคับของ MASTER_PROMPT §20 (ชุดที่ 1–8) — สิ่งที่ยังต้องทำเป็นงานบน deployment จริงของโรงเรียน (ไม่สามารถทำได้ในสภาพแวดล้อมพัฒนา) และงานต่อยอดที่ระบุว่าไม่ส่งมอบใน docs/LIMITATIONS.md §2:
+- UAT ทุกหมวดใน docs/UAT_CHECKLIST_TH.md บน STAGING ด้วยบัญชีโรงเรียน (Apps Script, Firebase, LINE, Cloud Run จริง)
+- วัดโหลดบน Apps Script จริง (docs/LOAD_TEST_TH.md §5) และเวลาต่อคนที่ประตู (เป้าหมาย 10–15 วินาที)
+- โรงเรียนกำหนดค่าธุรกิจ/ประกาศความเป็นส่วนตัว/นโยบายเก็บข้อมูล (BUILD_STATE "สมมติฐาน")
+- แก้คอขวดแดชบอร์ดทั้งโรงเรียน (cache ต่อขอบเขต) ก่อนเพิ่มผู้ใช้แดชบอร์ดช่วงเช้า หากผลวัดจริงยืนยัน
 
-## Test results (Node 22.22.0, PostgreSQL 16, 2026-10-11 — รันใหม่ทั้งหมดในชุดที่ 7)
+## Test results (Node 22.22.0, PostgreSQL 16, 2026-10-11 — รันใหม่ทั้งหมดในชุดที่ 8)
 
 | ชุดทดสอบ | คำสั่ง | ผล |
 |---|---|---|
@@ -133,8 +142,10 @@ DECISIONS.md D-001…D-037 (ชุดที่ 7 เพิ่ม D-032 PostgreSQ
 | ซ้อมย้ายครบขั้นด้วยข้อมูลสังเคราะห์ | `DATABASE_URL=… node tools/rehearse-postgres.mjs --init-schema` | manual verified (2026-10-11, PG 16 local): 6 ขั้น exit 0 — เวลาบนเครื่องพัฒนา ไม่ใช่ตัวแทนของโรงเรียน |
 | docker compose (postgres + migrate, profile api) และ build image `future-platform/api/Dockerfile` | `docker compose …` | **not run** — ไม่มี Docker ใน environment พัฒนา |
 | gateway (node:http จริงบน localhost; Firebase แทนด้วยตัวทดสอบ; GAS แทนด้วย intake จริงบน memory store) | `node --test tests/gateway/` | automated pass (5) |
-| GAS bundle บน emulator (15 tests รวม (โหมด GAS ปกติ; โหมด REST อยู่ในแถว GAS → REST) ส่งออก portable package ใน Drive (freeze, INTEGRITY), adminImportPackage ลงโปรเจกต์ใหม่ + reconcile PASS + ปฏิเสธนำเข้าซ้ำ, หลักฐานกลับต้นทาง → RECONCILED, MailApp, doPost envelope → account link, LINE push + retry key, รายงาน PDF จาก Docs template + หัวตารางปักหมุด, XLSX export, CSV, backup snapshot + restore drill) | `npm run test:gas` | automated pass **(emulator — ไม่ใช่ Apps Script จริง; Docs/Drive export จำลองพฤติกรรมเท่านั้น ไม่ได้ตรวจหน้าตา PDF/XLSX จริง)** |
-| รวม | `npm test` | **176 pass / 0 fail / 28 skipped (PostgreSQL — รันด้วย npm run test:pg)** |
+| GAS bundle บน emulator (17 tests รวม ล้างไฟล์กำพร้าบน Drive, execute-as-owner, (โหมด GAS ปกติ; โหมด REST อยู่ในแถว GAS → REST) ส่งออก portable package ใน Drive (freeze, INTEGRITY), adminImportPackage ลงโปรเจกต์ใหม่ + reconcile PASS + ปฏิเสธนำเข้าซ้ำ, หลักฐานกลับต้นทาง → RECONCILED, MailApp, doPost envelope → account link, LINE push + retry key, รายงาน PDF จาก Docs template + หัวตารางปักหมุด, XLSX export, CSV, backup snapshot + restore drill) | `npm run test:gas` | automated pass **(emulator — ไม่ใช่ Apps Script จริง; Docs/Drive export จำลองพฤติกรรมเท่านั้น ไม่ได้ตรวจหน้าตา PDF/XLSX จริง)** |
+| รวม | `npm test` | **186 pass / 0 fail / 28 skipped (PostgreSQL — รันด้วย npm run test:pg)** — ชุดที่ 8 เพิ่ม identity-gateway 4, jobs 3, files 1, GAS emulator 2 |
+| ทดสอบโหลดช่วงพีค 1,500 คน / 5 จุด / 10 แดชบอร์ด (ข้อมูลสังเคราะห์) | `npm run load -- --target memory\|rest\|gas-emulator` | automated run บนเครื่องพัฒนา: 0 error ทั้ง 3 เป้าหมาย, ไม่มีบันทึกซ้ำ; REST+PostgreSQL พร้อมกันจริง recordArrival p95 217 ms, dashboard.summary p95 3,443 ms (คอขวด), ChangeLog lock wait p95 22 ms; memory queue latency p95 1.6 นาทีจำลอง — **ไม่ใช่ผลบน Apps Script** (docs/LOAD_TEST_TH.md) |
+| ซ้อมย้ายข้อมูลครบขั้น (ชุดที่ 8, DDL สุดท้าย) | `DATABASE_URL=… node tools/rehearse-postgres.mjs --init-schema` | manual verified 2026-10-11 (PG 16 local): 6 ขั้น exit 0, `sha256sum -c manifest.sha256` OK, reconciliation PASS 16/16 checks, ready_to_cutover true |
 | UI smoke (gas-dist/App.html ใน Chromium 141 headless, dispatcher จริงบน memory store) | `npm run test:ui` | **33/33 automated pass** (รันใหม่หลังแก้ main.js ชุดที่ 7) — ชุดที่ 6 เพิ่ม: ศูนย์ย้ายข้อมูลแสดง inventory, ปฏิเสธส่งออกก่อน freeze, ส่งออกเป็นงานเบื้องหลังจนส่งออกแล้ว/ครบถ้วน, ดาวน์โหลด RUNBOOK จาก package; ชุดที่ 5 เพิ่ม: R01 บนจอมีแถวรวมตรงกับ dashboard ทุกช่อง, ดาวน์โหลด CSV (BOM + หัวคอลัมน์ไทย), หน้าสถานะระบบแสดง metrics/สำรอง/retention |
 | PostgreSQL DDL | `tools/pg-local.mjs` + test:pg | automated: `0001_init.sql` (FK deferrable ชุดที่ 7) + `roles.sql` ติดตั้งบนฐานข้อมูลใหม่ทุกครั้งที่ทดสอบ (PG 16) |
 | firebase-admin 14.4.0 API (initializeApp/getApps/applicationDefault, getAuth().verifyIdToken/revokeRefreshTokens/tenantManager) | ติดตั้งใน scratchpad + node -e | manual verified (มีฟังก์ชันจริง; token ผิดรูปแบบได้ code `auth/argument-error`) — **ยังไม่ได้ตรวจ token จริงกับโปรเจกต์ Firebase** |
@@ -168,8 +179,10 @@ DECISIONS.md D-001…D-037 (ชุดที่ 7 เพิ่ม D-032 PostgreSQ
 - reconcile บน Apps Script (adminImportPackage) อ่านทุกตารางในหน่วยความจำและไม่แบ่ง execution — ชุดข้อมูลใหญ่อาจเกิน 6 นาที: ใช้ `tools/migrate.mjs reconcile` แทน; เวลาจริงยังไม่ได้วัด
 - reconcile ฝั่ง PostgreSQL โหลดข้อมูลกลับเข้าหน่วยความจำเพื่อคำนวณยอดรายงาน — ใช้หน่วยความจำตามขนาดข้อมูลของโรงเรียน (ยังไม่ได้วัดกับข้อมูลจริง)
 - **ส่งมอบแล้วในชุดที่ 7:** DELTA export จาก PostgreSQL (`admin.mjs export-delta`) — ทดสอบ rollback กลับต้นทางแล้ว; บน Sheets ชุดใหม่ยังไม่มีคำสั่ง editor สำเร็จรูป
-- Code.js 980,138 ไบต์: ขีดจำกัดขนาดโปรเจกต์ Apps Script ยังไม่ได้ตรวจกับ deployment จริง
+- Code.js 986,484 ไบต์: ขีดจำกัดขนาดโปรเจกต์ Apps Script ยังไม่ได้ตรวจกับ deployment จริง
 - REST backend (D-036): ไม่มีการส่งอีเมล/LINE, PDF/XLSX, นำเข้า XLSX, สำรองในแอป — ตอบรหัสข้อผิดพลาดชัดเจน; ต้องเพิ่ม provider/renderer ก่อนใช้ REST เป็นระบบหลัก
+- **คอขวดจากทดสอบโหลด:** `dashboard.summary` ทั้งโรงเรียนคำนวณสดทุกครั้ง — REST p95 3.4 วินาทีเมื่อแข่งกับการสแกน (docs/LOAD_TEST_TH.md §3) — ยังไม่ได้แก้ในชุดนี้ (ต้องยืนยันด้วยผลวัดจริงก่อนเลือกวิธี cache)
+- **แก้แล้วในชุดที่ 8 (D-038):** ชุดที่ 2–7 อ้างในคอมเมนต์ว่ามีงานล้างไฟล์กำพร้า แต่ยังไม่มีงานจริง และไฟล์ที่ผูกแล้วค้างใน Drive `staging/` — ตอนนี้มีงาน `files.cleanupOrphans` + ทดสอบ
 - REST `list` ใช้ cursor แบบ offset (อาจเห็นซ้ำ/ข้ามหนึ่งแถวบนจอเมื่อมีข้อมูลเข้าใหม่ระหว่างเปิดหน้า); ChangeLog lock เดียวทั้งระบบจำกัด throughput การเขียน; partition เชิงตรรกะยังไม่มี index — ยังไม่ได้วัดโหลด (ชุดที่ 8)
 - ขั้นที่ 2 (GAS → REST): ทุกคำขอผ่าน UrlFetchApp — latency และโควตา UrlFetch ยังไม่ได้วัดบน Apps Script จริง
 - เว็บรุ่นเริ่มต้นเก็บ token ในหน่วยความจำเท่านั้น (รีโหลด = เข้าสู่ระบบใหม่) — ตั้งใจ (D-037)
@@ -177,4 +190,4 @@ DECISIONS.md D-001…D-037 (ชุดที่ 7 เพิ่ม D-032 PostgreSQ
 
 ## Next exact task
 
-ชุดที่ 8 — การตรวจรับขั้นสุดท้าย: `docs/UAT_CHECKLIST_TH.md` (ทุกบทบาท, อุปกรณ์หน้างาน, สิทธิ์ไฟล์, backup/restore, ข้อความทดสอบ, อินเทอร์เน็ตขัดข้อง), `docs/LIMITATIONS.md` (รวมข้อจำกัดจาก BUILD_STATE/REST_BACKEND/THREAT_MODEL), เครื่องมือวัดโหลด (`tools/load-test.mjs`: สแกนประตูพร้อมกันกับ memory/REST+PostgreSQL ตามสมมติฐาน 1,500 คน — แยกผลเครื่องพัฒนาออกจากผลจริง), README_TH/BUILD_STATE ฉบับสุดท้าย, delivery inventory (ทุกไฟล์ → requirement → การทดสอบ), รันทดสอบทั้งหมดอีกครั้ง แล้ว commit/push
+ส่งมอบครบทุกชุดตาม §20 แล้ว — งานถัดไปเป็นของผู้ติดตั้ง/โรงเรียน: ติดตั้ง STAGING ตาม docs/INSTALL_GAS_TH.md (§0 ตรวจเอกสารและโควตาปัจจุบันก่อน) → ตั้ง gateway ตาม docs/GATEWAY_TH.md → ทำ docs/UAT_CHECKLIST_TH.md หมวด A ก่อน แล้ว B–F → วัดโหลดตาม docs/LOAD_TEST_TH.md §5 → บันทึกผลกลับใน BUILD_STATE (Test results: แยกแถว "Apps Script จริง") — ถ้าพบข้อบกพร่องให้แก้เป็นชุดย่อยต่อจาก 0.8.0 พร้อมทดสอบอัตโนมัติที่จำลองกรณีนั้น

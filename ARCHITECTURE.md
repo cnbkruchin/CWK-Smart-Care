@@ -104,7 +104,7 @@ lock(10s) → recoverPrepared() → idempotency? → re-read rows: version/uniqu
 
 ### 3.4 Background (`cronTick` ทุก 1–5 นาที, trigger ตัวเดียว)
 
-recover journal → claim jobs (lease) → outbox dispatch (claim ใต้ lock / ส่งนอก lock / บันทึกผลใต้ lock) → webhook inbox → rules (ติดตาม) → schedules (openDay, verify reminders, ack timeout, orphan cleanup, nightly backup) — หยุดก่อน 4.5 นาทีเพื่อเหลือ safety margin จาก 6 นาที
+recover journal → tick tasks ตามลำดับ `SCHEDULED_TASKS` (attendance: openDay/เตือนเช็กชื่อ · webhook inbox retry · ติดตาม: ประเมินกฎ/เกินกำหนด/หมดเวลารับทราบ · outbox dispatch (claim ใต้ lock / ส่งนอก lock / บันทึกผลใต้ lock) · ops: metrics + สำรองประจำคืน · files: ล้างไฟล์กำพร้าวันละครั้ง) → durable jobs (lease + checkpoint) — หยุดก่อน 4.5 นาทีเพื่อเหลือ safety margin จาก 6 นาที; โหมด READ_ONLY รันเฉพาะงานที่ `readOnlySafe` (REST backend: worker เดียวกันทุก N วินาที)
 
 ## 4. Capability matrix ของ adapters
 

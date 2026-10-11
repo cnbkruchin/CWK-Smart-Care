@@ -450,3 +450,45 @@ test('portable migration on Apps Script: frozen export to a private Drive packag
   run = ok(env(sim, staff.admin, 'migration.get', { run_id: st.run_id })).run;
   assert.equal(run.state, 'RECONCILED');
 });
+
+test('files on Drive: the daily cleanup promotes linked uploads and trashes only unreferenced staging files older than 24 h', () => {
+  const { sim, demo } = installed({ now: '2026-06-15T00:30:00.000Z' });
+  const ok = (r) => { assert.equal(r.ok, true, JSON.stringify(r.error)); return r.data; };
+  const g = demo.guardian_users[0];
+  const pdf = Buffer.from('%PDF-1.4\n%synthetic\n').toString('base64');
+  const lv = ok(env(sim, g.user_id, 'leave.submit', { student_id: g.student_id, leave_type: 'SICK', reason: 'ป่วย', days: [{ school_date: '2026-06-16', unit: 'FULL_DAY' }], attachments: [{ filename: 'cert.pdf', mime_type: 'application/pdf', content_base64: pdf }] }, { mutation: true }));
+  const attId = ok(env(sim, g.user_id, 'leave.get', { leave_request_id: lv.leave_request_id })).attachments[0].id;
+  const staging = sim.folders.find((f) => f.name === 'staging');
+  const linkedFile = sim.files.find((f) => f.name === attId);
+  assert.equal(linkedFile.folder, staging, 'uploads land in staging first');
+  const orphanName = crypto.randomUUID();
+  staging.createFile(sim.ctx.Utilities.newBlob('%PDF-1.4 orphan', 'application/pdf', orphanName)); // put done, commit never happened
+  sim.ctx.adminInstallTriggers();
+  sim.setNow('2026-06-16T02:00:00.000Z');
+  const youngName = crypto.randomUUID();
+  staging.createFile(sim.ctx.Utilities.newBlob('%PDF-1.4 young', 'application/pdf', youngName));
+  const tick = () => JSON.parse(sim.ctx.cronTick({ triggerUid: sim.triggers[0].getUniqueId() }));
+  const t = tick();
+  assert.equal(t.tasks['files.schedule'].scheduled, true, JSON.stringify(t.tasks['files.schedule']));
+  tick(); // runs the job (jobs run after the scheduled tasks)
+  const byName = (n) => sim.files.find((f) => f.name === n);
+  assert.equal(byName(orphanName).trashed, true, 'unreferenced file older than 24 h is trashed (recoverable from Drive trash)');
+  assert.equal(byName(youngName).trashed, false, 'recent upload kept');
+  assert.equal(linkedFile.trashed, false);
+  assert.notEqual(linkedFile.folder, staging, 'linked file promoted to files/YYYY');
+  assert.equal(ok(env(sim, g.user_id, 'attachment.download', { attachment_id: attId })).content_base64, pdf, 'still readable after the move');
+  assert.ok(sim.files.every((f) => f.sharing === 'PRIVATE'), 'nothing shared');
+});
+
+test('execute-as-owner: a request never inherits the deployment owner\'s identity (only the verified credential counts)', () => {
+  const { sim } = installed({ seed: false });
+  // the web app runs as the owner; the visitor is anonymous, or even the owner's own browser session
+  for (const visitor of ['', sim.ownerEmail]) {
+    sim.activeEmail = visitor;
+    const me = env(sim, null, 'auth.getCurrentUser');
+    assert.equal(me.ok, false);
+    assert.equal(me.error.code, 'UNAUTHENTICATED');
+    assert.equal(env(sim, null, 'student.search', { q: 'a' }).error.code, 'UNAUTHENTICATED');
+    assert.equal(env(sim, null, 'system.setMode', { mode: 'READ_ONLY', reason: 'ทดสอบ' }, { mutation: true }).error.code, 'UNAUTHENTICATED');
+  }
+});

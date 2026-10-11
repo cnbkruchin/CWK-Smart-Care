@@ -1,6 +1,7 @@
 // AttachmentStorage on Google Drive. Folders are private to the script owner; files are NEVER shared
 // with "anyone with the link" — downloads go through the permission-checked RPC (attachment.download).
-//   <root>/staging/   uploads not yet linked (orphan cleanup job deletes after 24 h)
+//   <root>/staging/   new uploads; the daily cleanup job (jobs/files-jobs.js) moves linked files to files/YYYY
+//                     and trashes files older than 24 h that no Attachments row references
 //   <root>/files/YYYY/ linked attachments
 //   <root>/exports/   portable packages and backups (sub-folder per run)
 //   <root>/reports/   generated report files
@@ -58,6 +59,22 @@ export class DriveAttachmentStorage {
     } catch (_) {
       return null;
     }
+  }
+
+  isStaged(mapping) {
+    if (!this._stagingId) this._stagingId = this.folder('staging').getId();
+    return mapping.container === this._stagingId;
+  }
+
+  /** Files in staging (kept small by promote): {items:[{logical_id, object_key, created_at}], next_after: null}. */
+  listStaged({ limit = 5000 } = {}) {
+    const it = this.folder('staging').getFiles();
+    const items = [];
+    while (it.hasNext() && items.length < limit) {
+      const f = it.next();
+      items.push({ logical_id: f.getName(), object_key: f.getId(), created_at: new Date(f.getDateCreated().getTime()).toISOString() });
+    }
+    return { items, next_after: null };
   }
 
   /** Move a staged object to the permanent folder once linked. */

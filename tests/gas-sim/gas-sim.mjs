@@ -157,8 +157,9 @@ class Blob {
 }
 
 class DriveFile {
-  constructor(sim, id, name, blob, folder) { Object.assign(this, { sim, id, name, blob, folder, trashed: false, description: null, sharing: 'PRIVATE' }); }
+  constructor(sim, id, name, blob, folder) { Object.assign(this, { sim, id, name, blob, folder, trashed: false, description: null, sharing: 'PRIVATE', created: new Date(sim.nowOverride || Date.now()) }); }
   getId() { return this.id; }
+  getDateCreated() { return new Date(this.created.getTime()); }
   getName() { return this.name; }
   getBlob() { return this.blob.copyBlob(); }
   getSize() { return this.blob.bytes.length; }
