@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+### ชุดที่ 7 — Platform upgrade reference (2026-10-11) — version 0.7.0
+
+- **REST backend อ้างอิง** `future-platform/api` (Node 22, `pg` 8.23.1, `firebase-admin` 14.4.0): `POST /v1/rpc`, `POST /v1/ops/{operation}` (Idempotency-Key, If-Match, X-Request-Id), `POST /v1/webhook/line` (ปิดจนมี LINE provider บน Node), `GET /healthz`, `GET /readyz`; HTTP status ตามรหัสข้อผิดพลาด (API_CONTRACT.md, `x-cwk-http-status` ใน openapi.yaml); CORS allowlist; worker (tick + jobs, advisory lock); admin CLI `init-db/bootstrap/seed-demo/set-mode/status/export-delta`; Dockerfile + docker-compose profile `api`
+- **PostgreSQL adapter** `src/adapters/postgres` (PgStore): transaction ต่อ commit, version check, ChangeLog seq ต่อเนื่อง, idempotency, READ_ONLY ในฐานข้อมูล (Settings `system.mode`), partition เชิงตรรกะของตาราง TERM; contract test ชุดเดียวกับ memory store
+- **DDL schema v1 (ยังไม่ release, schema_version ยังเป็น 1):** FK ทุกตัวใน `0001_init.sql` เป็น `DEFERRABLE INITIALLY DEFERRED` — ฐานข้อมูลที่ใช้ซ้อมจากชุดที่ 6 ให้สร้างใหม่ (ยังไม่มีฐาน PostgreSQL ใช้งานจริง)
+- **GAS `HttpApiAdapter`** (ขั้นที่ 2): Script Properties `CWK_SERVICE_BACKEND=REST` + `CWK_REST_BASE_URL`; `rpc`/`doGet` ส่งต่อไป backend พร้อม credential ใน Authorization, `doPost` ตอบ WEBHOOK_DISABLED, `cronTick` ไม่ทำงาน, `admin*` ที่แตะ Sheets ปฏิเสธ — public functions ยังเป็น 13 ตัว
+- **เว็บรุ่นเริ่มต้น** `future-platform/web` (ขั้นที่ 3): เข้าสู่ระบบ (Firebase REST / DEMO), เปิดใช้งานบัญชี, ค้นหานักเรียน, หน้ารายบุคคล, ลงเวลามาเรียน; รายการหน้าที่ต้องย้ายต่อใน README_TH.md
+- frontend เดิม: รับ `auth_mode` `FIREBASE` (ตัวตนตรวจที่ REST backend) เหมือน `GATEWAY`
+- `.env.example`: ตัวแปร API ใหม่ (`API_AUTH_MODE=FIREBASE|DEMO`, `API_DEMO_PASSPHRASE`, `FIREBASE_WEB_API_KEY`, …) แทน `DEV_HMAC`
+- ทดสอบ: tests/contract, tests/api (PostgreSQL จริง), tests/api/gas-http-adapter (gas-dist บน emulator → API จริง), tests/ui/web-starter-smoke (Chromium); `npm run test:pg` รวม contract + api, `npm run test:web` ใหม่
+- เอกสาร: docs/REST_BACKEND_TH.md, ARCHITECTURE §2/§4/§6.2, DECISIONS D-032–D-037, THREAT_MODEL T13–T15, MIGRATION_RUNBOOK (นำเข้า REST, ย้อนกลับด้วย `export-delta`)
+
 ### ชุดที่ 6 — Portable migration (2026-10-11) — version 0.6.0
 
 - **portable format v1** (docs/PORTABLE_FORMAT.md, schema/portable/*.schema.json): manifest + manifest.sha256, JSONL canonical ต่อตาราง/partition/chunk, CSV สำหรับคน, ไฟล์แนบ bytes จริง + attachment-index.jsonl, metadata (config ที่ไม่ลับ, storage mapping, archive partitions, rule versions, ยอดรายงานตัวอย่าง, สิทธิ์ตัวอย่าง), schema/, docs/; table digest = ผลรวม SHA-256 mod 2²⁵⁶ (แยก source/derived); ไม่ส่งออก MutationJournal/IdempotencyRecords/StorageCatalog/StorageObjectMappings/SchemaVersions; transforms: redact คำเชิญ, ล้าง nonce LINE, `replay_blocked` ให้ outbox ที่ยังไม่ส่ง

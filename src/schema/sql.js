@@ -107,13 +107,14 @@ export function generateInitSql() {
     }
     lines.push('');
   }
-  lines.push('-- Foreign keys (added after all tables; self-references and cycles are DEFERRABLE INITIALLY DEFERRED)');
+  lines.push('-- Foreign keys (added after all tables). All are DEFERRABLE INITIALLY DEFERRED: checked at COMMIT, so the');
+  lines.push('-- order of writes inside one unit of work (change set, migration merge) never matters; self-references and');
+  lines.push('-- the IdentityLinks <-> InvitationRecords cycle need this anyway.');
   for (const t of TABLES) {
     const tn = SQL_TABLE[t.name];
     for (const c of t.columns) {
       if (!c.fk) continue;
-      const deferrable = c.deferrable || c.fk === t.name ? ' DEFERRABLE INITIALLY DEFERRED' : '';
-      lines.push(`ALTER TABLE ${tn} ADD CONSTRAINT ${tn}_${c.name}_fk FOREIGN KEY (${c.name}) REFERENCES ${SQL_TABLE[c.fk]} (id)${deferrable};`);
+      lines.push(`ALTER TABLE ${tn} ADD CONSTRAINT ${tn}_${c.name}_fk FOREIGN KEY (${c.name}) REFERENCES ${SQL_TABLE[c.fk]} (id) DEFERRABLE INITIALLY DEFERRED;`);
     }
   }
   lines.push('');

@@ -1,8 +1,11 @@
-# Local PostgreSQL for migration rehearsals (MASTER_PROMPT §15.5, docs/MIGRATION_RUNBOOK_TH.md).
+# Local PostgreSQL for migration rehearsals (MASTER_PROMPT §15.5, docs/MIGRATION_RUNBOOK_TH.md) and the
+# reference REST backend (future-platform/api, docs/REST_BACKEND_TH.md).
 # Synthetic data only. Credentials below are LOCAL TEST VALUES — never reuse them anywhere else.
 #   docker compose up -d postgres
 #   docker compose run --rm migrate          # synthetic package → validate → plan → dry-run → apply → reconcile
-# Batch 7 adds the reference REST API service to this file.
+#   docker compose --profile api up --build  # schema + roles + bootstrap + synthetic demo data → API on http://localhost:8080
+#                                            # (demo user ids: docker compose logs api-init)
+# The two profiles share one local database: run `docker compose down -v` before switching between them.
 services:
   postgres:
     image: postgres:16-alpine
@@ -33,5 +36,42 @@ services:
     command: ["sh", "-c", "npm ci --omit=dev --ignore-scripts && node tools/rehearse-postgres.mjs --init-schema --work /tmp/cwk-rehearsal"]
     profiles: ["tools"]
 
+  api-init:
+    build:
+      context: .
+      dockerfile: future-platform/api/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_OWNER_URL: postgres://cwk_local:local-only-not-a-secret@postgres:5432/cwk_rehearsal
+      DATABASE_URL: postgres://cwk_api_local:local-only-app-password@postgres:5432/cwk_rehearsal
+      APP_LOGIN_PASSWORD: local-only-app-password
+      API_ENV: DEV
+    command: ["sh", "-c", "node future-platform/api/admin.mjs init-db --app-login cwk_api_local && node future-platform/api/admin.mjs bootstrap --admin-email admin@example.com && node future-platform/api/admin.mjs seed-demo"]
+    profiles: ["api"]
+
+  api:
+    build:
+      context: .
+      dockerfile: future-platform/api/Dockerfile
+    depends_on:
+      api-init:
+        condition: service_completed_successfully
+    environment:
+      API_ENV: DEV
+      API_AUTH_MODE: DEMO
+      API_DEMO_PASSPHRASE: local-only-demo-passphrase
+      # the API connects as a member of cwk_app (database/postgres/roles.sql): no DDL, no DELETE of business rows
+      DATABASE_URL: postgres://cwk_api_local:local-only-app-password@postgres:5432/cwk_rehearsal
+      API_ALLOWED_ORIGINS: http://localhost:5173
+      API_PUBLIC_URL: http://localhost:8080
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - cwk_api_data:/data
+    profiles: ["api"]
+
 volumes:
   cwk_pg_data:
+  cwk_api_data:

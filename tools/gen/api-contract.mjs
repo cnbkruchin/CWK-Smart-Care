@@ -3,6 +3,7 @@ import { buildRegistry } from '../../src/application/registry.js';
 import { ERROR_CODES } from '../../src/shared/errors.js';
 import { API_VERSION } from '../../src/application/dispatcher.js';
 import { toYaml } from '../lib/yaml.mjs';
+import { HTTP_STATUS } from '../../future-platform/api/src/app.mjs';
 
 export function generate() {
   const ops = buildRegistry().list().sort((a, b) => (a.name < b.name ? -1 : 1));
@@ -27,9 +28,11 @@ export function generate() {
   L.push('');
   L.push('## Error codes');
   L.push('');
-  L.push('| code | retryable | ข้อความ (ไทย) |');
-  L.push('|---|---|---|');
-  for (const [code, d] of Object.entries(ERROR_CODES)) L.push(`| ${code} | ${d.retryable ? 'ใช่' : 'ไม่'} | ${d.th} |`);
+  L.push('| code | HTTP (REST) | retryable | ข้อความ (ไทย) |');
+  L.push('|---|---|---|---|');
+  for (const [code, d] of Object.entries(ERROR_CODES)) L.push(`| ${code} | ${HTTP_STATUS[code]} | ${d.retryable ? 'ใช่' : 'ไม่'} | ${d.th} |`);
+  L.push('');
+  L.push('บน REST ทุกคำตอบเป็น envelope เดียวกัน; HTTP status ตามตารางนี้ (สำเร็จ = 200) และมี header `X-Request-Id`; `RATE_LIMITED`/`MAINTENANCE_MODE` มี `Retry-After` — บน Apps Script (`google.script.run`) ไม่มี HTTP status ให้ใช้ ดูที่ `error.code` เท่านั้น');
   L.push('');
   L.push(`## Operations (${ops.length})`);
   L.push('');
@@ -51,12 +54,24 @@ export function generate() {
     type: 'object', required: ['ok', 'meta'],
     properties: { ok: { type: 'boolean' }, data: {}, error: { $ref: '#/components/schemas/Error' }, meta: { type: 'object', properties: { request_id: { type: ['string', 'null'] }, server_time: { type: 'string' }, replayed: { type: 'boolean' } } } },
   };
+  // every response body is the envelope; the HTTP status of an error follows its code (x-cwk-http-status)
+  const envelopeResponses = (okText) => ({
+    200: { description: okText, content: { 'application/json': { schema: { $ref: '#/components/schemas/Response' } } } },
+    default: { description: 'Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status', content: { 'application/json': { schema: { $ref: '#/components/schemas/Response' } } } },
+  });
   const paths = {
     '/v1/rpc': {
       post: {
         operationId: 'rpc', summary: 'Generic RPC envelope (same contract as google.script.run.rpc)', security: [{ bearer: [] }],
         requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/Envelope' } } } },
-        responses: { 200: { description: 'Envelope response (ok true/false)', content: { 'application/json': { schema: { $ref: '#/components/schemas/Response' } } } } },
+        responses: envelopeResponses('Envelope response (ok true/false)'),
+      },
+    },
+    '/v1/webhook/line': {
+      post: {
+        operationId: 'lineWebhook', summary: 'Signed LINE event envelope from the gateway (same protocol as Apps Script doPost; 404 while LINE is disabled)', security: [],
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['v', 'kid', 'ts', 'nonce', 'source', 'payload', 'sig'] } } } },
+        responses: { 200: { description: '{ok, stored:true[, duplicate]}' }, 400: { description: 'invalid envelope' }, 401: { description: 'bad signature, unknown key or clock skew' }, 404: { description: 'LINE disabled' } },
       },
     },
     '/healthz': { get: { operationId: 'healthz', summary: 'Liveness (no secrets)', responses: { 200: { description: 'alive' } } } },
@@ -71,7 +86,7 @@ export function generate() {
         operationId: o.name.replace('.', '_'), summary: o.description_th || o.name, tags: [o.name.split('.')[0]],
         security: o.auth === 'PUBLIC' ? [] : [{ bearer: [] }], parameters: headers,
         requestBody: { required: true, content: { 'application/json': { schema: o.input } } },
-        responses: { 200: { description: 'Envelope response', content: { 'application/json': { schema: { $ref: '#/components/schemas/Response' } } } } },
+        responses: envelopeResponses('Envelope response'),
         'x-cwk': { auth: o.auth, permission: o.permission || null, mutation: !!o.mutation, idempotency: o.idempotency, rate_limit_per_minute: o.rateLimitPerMinute },
       },
     };
@@ -81,6 +96,7 @@ export function generate() {
     info: { title: 'CWK Smart Care API', version: API_VERSION, description: 'Generated from src/application/registry.js — transport-independent operations; the REST reference backend (future-platform/api) serves these paths.' },
     servers: [{ url: 'http://localhost:8080', description: 'local reference backend (docker compose)' }],
     components: {
+      'x-cwk-http-status': HTTP_STATUS,
       securitySchemes: { bearer: { type: 'http', scheme: 'bearer', bearerFormat: 'Firebase ID token (verified server-side with Firebase Admin SDK)' } },
       schemas: {
         Envelope: { type: 'object', required: ['api_version', 'request_id', 'operation', 'payload'], properties: { api_version: { const: API_VERSION }, request_id: { type: 'string', format: 'uuid' }, operation: { type: 'string', enum: ops.map((o) => o.name) }, idempotency_key: { type: ['string', 'null'], format: 'uuid' }, expected_version: { type: ['integer', 'null'] }, payload: { type: 'object' } } },

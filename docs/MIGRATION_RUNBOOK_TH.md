@@ -63,6 +63,7 @@
    - exit code ≠ 0 = หยุดและแก้ก่อน (ดู PORTABLE_FORMAT §14); `import --apply` โหลดเข้า staging ทีละ chunk พร้อม checkpoint แล้วรวมเข้าตารางจริงใน transaction เดียว — ถูกตัดกลางทาง รันคำสั่งเดิมซ้ำเพื่อทำต่อ; package เดิมนำเข้าซ้ำไม่เพิ่มข้อมูล
    - ข้อมูลในปลายทางที่ต่างจาก package = CONFLICT (exit 5) ระบบไม่เขียนทับ
 4. อัปโหลด `reports/import.json` และ `reports/reconciliation.json` จากเครื่องไปไว้ในโฟลเดอร์ `reports/` ของ package ใน Drive
+5. ถ้าปลายทางคือ **REST backend อ้างอิง** (docs/REST_BACKEND_TH.md): ใช้ `--attachments-dir` = `STORAGE_DIR` ของ API; ก่อนเปิด API ให้ `admin.mjs set-mode READ_ONLY` (package ไม่ได้พกโหมดระบบมา) ตรวจ `/readyz`, เข้าระบบด้วยบัญชีทดสอบของแต่ละบทบาท แล้วจึง `set-mode NORMAL` ตอน cutover (ขั้น 7.6) — **เก็บโฟลเดอร์ package ที่นำเข้าไว้** เพราะ `export-delta` ใช้ high-water mark จาก manifest ของมันเมื่อต้องย้อนกลับ
 
 ## 6B. นำเข้า Google Sheets ชุดใหม่ (Apps Script โปรเจกต์ใหม่)
 
@@ -90,7 +91,9 @@
 
 **กรณี B — มีข้อมูลใหม่ในระบบใหม่แล้ว** (ห้ามเปิดระบบเดิมจาก backup เก่าแล้วทิ้งข้อมูลใหม่)
 1. freeze ระบบใหม่
-2. ส่งออก **DELTA** จากระบบใหม่ ตั้งแต่ ChangeLog seq หลังนำเข้า (`exportDelta` ใน `src/application/migration/delta.js`; อ้าง `base_export_id` = งานส่งออกเดิม) — แถวที่เปลี่ยน/เพิ่มและไฟล์แนบใหม่ (ฟังก์ชันนี้ทำงานบน TableStore ใดก็ได้และผ่านการทดสอบอัตโนมัติบน memory store; คำสั่งสำเร็จรูปสำหรับ backend PostgreSQL ส่งมอบในชุดที่ 7 พร้อม Postgres TableStore — **ยังไม่ส่งมอบในชุดนี้**)
+2. ส่งออก **DELTA** จากระบบใหม่ ตั้งแต่ high-water mark ของ package ที่นำเข้า (อ้าง `base_export_id` = งานส่งออกเดิม) — แถวที่เปลี่ยน/เพิ่มและไฟล์แนบใหม่:
+   - ระบบใหม่เป็น **REST backend + PostgreSQL**: `DATABASE_URL=… node future-platform/api/admin.mjs set-mode READ_ONLY` แล้ว `… admin.mjs export-delta --base-package <โฟลเดอร์ package ที่นำเข้า> --out <โฟลเดอร์ส่วนตัว>` (ปฏิเสธถ้ายังไม่ READ_ONLY) — ทดสอบอัตโนมัติบน PostgreSQL จริง: tests/api "rollback from the REST backend…" (นำ delta กลับระบบต้นทาง ค่าที่แก้ + เหตุการณ์ใหม่กลับมาครบ)
+   - ระบบใหม่เป็น **Sheets ชุดใหม่**: `exportDelta` ใน `src/application/migration/delta.js` (ทดสอบอัตโนมัติบน memory store; ยังไม่มีคำสั่ง editor สำเร็จรูปบน Apps Script)
 3. วาง delta ในโฟลเดอร์ Drive ของระบบเดิม → Script Properties `CWK_DELTA_PACKAGE_FOLDER_ID`, รัน `adminApplyDelta` (ค่าเริ่มต้น DRY_RUN) → ตรวจผล → ตั้ง `CWK_DELTA_MODE=APPLY` แล้วรันจน done (แถวที่ถูกแก้ทั้งสองฝั่ง = CONFLICT หยุดทันที ต้องตัดสินใจรายรายการ)
 4. ศูนย์ย้ายข้อมูล → ย้อนกลับ กรณี "มีข้อมูลใหม่ และนำ delta กลับมาแล้ว" (ระบบตรวจ `reports/delta-apply.json`) → ย้อน routing → ปลด READ_ONLY ระบบเดิม
 5. หรือเลือก **roll-forward**: แก้ปัญหาบนระบบใหม่และใช้ต่อ (ไม่เปลี่ยนสถานะ) หลังกระทบยอดอีกครั้ง

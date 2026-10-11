@@ -5,7 +5,8 @@
 # ── Environment ──
 CWK_ENV=DEV                                   # DEV | STAGING | PROD
 CWK_SYSTEM_MODE=NORMAL                        # NORMAL | READ_ONLY (maintenance/freeze) — เปลี่ยนผ่านหน้า System Health หรือ editor
-CWK_SERVICE_BACKEND=GAS                       # GAS | REST (ขั้นที่ 2 ของเส้นทางอัปเกรด)
+CWK_SERVICE_BACKEND=GAS                       # GAS | REST (ขั้นที่ 2 ของเส้นทางอัปเกรด: UI บน Apps Script ส่งทุกคำสั่งไป REST backend — docs/REST_BACKEND_TH.md §6)
+CWK_REST_BASE_URL=                            # เมื่อ CWK_SERVICE_BACKEND=REST: https://api.example.com (DEV ยอม http://) — Apps Script ส่ง token ของผู้ใช้ไปให้ backend ตรวจเอง
 CWK_DATA_ADAPTER=SHEETS                       # SHEETS เท่านั้นเมื่อ SERVICE_BACKEND=GAS
 
 # ── Storage (สร้างโดย adminSetup() แล้วบันทึกอัตโนมัติ) ──

@@ -1,0 +1,17 @@
+{
+  "name": "cwk-api",
+  "version": "0.7.0",
+  "private": true,
+  "description": "CWK Smart Care reference REST backend (Node.js + PostgreSQL) — same application layer and contract as Apps Script (MASTER_PROMPT §16)",
+  "type": "module",
+  "license": "UNLICENSED",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node server.mjs",
+    "admin": "node admin.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "14.4.0",
+    "pg": "8.23.1"
+  }
+}

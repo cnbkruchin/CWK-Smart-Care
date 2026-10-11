@@ -1,0 +1,10 @@
+**/node_modules
+.git
+.local
+gas-dist
+tests
+tools
+frontend
+gateway
+docs
+schema

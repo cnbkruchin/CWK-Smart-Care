@@ -54,6 +54,19 @@
         └── Script Properties (secrets) — ผู้มีสิทธิ์แก้สคริปต์อ่านได้ → จำกัด editors
 ```
 
+ขั้นที่ 2–3 (REST backend อ้างอิง, docs/REST_BACKEND_TH.md):
+
+```text
+ [Browser]  ── (A) google.script.run.rpc ──► [GAS /exec, CWK_SERVICE_BACKEND=REST] ── UrlFetchApp ──┐
+     │            envelope + credential           ไม่ตรวจ/ไม่เพิ่มตัวตน ย้าย credential → Authorization  │
+     └──── (B) HTTPS fetch /v1/rpc + Bearer (เว็บใหม่, CORS allowlist) ─────────────────────────────┤
+                                                                                                   ▼
+                    [REST backend (Node) ← trust boundary: ตรวจ token เอง (Firebase Admin, checkRevoked)]
+                         ├── PostgreSQL (login role ในกลุ่ม cwk_app: ไม่มี DDL/DELETE ข้อมูลธุรกิจ)
+                         ├── STORAGE_DIR ไฟล์แนบ (private, 0600) · EXPORT_DIR package
+                         └── worker (tick + jobs, system principal, advisory lock)
+```
+
 ## 3. Data flow หลัก
 
 ### 3.1 RPC ทุกคำขอ (dispatcher middleware)
@@ -95,14 +108,18 @@ recover journal → claim jobs (lease) → outbox dispatch (claim ใต้ lock
 
 ## 4. Capability matrix ของ adapters
 
-| ความสามารถ | Memory (tests) | Google Sheets (GAS) | PostgreSQL |
+| ความสามารถ | Memory (tests) | Google Sheets (GAS) | PostgreSQL (`src/adapters/postgres`) |
 |---|---|---|---|
-| atomic commit | ใน process เดียว | ไม่มี transaction → MutationJournal redo + ScriptLock (writer project เดียว); ภายนอก (Drive/LINE/email) ไม่อยู่ใน transaction | transaction เดียว รวม outbox |
-| optimistic concurrency | version check | version check ใต้ ScriptLock | `UPDATE … WHERE id=$1 AND version=$2` |
-| uniqueness | index ในหน่วยความจำ | ตรวจใต้ lock ด้วย TextFinder (การแก้มือข้ามได้ → schema check tool) | UNIQUE / partial unique / EXCLUDE |
-| foreign keys | ตรวจในแอป | ตรวจในแอป + `adminSchemaCheck` | FK constraints (cycle = DEFERRABLE) |
-| pagination | cursor ตาม id | cursor = (partition, row offset, last id) ตรวจ id ซ้ำทุกหน้า | keyset (`id > $cursor`) |
-| job claiming | ใน process | claim ใต้ ScriptLock + lease_until | `FOR UPDATE SKIP LOCKED` + lease |
+| atomic commit | ใน process เดียว | ไม่มี transaction → MutationJournal redo + ScriptLock (writer project เดียว); ภายนอก (Drive/LINE/email) ไม่อยู่ใน transaction | transaction เดียวต่อ commit (รวม outbox, audit, ChangeLog, idempotency) |
+| optimistic concurrency | version check | version check ใต้ ScriptLock | `UPDATE … WHERE id=$1 AND version=$2` (0 แถว → CONFLICT + current_version) |
+| uniqueness | index ในหน่วยความจำ | ตรวจใต้ lock ด้วย TextFinder (การแก้มือข้ามได้ → schema check tool) | UNIQUE / partial unique / EXCLUDE → `UNIQUE_VIOLATION` |
+| foreign keys | ตรวจในแอป | ตรวจในแอป + `adminSchemaCheck` | FK ทุกตัว `DEFERRABLE INITIALLY DEFERRED` (ตรวจตอน COMMIT; ลำดับเขียนใน change set ไม่มีผล) |
+| โหมด READ_ONLY | flag ใน store | Script Property (ตรวจใน commit) | แถว Settings `system.mode` ตรวจใน transaction — ทุก instance/ช่องทาง |
+| ChangeLog seq | ต่อเนื่อง | ต่อเนื่องใต้ ScriptLock | ต่อเนื่อง: advisory xact lock + max+1 |
+| idempotency | ตรวจใน commit | ตรวจใต้ lock | advisory xact lock ต่อ scope_key |
+| partition (TERM) | ตามที่เขียน | สเปรดชีตต่อภาคเรียน | เชิงตรรกะ: คำนวณรหัสภาคเรียนใน SQL ด้วยกฎเดียวกัน (ไม่มี physical partition) |
+| pagination | cursor ตาม id | cursor = (partition, row offset, last id) ตรวจ id ซ้ำทุกหน้า | `list`: ORDER BY + id, cursor แบบ offset · `scan` (ส่งออก): keyset `id > $cursor` |
+| job claiming | ใน process | claim ใต้ ScriptLock + lease_until | claim ด้วย version check + lease (โค้ดเดียวกับ GAS) + session advisory lock ให้ worker ทำทีละ instance |
 | ค้นหาด้วยค่า | scan | TextFinder (matchEntireCell, regex สำหรับหลาย id) | index |
 | ขนาด | หน่วยความจำ | 10 ล้านเซลล์/ไฟล์ → partition ต่อภาคเรียน | ตามเครื่อง |
 
@@ -130,8 +147,8 @@ export function* recordArrival(ctx, input) {
 | ขั้น | UI | Application (writer) | Data | การเปลี่ยน |
 |---|---|---|---|---|
 | 1 (ปัจจุบัน) | GAS HtmlService | GAS services | Sheets + Drive | — |
-| 2 | GAS HtmlService | REST backend (Node) | PostgreSQL + object storage | `CWK_SERVICE_BACKEND=REST` → GAS dispatcher ส่งต่อทุก operation ผ่าน `HttpApiAdapter` พร้อม credential ของผู้ใช้; ย้ายข้อมูลด้วย portable package + reconcile; GAS ไม่เขียน Sheets อีก (read-only archive) |
-| 3 | เว็บใหม่ (future-platform/web หรือ React/Next.js) | REST backend เดิม | PostgreSQL | เปลี่ยน transport เป็น HttpTransport + Firebase Auth บนโดเมนใหม่ (authorized domains) |
+| 2 | GAS HtmlService | REST backend (Node, `future-platform/api`) | PostgreSQL + ไฟล์แนบบน storage ส่วนตัว | `CWK_SERVICE_BACKEND=REST` → `rpc()` ส่ง envelope ต่อผ่าน `HttpApiAdapter` (ก่อนถึง dispatcher ของ GAS) โดยย้าย credential ของผู้ใช้ไปที่ `Authorization` ให้ backend ตรวจเอง; ย้ายข้อมูลด้วย portable package + reconcile; GAS ไม่อ่าน/เขียน Sheets อีก (Sheets เดิม = archive อ่านอย่างเดียว) |
+| 3 | เว็บใหม่ (`future-platform/web` starter หรือ React/Next.js) | REST backend เดิม | PostgreSQL | HTTPS + Bearer token จาก Firebase Authentication บนโดเมนใหม่ (authorized domains, CORS allowlist) |
 
 ห้าม dual-write; cutover/rollback ตาม docs/MIGRATION_RUNBOOK_TH.md
 
@@ -146,6 +163,20 @@ migration.cutover (archive อ่านอย่างเดียว) · rollba
 ```
 
 แกนตรวจเดียว `processPackage()` ใช้ร่วมทุกปลายทาง; รูปแบบ docs/PORTABLE_FORMAT.md; การตัดสินใจ D-026–D-030
+
+### 6.2 REST backend อ้างอิง (ชุดที่ 7)
+
+```
+HTTP (node:http)  /v1/rpc · /v1/ops/{op} · /v1/webhook/line · /healthz · /readyz · เว็บ starter
+   │  CORS allowlist, JSON + UTF-8 เท่านั้น, จำกัดขนาด, status ตามรหัสข้อผิดพลาด, log ไม่มี body/token
+   ▼
+runAsync(dispatch, deps, envelope, {channel:'API'})   ← dispatcher/operations/jobs ชุดเดียวกับ GAS
+   ▼
+PgStore (transaction ต่อ commit) · FsAttachmentStorage · FsPackageStore · Firebase Admin / DEMO
+worker: tasksForMode + runDueJobs ทุก N วินาที (advisory lock) · admin.mjs: init-db/bootstrap/seed-demo/set-mode/status/export-delta
+```
+
+ความสามารถที่ REST ยังไม่มี (ส่งอีเมล/LINE, PDF/XLSX, นำเข้า XLSX, สำรองในแอป) ตอบเป็นรหัสข้อผิดพลาดที่ชัดเจน — ไม่จำลองว่าสำเร็จ (docs/REST_BACKEND_TH.md §1); การตัดสินใจ D-032–D-037
 
 ## 7. Environments
 

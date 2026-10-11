@@ -11,7 +11,7 @@
 - บัญชีผู้ใช้: Firebase Authentication / Google Identity Platform (email/password) ตรวจ token ฝั่ง server ผ่าน gateway ที่ใช้ Firebase Admin SDK
 - แจ้งเตือน: ในแอป + อีเมล (เริ่มต้น), LINE Official Account Messaging API (เปิดภายหลังผ่าน webhook gateway ที่ตรวจลายเซ็น)
 - ย้ายข้อมูล: portable package (JSONL + checksum + ไฟล์แนบ) → PostgreSQL อ้างอิงพร้อม migration CLI และ reconciliation
-- เส้นทางอัปเกรด: GAS → REST backend (Node.js + PostgreSQL) → frontend ใหม่ (ARCHITECTURE.md §6)
+- เส้นทางอัปเกรด: GAS → REST backend อ้างอิง (Node.js + PostgreSQL, `future-platform/api`) ผ่าน GAS HttpApiAdapter → เว็บใหม่ (`future-platform/web` รุ่นเริ่มต้น) (ARCHITECTURE.md §6, docs/REST_BACKEND_TH.md)
 
 ## เอกสาร
 
@@ -31,6 +31,9 @@
 | [THREAT_MODEL.md](THREAT_MODEL.md) | ภัยคุกคาม มาตรการ และการทดสอบที่อ้างถึง |
 | [docs/PORTABLE_FORMAT.md](docs/PORTABLE_FORMAT.md) | รูปแบบ package ย้ายข้อมูล (manifest, JSONL, checksum, สิ่งที่ไม่ส่งออก) |
 | [docs/MIGRATION_RUNBOOK_TH.md](docs/MIGRATION_RUNBOOK_TH.md) | ซ้อมย้าย freeze ส่งออก นำเข้า กระทบยอด cutover และ rollback |
+| [docs/REST_BACKEND_TH.md](docs/REST_BACKEND_TH.md) | REST backend อ้างอิง + PostgreSQL, admin CLI, HttpApiAdapter (ขั้นที่ 2), เว็บรุ่นเริ่มต้น (ขั้นที่ 3), สิ่งที่ยังไม่ส่งมอบ |
+| [future-platform/web/README_TH.md](future-platform/web/README_TH.md) | หน้าที่เว็บรุ่นเริ่มต้นมี และหน้าที่ยังต้องย้าย |
+| [API_CONTRACT.md](API_CONTRACT.md), [openapi.yaml](openapi.yaml) | operation ทั้งหมด, envelope, รหัสข้อผิดพลาด + HTTP status (สร้างจาก registry) |
 | [docs/PRIVACY_NOTICE_DRAFT_TH.md](docs/PRIVACY_NOTICE_DRAFT_TH.md) | ร่างประกาศความเป็นส่วนตัว (โรงเรียนต้องตรวจและอนุมัติ) |
 | [BUILD_STATE.md](BUILD_STATE.md) | ความคืบหน้า ผลทดสอบ งานถัดไป |
 
@@ -43,7 +46,9 @@ npm run gen            # สร้าง DATA_DICTIONARY/PERMISSIONS/JSON Schema
 npm run check:gen      # ตรวจว่าไฟล์ที่ generate ตรงกับ source
 npm run build          # สร้าง gas-dist/ (Code.js, Entrypoints.js, App.html) สำหรับวางใน Apps Script
 npm test               # ทดสอบทั้งหมดที่ไม่ต้องใช้ฐานข้อมูล/เบราว์เซอร์ (การทดสอบ PostgreSQL แสดงเป็น skipped)
-npm run test:pg        # ทดสอบการย้ายข้อมูลกับ PostgreSQL จริง (เปิด cluster ชั่วคราวในเครื่อง)
+npm run test:pg        # PostgreSQL จริง (cluster ชั่วคราว): ย้ายข้อมูล, store contract, REST API, GAS → REST
+npm run test:web       # เว็บรุ่นเริ่มต้นกับ REST API + PostgreSQL ใน Chromium (ต้องมี Playwright)
+npm run api            # REST backend อ้างอิง (ตั้ง environment ตาม .env.example / docs/REST_BACKEND_TH.md §3)
 npm run test:ui        # smoke test หน้าจอใน Chromium (ต้องมี Playwright)
 npm run fixtures -- --out ./tmp/packages       # package ข้อมูลสังเคราะห์
 DATABASE_URL=… npm run rehearse:pg -- --init-schema   # ซ้อมย้ายครบขั้นกับฐานข้อมูลทิ้งได้

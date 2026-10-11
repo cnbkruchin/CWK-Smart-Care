@@ -89,6 +89,7 @@
 - ใช้ application services ชุดเดียวกับ GAS ผ่าน port; PostgreSQL MutationStore = transaction เดียว (outbox ใน transaction)
 - ไม่ใช้ web framework เพื่อลด dependency; OpenAPI + contract tests
 - GAS `HttpApiAdapter` (SERVICE_BACKEND=REST) ส่ง credential ของผู้ใช้ต่อให้ backend ตรวจเอง — GAS ไม่เขียนข้อมูลเมื่อใช้ REST (writer เดียว)
+- รายละเอียดที่ลงมือทำจริงในชุดที่ 7: D-032–D-037
 
 ## D-014 Application layer แบบ generator (sync บน GAS / async บน Node)
 
@@ -100,7 +101,7 @@
 
 - HtmlService SPA แบบ vanilla JS (bundle ด้วย esbuild) — ไม่มี framework เพื่อลดขนาดและข้อจำกัด sandbox; render ด้วย DOM API/textContent (กัน XSS)
 - Firebase JS SDK **compat 10.14.1** โหลดจาก `https://www.gstatic.com/firebasejs/10.14.1/` (Apache-2.0) — พึ่ง CDN ของ Google ที่ระบุเวอร์ชัน; ต้องทดสอบใน sandbox iframe จริง
-- `future-platform/web`: starter แบบ vanilla ES modules (ไม่ใช้ React/Next.js เพื่อไม่ต้องมี build chain เพิ่ม) แสดงการเปลี่ยน transport/auth; รายการหน้าที่ยังต้องย้ายระบุใน README ของ starter
+- `future-platform/web`: starter แบบ vanilla ES modules (ไม่ใช้ React/Next.js เพื่อไม่ต้องมี build chain เพิ่ม) แสดงการเปลี่ยน transport/auth; รายการหน้าที่ยังต้องย้ายระบุใน README ของ starter (รายละเอียด D-037)
 
 ## D-016 เอกสาร PDF/XLSX/การนำเข้า XLSX
 
@@ -198,6 +199,44 @@
 - แก้เป็น `listAll()` (`src/application/queries.js`): ขอทั้งหมดด้วย `all: true` เมื่อ store รองรับ หรือไล่ cursor จนครบ และ throw `PAYLOAD_TOO_LARGE` แทนการตัดเกินเพดาน — มีการทดสอบกันถดถอย (security test) ที่สแกนซอร์สหา `store.list` ที่ขอเกินหนึ่งหน้า; ขนาดหน้าของ client ยังจำกัด 500
 
 ---
+
+## D-032 PostgreSQL adapter (ชุดที่ 7)
+
+- **บริบท:** REST backend ต้องรักษาสัญญา TableStore/MutationStore เดียวกับ Sheets/memory เพื่อให้ application layer ไม่เปลี่ยน
+- **การตัดสินใจ:** commit = transaction เดียว; อ่านค่า canonical (วันที่/เวลาเป็นข้อความ ISO) ผ่าน `canonicalRecord`; FK **ทุกตัว** `DEFERRABLE INITIALLY DEFERRED` (ลำดับการเขียนใน change set ไม่มีผล) และรัน update ก่อน insert (ปลด unique key ก่อน); ChangeLog seq ต่อเนื่องด้วย `pg_advisory_xact_lock` + max+1; idempotency ล็อกต่อ `scope_key`; READ_ONLY = แถว Settings `system.mode` ตรวจใน transaction (บังคับทุก instance/ช่องทาง); ตาราง TERM แสดง partition เชิงตรรกะที่คำนวณใน SQL ด้วยกฎ `partitionKeyForDate` (ไม่มี physical partition); `list` ใช้ cursor แบบ offset ตามลำดับที่ขอ + id, `scan` (ส่งออก) ใช้ keyset; error ของ PostgreSQL แปลงเป็นรหัสของระบบ (23505 → UNIQUE_VIOLATION, 40001/40P01 → CONFLICT, 55P03 → LOCK_TIMEOUT …)
+- **ทางเลือกที่ไม่ใช้:** SEQUENCE สำหรับ ChangeLog (มีช่องว่างเมื่อ rollback → พิสูจน์ความต่อเนื่องของ snapshot ไม่ได้); FK แบบ IMMEDIATE (ต้องเรียงลำดับการเขียนทุก change set)
+- **ผลที่ตามมา:** การเขียนที่สร้าง ChangeLog ถูกทำทีละรายการทั้งระบบ (เพียงพอสำหรับโรงเรียนเดียว ยังไม่ได้วัด); แก้ DDL ของ schema v1 (`0001_init.sql`) ให้ FK deferrable — ยังไม่มีฐานข้อมูล PostgreSQL ใช้งานจริง ฐานที่ใช้ซ้อมจากชุดที่ 6 ให้สร้างใหม่ (CHANGELOG 0.7.0); พิสูจน์ด้วย contract test ชุดเดียวกับ memory store
+
+## D-033 HTTP layer ของ REST backend
+
+- node:http ไม่มี framework (dependency เดียว: `pg`, และ `firebase-admin` สำหรับโหมด FIREBASE); `POST /v1/rpc` (envelope เดียวกับ GAS) และ `POST /v1/ops/{operation}` (payload + header) เรียก dispatcher เดียวกัน
+- HTTP status ตามรหัสข้อผิดพลาด แต่ body เป็น envelope เสมอ (client เดิมอ่าน `error.code` ได้ทั้งสอง transport); `Retry-After` สำหรับ RATE_LIMITED/MAINTENANCE_MODE
+- CORS allowlist ไม่ใช้ cookie (bearer เท่านั้น จึงไม่มี CSRF แบบ ambient credential); JSON + UTF-8 เท่านั้น; จำกัดขนาด body; เว็บ starter เสิร์ฟจาก map ของไฟล์ที่อ่านตอนเริ่ม (path จากคำขอไม่ถึง filesystem) พร้อม CSP เข้มงวด
+- เริ่มทำงานไม่ได้ถ้า schema version ไม่ตรง (exit 3) และปฏิเสธการตั้งค่าที่ไม่ปลอดภัยใน PROD (DEMO, origin http) (exit 2)
+
+## D-034 ตัวตนบน REST และการส่ง credential จาก Apps Script
+
+- backend ตรวจ token เองทุกคำขอ: Firebase Admin `verifyIdToken(token, checkRevoked=true)` + ตรวจ aud/iss/tenant; claims รูปแบบเดียวกับ gateway ของ GAS จึงใช้ IdentityLinks เดิมได้; DEMO ใช้ได้เฉพาะ DEV/STAGING
+- ขั้นที่ 2: Apps Script ไม่ยืนยันหรือเพิ่มตัวตน — ย้าย credential จาก envelope ไปที่ `Authorization` แล้วส่งต่อ; คำตอบที่อ่านไม่ได้/เครือข่ายล้ม = STORAGE_UNAVAILABLE (retryable, ลองใหม่ด้วย idempotency key เดิม)
+- ทางเลือกที่ไม่ใช้: ให้ GAS ลงลายเซ็นคำขอด้วย service secret แล้วส่ง user_id (backend ต้องเชื่อ GAS → ขัด MASTER_PROMPT §16 "ไม่เชื่อ user_id จาก GAS payload")
+
+## D-035 Worker ของ REST backend
+
+- รัน tick tasks (`tasksForMode`) และ durable jobs ด้วยโค้ดเดียวกับ cronTick ทุก `API_WORKER_INTERVAL_SECONDS`; งบเวลา 240 วินาที < lease 330 วินาที
+- หลาย instance: session advisory lock ให้ทำ tick ทีละตัว; การ claim job ยังใช้ version check + lease แบบเดียวกับ GAS (ไม่ใช้ `FOR UPDATE SKIP LOCKED` เพื่อให้ jobs.js ชุดเดียวใช้ได้ทุก adapter และพิสูจน์ด้วยการทดสอบเดียวกัน)
+
+## D-036 ความสามารถที่ REST backend อ้างอิงยังไม่มี
+
+- ไม่มี provider ส่งอีเมล/LINE บน Node → `emailEnabled=false`, `lineEnabled=false` (การแจ้งเตือนในแอปทำงาน, ไม่มีอะไรส่งออกนอกระบบ); route LINE webhook มีแต่ปิด
+- ไม่มี renderer PDF/XLSX และ parser XLSX → CSV เท่านั้น; คำขอ PDF/XLSX ได้รหัสข้อผิดพลาดและ report run เป็น FAILED
+- สำรองข้อมูลด้วยเครื่องมือของ PostgreSQL + `STORAGE_DIR` (การสำรองในแอปเป็นของ Apps Script)
+- เหตุผล: ไม่สร้าง adapter ที่ทดสอบกับบริการจริงไม่ได้ในชุดนี้ แล้วอ้างว่าส่งมอบ — ระบุเป็นงานต่อใน BUILD_STATE
+
+## D-037 เว็บรุ่นเริ่มต้น
+
+- ES modules ไม่มี build step; Firebase Authentication REST API (ไม่โหลด JS SDK จาก CDN) — token อยู่ในหน่วยความจำเท่านั้น (รีโหลด = เข้าสู่ระบบใหม่) เพื่อลดความเสี่ยง token รั่วจาก storage; DEMO นอก PROD
+- ครบหนึ่งกระบวนการตามที่ MASTER_PROMPT กำหนด (login, รายชื่อนักเรียน, หน้ารายบุคคล, ลงเวลามาสาย) และระบุหน้าที่ยังต้องย้ายใน future-platform/web/README_TH.md — ไม่อ้างว่าเป็น frontend ครบ
+- endpoint ที่ใช้ (`identitytoolkit.googleapis.com/v1/accounts:signInWithPassword|signUp|sendOobCode`, `securetoken.googleapis.com/v1/token`) เขียนตาม Firebase Auth REST API ที่รู้จัก **แต่ยังไม่ได้ตรวจกับหน้าเอกสารในชุดนี้** (network policy ของสภาพแวดล้อมพัฒนาปิดการเข้าถึง firebase.google.com) และยังไม่ได้ทดสอบกับโปรเจกต์จริง → ต้องตรวจเอกสารและทดสอบใน UAT ก่อนใช้
 
 ## เอกสารทางการที่ตรวจ (2026-10-10)
 

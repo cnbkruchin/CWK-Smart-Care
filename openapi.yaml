@@ -8,6 +8,30 @@ servers:
   - url: "http://localhost:8080"
     description: "local reference backend (docker compose)"
 components:
+  x-cwk-http-status:
+    VALIDATION_ERROR: 400
+    UNSUPPORTED_SCHEMA: 400
+    UNAUTHENTICATED: 401
+    ACCOUNT_NOT_LINKED: 403
+    ACCOUNT_DISABLED: 403
+    FORBIDDEN: 403
+    NOT_FOUND: 404
+    UNSUPPORTED_OPERATION: 404
+    CONFLICT: 409
+    UNIQUE_VIOLATION: 409
+    INVALID_STATE: 409
+    DUPLICATE_REQUEST_MISMATCH: 409
+    PAYLOAD_TOO_LARGE: 413
+    INTEGRITY_ERROR: 422
+    RATE_LIMITED: 429
+    QUOTA_EXCEEDED: 429
+    FEATURE_DISABLED: 501
+    EXTERNAL_SERVICE_ERROR: 502
+    MAINTENANCE_MODE: 503
+    STORAGE_UNAVAILABLE: 503
+    LOCK_TIMEOUT: 503
+    CONFIGURATION_REQUIRED: 503
+    INTERNAL_ERROR: 500
   securitySchemes:
     bearer:
       type: http
@@ -270,6 +294,40 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+  "/v1/webhook/line":
+    post:
+      operationId: lineWebhook
+      summary: "Signed LINE event envelope from the gateway (same protocol as Apps Script doPost; 404 while LINE is disabled)"
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - v
+                - kid
+                - ts
+                - nonce
+                - source
+                - payload
+                - sig
+      responses:
+        "200":
+          description: "{ok, stored:true[, duplicate]}"
+        "400":
+          description: "invalid envelope"
+        "401":
+          description: "bad signature, unknown key or clock skew"
+        "404":
+          description: "LINE disabled"
   "/healthz":
     get:
       operationId: healthz
@@ -336,6 +394,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: settings.business
@@ -368,6 +432,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -439,6 +509,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: case.record_contact
@@ -501,6 +577,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -600,6 +682,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: "user.manage | settings.business"
@@ -656,6 +744,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: "user.manage | settings.business"
@@ -693,6 +787,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -738,6 +838,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -832,6 +938,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: attendance.correct
@@ -910,6 +1022,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: attendance.correct
@@ -979,6 +1097,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: attendance.exempt
@@ -1022,6 +1146,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -1108,6 +1238,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: attendance.record
@@ -1173,6 +1309,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: attendance.request_correction
@@ -1216,6 +1358,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -1300,6 +1448,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: attendance.record
@@ -1364,6 +1518,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: attendance.verify
@@ -1401,6 +1561,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: IDENTITY
         permission: null
@@ -1434,6 +1600,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -1486,6 +1658,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: IDENTITY
         permission: null
@@ -1525,6 +1703,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -1592,6 +1776,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: backup.manage
@@ -1631,6 +1821,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -1708,6 +1904,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: settings.business
@@ -1764,6 +1966,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: case.manage
@@ -1801,6 +2009,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -1853,6 +2067,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -1932,6 +2152,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: case.manage
@@ -1969,6 +2195,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -2041,6 +2273,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: case.read
@@ -2093,6 +2331,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: case.manage
@@ -2141,6 +2385,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -2217,6 +2467,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: case.manage
@@ -2269,6 +2525,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: "guardian.manage | user.manage"
@@ -2316,6 +2578,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: channel.bind
@@ -2349,6 +2617,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -2396,6 +2670,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -2461,6 +2741,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: settings.business
@@ -2499,6 +2785,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -2573,6 +2865,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: guardian.manage
@@ -2625,6 +2923,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: guardian.manage
@@ -2664,6 +2968,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -2775,6 +3085,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: case.record_contact
@@ -2818,6 +3134,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -2895,6 +3217,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -2988,6 +3316,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: guardian.manage
@@ -3036,6 +3370,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -3092,6 +3432,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -3200,6 +3546,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: guardian.manage
@@ -3237,6 +3589,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -3285,6 +3643,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -3362,6 +3726,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: guardian.manage
@@ -3414,6 +3784,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: user.manage
@@ -3459,6 +3835,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -3536,6 +3918,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: import.manage
@@ -3578,6 +3966,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -3626,6 +4020,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -3697,6 +4097,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: import.manage
@@ -3740,6 +4146,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -3817,6 +4229,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: import.manage
@@ -3875,6 +4293,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: null
@@ -3927,6 +4351,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: "user.manage | guardian.invite"
@@ -3964,6 +4394,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -4028,6 +4464,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: system.health
@@ -4076,6 +4518,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -4147,6 +4595,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: "leave.submit | leave.approve"
@@ -4201,6 +4655,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -4269,6 +4729,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: leave.approve
@@ -4324,6 +4790,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: leave.approve
@@ -4361,6 +4833,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -4404,6 +4882,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -4488,6 +4972,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: leave.read
@@ -4536,6 +5026,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -4599,6 +5095,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -4696,6 +5198,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -4819,6 +5327,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: leave.submit
@@ -4867,6 +5381,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -4923,6 +5443,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: migration.export
@@ -4972,6 +5498,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -5032,6 +5564,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: migration.cutover
@@ -5073,6 +5611,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: migration.export
@@ -5106,6 +5650,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -5157,6 +5707,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: migration.cutover
@@ -5204,6 +5760,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: migration.export
@@ -5247,6 +5809,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -5304,6 +5872,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: migration.import
@@ -5347,6 +5921,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -5414,6 +5994,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: migration.cutover
@@ -5453,6 +6039,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -5525,6 +6117,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: migration.export
@@ -5568,6 +6166,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -5630,6 +6234,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: notification.acknowledge
@@ -5682,6 +6292,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: notification.resend
@@ -5725,6 +6341,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -5777,6 +6399,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -5856,6 +6484,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: notification.monitor
@@ -5910,6 +6544,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -6002,6 +6642,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: settings.business
@@ -6064,6 +6710,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: attendance.reconcile
@@ -6122,6 +6774,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: attendance.reconcile
@@ -6155,6 +6813,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -6196,6 +6860,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -6248,6 +6918,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -6314,6 +6990,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: "ตามรายงาน"
@@ -6357,6 +7039,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -6436,6 +7124,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: "report.export + สิทธิ์ของรายงาน"
@@ -6497,6 +7191,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: "report.export | report.lock"
@@ -6530,6 +7230,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -6595,6 +7301,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: system.maintenance
@@ -6639,6 +7351,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -6717,6 +7435,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: role.assign
@@ -6769,6 +7493,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: role.assign
@@ -6810,6 +7540,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -6886,6 +7622,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: attendance.rollcall
@@ -6932,6 +7674,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -7007,6 +7755,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: settings.business
@@ -7059,6 +7813,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -7123,6 +7883,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: settings.business
@@ -7177,6 +7943,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: settings.business
@@ -7210,6 +7982,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -7273,6 +8051,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: settings.business
@@ -7306,6 +8090,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -7418,6 +8208,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: student.manage
@@ -7470,6 +8266,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: student.manage
@@ -7511,6 +8313,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: "student.read | student.read_basic"
@@ -7544,6 +8352,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -7585,6 +8399,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -7636,6 +8456,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -7709,6 +8535,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: student.search
@@ -7773,6 +8605,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -7872,6 +8710,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: student.manage
@@ -7905,6 +8749,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -7948,6 +8798,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -8002,6 +8858,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -8062,6 +8924,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -8144,6 +9012,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: "user.manage + role.assign"
@@ -8181,6 +9055,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:
@@ -8257,6 +9137,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
       x-cwk:
         auth: USER
         permission: user.read
@@ -8311,6 +9197,12 @@ paths:
       responses:
         "200":
           description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+        default:
+          description: "Error envelope (ok=false); HTTP status per error code — see components.x-cwk-http-status"
           content:
             application/json:
               schema:

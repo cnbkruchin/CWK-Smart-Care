@@ -4107,7 +4107,7 @@ fieldset { border: 1px solid var(--line); border-radius: 8px; }
         return;
       }
     }
-    auth = publicConfig.auth_mode === "GATEWAY" && publicConfig.firebase ? new FirebaseAuth(publicConfig.firebase, publicConfig.auth_persistence) : new DemoAuth();
+    auth = (publicConfig.auth_mode === "GATEWAY" || publicConfig.auth_mode === "FIREBASE") && publicConfig.firebase ? new FirebaseAuth(publicConfig.firebase, publicConfig.auth_persistence) : new DemoAuth();
     try {
       await auth.init();
     } catch (e2) {

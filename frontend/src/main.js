@@ -27,7 +27,8 @@ export async function start(options = {}) {
   if (!publicConfig) {
     try { publicConfig = await api.get('app.publicConfig', {}); } catch (e) { mount(root, errorState(e, () => location.reload())); return; }
   }
-  auth = publicConfig.auth_mode === 'GATEWAY' && publicConfig.firebase ? new FirebaseAuth(publicConfig.firebase, publicConfig.auth_persistence) : new DemoAuth();
+  // GATEWAY = Firebase verified through the Apps Script gateway; FIREBASE = verified by the REST backend itself
+  auth = (publicConfig.auth_mode === 'GATEWAY' || publicConfig.auth_mode === 'FIREBASE') && publicConfig.firebase ? new FirebaseAuth(publicConfig.firebase, publicConfig.auth_persistence) : new DemoAuth();
   try { await auth.init(); } catch (e) { mount(root, errorState({ message_th: `โหลดระบบยืนยันตัวตนไม่สำเร็จ: ${e.message}` }, () => location.reload())); return; }
   const app = new App({ root, api, auth, publicConfig, routes: ROUTES, boot });
   app.onLoggedOut = () => showLogin();

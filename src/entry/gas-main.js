@@ -24,9 +24,27 @@ import { GasBackup, restoreSnapshot } from '../adapters/gas/backup.js';
 import { DrivePackageStore, DrivePackageHandle } from '../adapters/gas/drive-package.js';
 import { importIntoStore, reconcileStore } from '../application/migration/import.js';
 import { applyDelta } from '../application/migration/delta.js';
+import { HttpApiAdapter } from '../adapters/http/http-api-adapter.js';
 
 const G = () => globalThis;
 let deps = null;
+let rest = null;
+
+/**
+ * Upgrade path step 2 (CWK_SERVICE_BACKEND=REST): this project only serves the UI and forwards every operation
+ * to the REST backend (single writer). No Sheets/Drive data is read or written here in that mode.
+ */
+function restBackend() {
+  if (rest) return rest;
+  const config = loadGasConfig();
+  if (config.serviceBackend !== 'REST') return null;
+  rest = new HttpApiAdapter({ baseUrl: config.restBaseUrl, env: config.env, logger: gasLogger });
+  return rest;
+}
+
+function refuseInRestMode() {
+  if (loadGasConfig().serviceBackend === 'REST') throw new Error('REST_BACKEND: this project forwards to the REST backend (CWK_SERVICE_BACKEND=REST) — run administration on the backend (future-platform/api/admin.mjs)');
+}
 
 export function buildDeps() {
   if (deps) return deps;
@@ -119,6 +137,8 @@ function platformHealth(config, store) {
 export function rpc(envelopeJson) {
   let out;
   try {
+    const r = restBackend();
+    if (r) return JSON.stringify(r.rpc(envelopeJson));
     const d = buildDeps();
     out = runSync(dispatch, d, envelopeJson, { channel: 'APP' });
   } catch (e) {
@@ -130,12 +150,19 @@ export function rpc(envelopeJson) {
 
 export function doGet(e) {
   const g = G();
-  const d = buildDeps();
   let publicConfig = null;
-  try {
-    const res = runSync(dispatch, d, JSON.stringify({ api_version: API_VERSION, request_id: d.ids.uuid(), operation: 'app.publicConfig', payload: {} }));
-    publicConfig = res.ok ? res.data : { env: d.config.env, setup_required: true };
-  } catch (_) { publicConfig = { env: d.config.env, setup_required: true }; }
+  let r = null;
+  try { r = restBackend(); } catch (_) { r = null; }
+  if (r || loadGasConfig().serviceBackend === 'REST') {
+    const res = r ? r.rpc(JSON.stringify({ api_version: API_VERSION, request_id: gasIds.uuid(), operation: 'app.publicConfig', payload: {} })) : { ok: false };
+    publicConfig = res.ok ? res.data : { env: loadGasConfig().env, setup_required: true };
+  } else {
+    const d = buildDeps();
+    try {
+      const res = runSync(dispatch, d, JSON.stringify({ api_version: API_VERSION, request_id: d.ids.uuid(), operation: 'app.publicConfig', payload: {} }));
+      publicConfig = res.ok ? res.data : { env: d.config.env, setup_required: true };
+    } catch (_) { publicConfig = { env: d.config.env, setup_required: true }; }
+  }
   const page = e && e.parameter && typeof e.parameter.page === 'string' && /^[a-z-]{1,40}$/.test(e.parameter.page) ? e.parameter.page : null;
   const focus = e && e.parameter && /^[0-9a-f-]{36}$/.test(e.parameter.id || '') ? e.parameter.id : null;
   const linkToken = e && e.parameter && /^[A-Za-z0-9_-]{8,200}$/.test(e.parameter.linkToken || '') ? e.parameter.linkToken : null;
@@ -149,6 +176,8 @@ export function doGet(e) {
 
 export function doPost(e) {
   const g = G();
+  // REST mode: the gateway must deliver LINE envelopes to the backend's /v1/webhook/line instead
+  if (loadGasConfig().serviceBackend === 'REST') return g.ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'WEBHOOK_DISABLED', stored: false })).setMimeType(g.ContentService.MimeType.JSON);
   const d = buildDeps();
   let body;
   try {
@@ -161,6 +190,7 @@ export function doPost(e) {
 }
 
 export function cronTick(e) {
+  if (loadGasConfig().serviceBackend === 'REST') return 'REST_BACKEND: background work runs in the REST backend worker';
   if (!isProjectTrigger(e)) return 'REFUSED: cronTick runs only from this project\'s installed trigger';
   const started = Date.now();
   const deadlineAt = started + 270000; // 4.5 min of the 6 min execution limit
@@ -192,6 +222,7 @@ function adminDeps() {
 export const admin = {
   setup(opts = {}) {
     const email = assertEditorContext();
+    refuseInRestMode();
     const props = G().PropertiesService.getScriptProperties();
     if (!props.getProperty('CWK_INSTALL_OWNER_EMAIL')) props.setProperty('CWK_INSTALL_OWNER_EMAIL', email);
     const env = props.getProperty('CWK_ENV') || 'DEV';
@@ -215,6 +246,7 @@ export const admin = {
   },
   seedDemo(opts = {}) {
     assertEditorContext();
+    refuseInRestMode();
     const d = adminDeps();
     if (d.config.env === 'PROD') throw new Error('DEMO data is refused in PROD');
     const res = runSync(seedDemoData, d, { start_year_ce: opts.start_year_ce || 2026, grades: opts.grades || ['M1', 'M2'], rooms_per_grade: opts.rooms_per_grade || 2, students_per_class: opts.students_per_class || 10, guardian_accounts: 5 });
@@ -223,6 +255,7 @@ export const admin = {
   },
   installTriggers() {
     assertEditorContext();
+    refuseInRestMode();
     const d = adminDeps();
     const res = installTriggers(d.config.tickMinutes);
     console.log(JSON.stringify(res));
@@ -230,6 +263,7 @@ export const admin = {
   },
   selfTest() {
     assertEditorContext();
+    refuseInRestMode();
     const d = adminDeps();
     const res = { cell_encoding: selfTestCellEncoding(d.config.driveRootFolderId), config: d.config.healthChecks() };
     console.log(JSON.stringify(res, null, 2));
@@ -237,6 +271,7 @@ export const admin = {
   },
   schemaCheck() {
     assertEditorContext();
+    refuseInRestMode();
     const d = adminDeps();
     const res = schemaCheck(d.rawStore);
     console.log(JSON.stringify(res, null, 2));
@@ -245,6 +280,7 @@ export const admin = {
   /** Restore drill: run in a NEW project/environment with CWK_RESTORE_FROM_FOLDER_ID = backup folder id. */
   restoreSnapshot() {
     assertEditorContext();
+    refuseInRestMode();
     const props = G().PropertiesService.getScriptProperties();
     const folderId = props.getProperty('CWK_RESTORE_FROM_FOLDER_ID');
     if (!folderId) throw new Error('Set Script Property CWK_RESTORE_FROM_FOLDER_ID to the backup folder id first');
@@ -261,6 +297,7 @@ export const admin = {
    */
   importPackage() {
     assertEditorContext();
+    refuseInRestMode();
     const props = G().PropertiesService.getScriptProperties();
     const folderId = props.getProperty('CWK_IMPORT_PACKAGE_FOLDER_ID');
     if (!folderId) throw new Error('Set Script Property CWK_IMPORT_PACKAGE_FOLDER_ID to the portable package folder id first');
@@ -303,6 +340,7 @@ export const admin = {
    */
   applyDelta() {
     assertEditorContext();
+    refuseInRestMode();
     const props = G().PropertiesService.getScriptProperties();
     const folderId = props.getProperty('CWK_DELTA_PACKAGE_FOLDER_ID');
     if (!folderId) throw new Error('Set Script Property CWK_DELTA_PACKAGE_FOLDER_ID to the delta package folder id first');
@@ -323,6 +361,7 @@ export const admin = {
   },
   recoverJournal() {
     assertEditorContext();
+    refuseInRestMode();
     const d = adminDeps();
     const res = d.rawStore.withLock(() => d.rawStore.recoverPending());
     console.log(JSON.stringify(res));

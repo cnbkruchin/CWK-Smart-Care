@@ -1,6 +1,6 @@
 // DEMO identity verifier — DEV/STAGING only (MASTER_PROMPT §5.2 last paragraph, §14 DEMO_MODE).
 // Credential format: "demo:<user_id>:<passphrase>". The passphrase is a per-environment secret
-// (CWK_DEMO_PASSPHRASE / API_DEV_HMAC_SECRET). Refused outright when env = PROD.
+// (CWK_DEMO_PASSPHRASE on Apps Script / API_DEMO_PASSPHRASE on the REST backend). Refused outright when env = PROD.
 
 import { AppError } from '../../shared/errors.js';
 import { timingSafeEqualStr } from '../../shared/hash.js';
