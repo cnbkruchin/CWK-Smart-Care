@@ -97,6 +97,14 @@ fieldset { border: 1px solid var(--line); border-radius: 8px; }
 .stat { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; text-align: center; }
 .stat-n { font-size: 1.6rem; font-weight: 700; }
 .stat-l { color: var(--muted); font-size: .9rem; }
+.stat-ok { border-top: 4px solid var(--ok); }
+.stat-warn { border-top: 4px solid var(--warn); }
+.stat-danger { border-top: 4px solid var(--danger); }
+.note { margin: 8px 0; color: var(--muted); }
+.note summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; }
+.row-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.day-row { display: grid; grid-template-columns: 1fr; gap: 0 12px; align-items: end; border-bottom: 1px dashed var(--line); padding: 4px 0; }
+@media (min-width: 720px) { .day-row { grid-template-columns: 1.2fr 1.2fr 1.4fr auto; } }
 .checklist { padding-left: 18px; }
 
 .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 12px; }
@@ -122,3 +130,6 @@ fieldset { border: 1px solid var(--line); border-radius: 8px; }
 .mark-group { display: flex; flex-wrap: wrap; gap: 4px; }
 .mark-group label { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-height: var(--tap); display: inline-flex; align-items: center; gap: 4px; }
 @media print { .nav, .topbar, .form-actions, .btn { display: none !important; } main { max-width: none; } }
+.kv { display: grid; grid-template-columns: minmax(90px, 30%) 1fr; gap: 4px 12px; margin: 8px 0; }
+.kv dt { color: var(--muted); font-weight: 700; }
+.kv dd { margin: 0; overflow-wrap: anywhere; }

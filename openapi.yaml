@@ -34,6 +34,17 @@ components:
             - app.publicConfig
             - assignment.create
             - assignment.end
+            - attachment.download
+            - attendance.classDay
+            - attendance.correct
+            - attendance.decideCorrection
+            - attendance.exempt
+            - attendance.lookupForGate
+            - attendance.recordArrival
+            - attendance.requestCorrection
+            - attendance.stationLog
+            - attendance.syncOffline
+            - attendance.verifyDay
             - auth.getCurrentUser
             - auth.logout
             - auth.redeemInvitation
@@ -42,6 +53,7 @@ components:
             - class.list
             - contact.add
             - contact.disable
+            - dashboard.summary
             - enrollment.change
             - guardian.create
             - guardian.createAccount
@@ -63,9 +75,25 @@ components:
             - job.getStatus
             - job.list
             - job.retry
+            - leave.addAttachment
+            - leave.confirmGuardian
+            - leave.decide
+            - leave.decideCancel
+            - leave.get
+            - leave.inbox
+            - leave.list
+            - leave.requestCancel
+            - leave.reroute
+            - leave.resubmit
+            - leave.submit
+            - leave.withdraw
             - period.create
+            - reconciliation.list
+            - reconciliation.resolve
             - role.grant
             - role.revoke
+            - rollcall.get
+            - rollcall.submit
             - rule.activate
             - rule.createVersion
             - rule.setEnd
@@ -78,7 +106,10 @@ components:
             - student.createAccount
             - student.get
             - student.listMine
+            - student.photo
+            - student.profile
             - student.search
+            - student.setPhoto
             - student.update
             - system.health
             - system.setMode
@@ -444,6 +475,714 @@ paths:
       x-cwk:
         auth: USER
         permission: "user.manage | settings.business"
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/attachment.download":
+    post:
+      operationId: attachment_download
+      summary: "ดาวน์โหลดไฟล์ (ตรวจสิทธิ์ทุกครั้ง; เอกสารอ่อนไหวบันทึก audit)"
+      tags:
+        - attachment
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - attachment_id
+              properties:
+                attachment_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: "attachment.read | attachment.read_sensitive"
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 60
+  "/v1/ops/attendance.classDay":
+    post:
+      operationId: attendance_classDay
+      summary: "สรุปรายวันของห้อง (projection เดียวกับรายงาน)"
+      tags:
+        - attendance
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - class_id
+                - school_date
+              properties:
+                class_id:
+                  type: string
+                  format: uuid
+                school_date:
+                  type: string
+                  format: date
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: attendance.read
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 300
+  "/v1/ops/attendance.correct":
+    post:
+      operationId: attendance_correct
+      summary: "แก้ไขข้อมูลการมาเรียนย้อนหลัง (เหตุผล + audit + เหตุการณ์ใหม่ supersede เดิม) แล้วคำนวณใหม่และแจ้งเฉพาะผู้ได้รับผลกระทบ"
+      tags:
+        - attendance
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - student_id
+                - school_date
+                - correction_type
+                - reason
+              properties:
+                student_id:
+                  type: string
+                  format: uuid
+                school_date:
+                  type: string
+                  format: date
+                correction_type:
+                  type: string
+                  enum:
+                    - VOID_EVENT
+                    - AMEND_ARRIVAL_TIME
+                    - ADD_ARRIVAL
+                    - CHANGE_ROLL_CALL_MARK
+                    - EXEMPT_LATENESS
+                target_event_id:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                new_arrived_at:
+                  type:
+                    - string
+                    - "null"
+                  format: timestamp
+                new_mark:
+                  type:
+                    - string
+                    - "null"
+                  enum:
+                    - PRESENT
+                    - ABSENT
+                    - LATE
+                    - LEAVE_REPORTED
+                    - null
+                reason:
+                  type: string
+                  minLength: 5
+                  maxLength: 1000
+                correction_id:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: attendance.correct
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/attendance.decideCorrection":
+    post:
+      operationId: attendance_decideCorrection
+      summary: "พิจารณาคำขอแก้ไข: ไม่อนุมัติ หรืออนุมัติพร้อมระบุการแก้ไข"
+      tags:
+        - attendance
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - correction_id
+                - decision
+                - decision_note
+              properties:
+                correction_id:
+                  type: string
+                  format: uuid
+                decision:
+                  type: string
+                  enum:
+                    - APPLY
+                    - REJECT
+                decision_note:
+                  type: string
+                  minLength: 2
+                  maxLength: 1000
+                target_event_id:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                new_arrived_at:
+                  type:
+                    - string
+                    - "null"
+                  format: timestamp
+                new_mark:
+                  type:
+                    - string
+                    - "null"
+                  enum:
+                    - PRESENT
+                    - ABSENT
+                    - LATE
+                    - LEAVE_REPORTED
+                    - null
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: attendance.correct
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/attendance.exempt":
+    post:
+      operationId: attendance_exempt
+      summary: "รับรองข้อยกเว้นการนับสาย (เช่น รถโรงเรียนล่าช้า) — แสดงทั้งเหตุการณ์จริงและผลการยกเว้น"
+      tags:
+        - attendance
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - school_date
+                - student_ids
+                - reason_code
+                - reason_text
+              properties:
+                school_date:
+                  type: string
+                  format: date
+                student_ids:
+                  type: array
+                  minItems: 1
+                  maxItems: 200
+                  uniqueItems: true
+                  items:
+                    type: string
+                    format: uuid
+                reason_code:
+                  type: string
+                  enum:
+                    - TRANSPORT_DELAY
+                    - WEATHER
+                    - SCHOOL_EVENT
+                    - OTHER
+                reason_text:
+                  type: string
+                  minLength: 5
+                  maxLength: 500
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: attendance.exempt
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/attendance.lookupForGate":
+    post:
+      operationId: attendance_lookupForGate
+      summary: "ค้นหานักเรียนด้วยรหัส/บัตรเพื่อตรวจตัวบุคคลที่ประตู (ข้อมูลระบุตัวเท่านั้น)"
+      tags:
+        - attendance
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: []
+              properties:
+                code:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 64
+                student_id:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: student.read_basic
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 600
+  "/v1/ops/attendance.recordArrival":
+    post:
+      operationId: attendance_recordArrival
+      summary: "บันทึกเวลามาถึงโรงเรียน (เวลา server; สแกนซ้ำคืนผลเดิม; เวลาระบุเองต้องมีเหตุผล)"
+      tags:
+        - attendance
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - student_id
+                - station_id
+                - source
+              properties:
+                student_id:
+                  type: string
+                  format: uuid
+                station_id:
+                  type: string
+                  format: uuid
+                source:
+                  type: string
+                  enum:
+                    - SCAN_KEYBOARD
+                    - SCAN_CAMERA
+                    - SEARCH_CODE
+                    - SEARCH_NAME
+                    - MANUAL_TIME
+                    - QUEUE_BATCH
+                arrived_at:
+                  type:
+                    - string
+                    - "null"
+                  format: timestamp
+                reason_code:
+                  type:
+                    - string
+                    - "null"
+                  enum:
+                    - TRANSPORT_DELAY
+                    - HEALTH
+                    - FAMILY
+                    - WEATHER
+                    - OTHER
+                    - null
+                reason_text:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 500
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: attendance.record
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 600
+  "/v1/ops/attendance.requestCorrection":
+    post:
+      operationId: attendance_requestCorrection
+      summary: "นักเรียน/ผู้ปกครองร้องขอแก้ไขข้อมูลการมาเรียน (เข้าคิวครูพิจารณา)"
+      tags:
+        - attendance
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - student_id
+                - school_date
+                - correction_type
+                - requested_text
+              properties:
+                student_id:
+                  type: string
+                  format: uuid
+                school_date:
+                  type: string
+                  format: date
+                correction_type:
+                  type: string
+                  enum:
+                    - VOID_EVENT
+                    - AMEND_ARRIVAL_TIME
+                    - ADD_ARRIVAL
+                    - CHANGE_ROLL_CALL_MARK
+                    - EXEMPT_LATENESS
+                requested_text:
+                  type: string
+                  minLength: 5
+                  maxLength: 1000
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: attendance.request_correction
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/attendance.stationLog":
+    post:
+      operationId: attendance_stationLog
+      summary: "รายการลงเวลาวันนี้ของจุดลงเวลา"
+      tags:
+        - attendance
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - station_id
+              properties:
+                station_id:
+                  type: string
+                  format: uuid
+                limit:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 1
+                  maximum: 200
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: attendance.read_station
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 300
+  "/v1/ops/attendance.syncOffline":
+    post:
+      operationId: attendance_syncOffline
+      summary: "ส่งรายการที่บันทึกขณะออฟไลน์ (ตรวจสิทธิ์ปัจจุบัน เวลาเครื่อง และใช้ idempotency key เดิม; รายการผิดปกติเข้าคิวตรวจ)"
+      tags:
+        - attendance
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - station_id
+                - records
+              properties:
+                station_id:
+                  type: string
+                  format: uuid
+                records:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - local_id
+                      - idempotency_key
+                      - student_code
+                      - captured_at
+                    properties:
+                      local_id:
+                        type: string
+                        minLength: 1
+                        maxLength: 64
+                      idempotency_key:
+                        type: string
+                        format: uuid
+                      student_code:
+                        type: string
+                        minLength: 1
+                        maxLength: 40
+                      captured_at:
+                        type: string
+                        format: timestamp
+                      claimed_user_id:
+                        type:
+                          - string
+                          - "null"
+                        format: uuid
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: attendance.record
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 30
+  "/v1/ops/attendance.verifyDay":
+    post:
+      operationId: attendance_verifyDay
+      summary: "ครูยืนยันขาดเรียนรายคน (หลังตรวจสอบแล้ว) — แจ้งผู้ปกครองว่า \"ขาดเรียน\" เฉพาะรายการที่ยืนยัน"
+      tags:
+        - attendance
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - class_id
+                - school_date
+                - confirm_absent_student_ids
+              properties:
+                class_id:
+                  type: string
+                  format: uuid
+                school_date:
+                  type: string
+                  format: date
+                confirm_absent_student_ids:
+                  type: array
+                  maxItems: 200
+                  uniqueItems: true
+                  items:
+                    type: string
+                    format: uuid
+                note:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 500
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: attendance.verify
         mutation: true
         idempotency: REQUIRED
         rate_limit_per_minute: 120
@@ -867,6 +1606,53 @@ paths:
         mutation: true
         idempotency: REQUIRED
         rate_limit_per_minute: 120
+  "/v1/ops/dashboard.summary":
+    post:
+      operationId: dashboard_summary
+      summary: "สรุปวันนี้ตามขอบเขตสิทธิ์ (ใช้ projection เดียวกับรายงาน R01)"
+      tags:
+        - dashboard
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: []
+              properties:
+                school_date:
+                  type:
+                    - string
+                    - "null"
+                  format: date
+                class_id:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: attendance.read
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 300
   "/v1/ops/enrollment.change":
     post:
       operationId: enrollment_change
@@ -2125,6 +2911,797 @@ paths:
         mutation: true
         idempotency: REQUIRED
         rate_limit_per_minute: 120
+  "/v1/ops/leave.addAttachment":
+    post:
+      operationId: leave_addAttachment
+      summary: "แนบเอกสารเพิ่ม (เช่น ใบรับรองแพทย์) ให้ใบลา"
+      tags:
+        - leave
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - leave_request_id
+                - file
+              properties:
+                leave_request_id:
+                  type: string
+                  format: uuid
+                file:
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - filename
+                    - content_base64
+                  properties:
+                    filename:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                    mime_type:
+                      type:
+                        - string
+                        - "null"
+                      maxLength: 100
+                    content_base64:
+                      type: string
+                      minLength: 4
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: "leave.submit | leave.approve"
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/leave.confirmGuardian":
+    post:
+      operationId: leave_confirmGuardian
+      summary: "ผู้ปกครองยืนยัน/ไม่ยืนยันใบลาที่นักเรียนยื่น (แยกจากการอนุมัติของโรงเรียน)"
+      tags:
+        - leave
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - leave_request_id
+                - decision
+              properties:
+                leave_request_id:
+                  type: string
+                  format: uuid
+                decision:
+                  type: string
+                  enum:
+                    - CONFIRMED
+                    - DECLINED
+                comment:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 1000
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: leave.confirm_guardian
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/leave.decide":
+    post:
+      operationId: leave_decide
+      summary: "โรงเรียนพิจารณาใบลา: อนุมัติ / อนุมัติบางช่วง / ไม่อนุมัติ / ส่งกลับแก้ไข (ตามเส้นทางอนุมัติ หรือผู้รักษาการแทน)"
+      tags:
+        - leave
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - leave_request_id
+                - decision
+              properties:
+                leave_request_id:
+                  type: string
+                  format: uuid
+                decision:
+                  type: string
+                  enum:
+                    - APPROVED
+                    - PARTIALLY_APPROVED
+                    - REJECTED
+                    - RETURNED
+                segment_decisions:
+                  type:
+                    - object
+                    - "null"
+                comment:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 1000
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: leave.approve
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/leave.decideCancel":
+    post:
+      operationId: leave_decideCancel
+      summary: "พิจารณาการยกเลิกใบลา (หรือยกเลิกโดยตรงโดยผู้มีอำนาจ) — คำนวณการมาเรียนใหม่"
+      tags:
+        - leave
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - leave_request_id
+                - approve
+                - reason
+              properties:
+                leave_request_id:
+                  type: string
+                  format: uuid
+                approve:
+                  type: boolean
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 1000
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: leave.approve
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/leave.get":
+    post:
+      operationId: leave_get
+      summary: "รายละเอียดใบลา ช่วงลา ผลพิจารณา ประวัติ และเอกสาร (ตามสิทธิ์)"
+      tags:
+        - leave
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - leave_request_id
+              properties:
+                leave_request_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: leave.read
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 300
+  "/v1/ops/leave.inbox":
+    post:
+      operationId: leave_inbox
+      summary: "งานที่รอฉันพิจารณา (ผู้ปกครองยืนยัน / โรงเรียนอนุมัติ / ขอยกเลิก)"
+      tags:
+        - leave
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: []
+              properties:
+                limit:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 1
+                  maximum: 200
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: "leave.approve | leave.confirm_guardian"
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 300
+  "/v1/ops/leave.list":
+    post:
+      operationId: leave_list
+      summary: "รายการใบลาตามขอบเขตสิทธิ์"
+      tags:
+        - leave
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: []
+              properties:
+                student_id:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                status:
+                  type:
+                    - string
+                    - "null"
+                  enum:
+                    - DRAFT
+                    - SUBMITTED
+                    - PENDING_GUARDIAN
+                    - PENDING_SCHOOL
+                    - RETURNED
+                    - APPROVED
+                    - PARTIALLY_APPROVED
+                    - REJECTED
+                    - WITHDRAWN
+                    - CANCELLATION_REQUESTED
+                    - CANCELLED
+                    - null
+                from:
+                  type:
+                    - string
+                    - "null"
+                  format: date
+                to:
+                  type:
+                    - string
+                    - "null"
+                  format: date
+                cursor:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 500
+                limit:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 1
+                  maximum: 200
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: leave.read
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 300
+  "/v1/ops/leave.requestCancel":
+    post:
+      operationId: leave_requestCancel
+      summary: "ขอยกเลิกใบลาที่อนุมัติแล้ว (ต้องมีผู้มีอำนาจพิจารณา)"
+      tags:
+        - leave
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - leave_request_id
+                - reason
+              properties:
+                leave_request_id:
+                  type: string
+                  format: uuid
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 1000
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: leave.cancel
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/leave.reroute":
+    post:
+      operationId: leave_reroute
+      summary: "เปลี่ยนผู้พิจารณา (ผู้พิจารณาไม่อยู่/ส่งต่อ) โดยกลุ่มงานกิจการนักเรียน"
+      tags:
+        - leave
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - leave_request_id
+                - approver_role
+                - reason
+              properties:
+                leave_request_id:
+                  type: string
+                  format: uuid
+                approver_role:
+                  type: string
+                  enum:
+                    - HOMEROOM_TEACHER
+                    - STUDENT_AFFAIRS
+                approver_user_id:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 500
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: "leave.approve (STUDENT_AFFAIRS)"
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/leave.resubmit":
+    post:
+      operationId: leave_resubmit
+      summary: "แก้ไขและส่งใบลาที่ถูกส่งกลับ (revision ใหม่; ช่วงเดิมถูกถอน)"
+      tags:
+        - leave
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - leave_request_id
+                - leave_type
+                - reason
+                - days
+              properties:
+                leave_request_id:
+                  type: string
+                  format: uuid
+                leave_type:
+                  type: string
+                  enum:
+                    - SICK
+                    - PERSONAL
+                    - SCHOOL_ACTIVITY
+                    - OTHER
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 1000
+                days:
+                  type: array
+                  minItems: 1
+                  maxItems: 31
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - school_date
+                      - unit
+                    properties:
+                      school_date:
+                        type: string
+                        format: date
+                      unit:
+                        type: string
+                        enum:
+                          - FULL_DAY
+                          - HALF_DAY_AM
+                          - HALF_DAY_PM
+                          - PERIODS
+                      periods:
+                        type:
+                          - array
+                          - "null"
+                        maxItems: 20
+                        uniqueItems: true
+                        items:
+                          type: integer
+                          minimum: 0
+                          maximum: 20
+                retroactive_reason:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 1000
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: leave.submit
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/leave.submit":
+    post:
+      operationId: leave_submit
+      summary: "ยื่นใบลา (ทั้งวัน/ครึ่งวัน/บางคาบ หลายวัน) พร้อมเอกสาร — ตรวจวันซ้อน วันหยุด และ enrollment"
+      tags:
+        - leave
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - student_id
+                - leave_type
+                - reason
+                - days
+              properties:
+                student_id:
+                  type: string
+                  format: uuid
+                leave_type:
+                  type: string
+                  enum:
+                    - SICK
+                    - PERSONAL
+                    - SCHOOL_ACTIVITY
+                    - OTHER
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 1000
+                days:
+                  type: array
+                  minItems: 1
+                  maxItems: 31
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - school_date
+                      - unit
+                    properties:
+                      school_date:
+                        type: string
+                        format: date
+                      unit:
+                        type: string
+                        enum:
+                          - FULL_DAY
+                          - HALF_DAY_AM
+                          - HALF_DAY_PM
+                          - PERIODS
+                      periods:
+                        type:
+                          - array
+                          - "null"
+                        maxItems: 20
+                        uniqueItems: true
+                        items:
+                          type: integer
+                          minimum: 0
+                          maximum: 20
+                retroactive_reason:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 1000
+                attachments:
+                  type: array
+                  maxItems: 3
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - filename
+                      - content_base64
+                    properties:
+                      filename:
+                        type: string
+                        minLength: 1
+                        maxLength: 200
+                      mime_type:
+                        type:
+                          - string
+                          - "null"
+                        maxLength: 100
+                      content_base64:
+                        type: string
+                        minLength: 4
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: leave.submit
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 30
+  "/v1/ops/leave.withdraw":
+    post:
+      operationId: leave_withdraw
+      summary: "ถอนคำขอลาที่ยังไม่ได้ข้อยุติ"
+      tags:
+        - leave
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - leave_request_id
+              properties:
+                leave_request_id:
+                  type: string
+                  format: uuid
+                reason:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 500
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: leave.withdraw
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
   "/v1/ops/period.create":
     post:
       operationId: period_create
@@ -2210,6 +3787,126 @@ paths:
       x-cwk:
         auth: USER
         permission: settings.business
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/reconciliation.list":
+    post:
+      operationId: reconciliation_list
+      summary: "งานตรวจสอบข้อมูลขัดกัน/ยังไม่ทราบสถานะ ตามขอบเขต"
+      tags:
+        - reconciliation
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: []
+              properties:
+                status:
+                  type:
+                    - string
+                    - "null"
+                  enum:
+                    - OPEN
+                    - RESOLVED
+                    - DISMISSED
+                    - null
+                class_id:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                cursor:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 500
+                limit:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 1
+                  maximum: 200
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: attendance.reconcile
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 300
+  "/v1/ops/reconciliation.resolve":
+    post:
+      operationId: reconciliation_resolve
+      summary: "ปิดงานตรวจสอบพร้อมบันทึกข้อสรุป"
+      tags:
+        - reconciliation
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - task_id
+                - status
+                - resolution_note
+              properties:
+                task_id:
+                  type: string
+                  format: uuid
+                status:
+                  type: string
+                  enum:
+                    - RESOLVED
+                    - DISMISSED
+                resolution_note:
+                  type: string
+                  minLength: 2
+                  maxLength: 1000
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: attendance.reconcile
         mutation: true
         idempotency: REQUIRED
         rate_limit_per_minute: 120
@@ -2336,6 +4033,123 @@ paths:
       x-cwk:
         auth: USER
         permission: role.assign
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/rollcall.get":
+    post:
+      operationId: rollcall_get
+      summary: "รายชื่อเช็กชื่อประจำวันตาม enrollment ของวันนั้น พร้อมข้อมูลประตูและใบลา"
+      tags:
+        - rollcall
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - class_id
+                - school_date
+              properties:
+                class_id:
+                  type: string
+                  format: uuid
+                school_date:
+                  type: string
+                  format: date
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: "attendance.rollcall | attendance.read"
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 300
+  "/v1/ops/rollcall.submit":
+    post:
+      operationId: rollcall_submit
+      summary: "ส่งผลเช็กชื่อ (ระบุเฉพาะนักเรียนที่ไม่ใช่ \"มา\"; ส่งซ้ำได้ก่อนยืนยัน)"
+      tags:
+        - rollcall
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - class_id
+                - school_date
+                - marks
+              properties:
+                class_id:
+                  type: string
+                  format: uuid
+                school_date:
+                  type: string
+                  format: date
+                marks:
+                  type: array
+                  maxItems: 200
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - student_id
+                      - mark
+                    properties:
+                      student_id:
+                        type: string
+                        format: uuid
+                      mark:
+                        type: string
+                        enum:
+                          - PRESENT
+                          - ABSENT
+                          - LATE
+                          - LEAVE_REPORTED
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: attendance.rollcall
         mutation: true
         idempotency: REQUIRED
         rate_limit_per_minute: 120
@@ -3001,6 +4815,98 @@ paths:
         mutation: false
         idempotency: NONE
         rate_limit_per_minute: 300
+  "/v1/ops/student.photo":
+    post:
+      operationId: student_photo
+      summary: "รูปนักเรียนสำหรับตรวจตัวบุคคล (ข้อมูลระบุตัว)"
+      tags:
+        - student
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - student_id
+              properties:
+                student_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: student.read_basic
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 600
+  "/v1/ops/student.profile":
+    post:
+      operationId: student_profile
+      summary: "หน้าประวัตินักเรียน: ข้อมูล สถานะล่าสุด สถิติ timeline ผู้ปกครอง ครู งานค้าง (ตามสิทธิ์)"
+      tags:
+        - student
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - student_id
+              properties:
+                student_id:
+                  type: string
+                  format: uuid
+                from:
+                  type:
+                    - string
+                    - "null"
+                  format: date
+                to:
+                  type:
+                    - string
+                    - "null"
+                  format: date
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: "student.read | student.read_basic"
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 300
   "/v1/ops/student.search":
     post:
       operationId: student_search
@@ -3070,6 +4976,74 @@ paths:
         mutation: false
         idempotency: NONE
         rate_limit_per_minute: 240
+  "/v1/ops/student.setPhoto":
+    post:
+      operationId: student_setPhoto
+      summary: "ตั้งรูปนักเรียน (ใช้ตรวจตัวบุคคลที่ประตู; ระบบย่อรูปที่เครื่องก่อนส่ง)"
+      tags:
+        - student
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - student_id
+                - file
+              properties:
+                student_id:
+                  type: string
+                  format: uuid
+                file:
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - filename
+                    - content_base64
+                  properties:
+                    filename:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                    mime_type:
+                      type:
+                        - string
+                        - "null"
+                      maxLength: 100
+                    content_base64:
+                      type: string
+                      minLength: 4
+                      maxLength: 1500000
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: student.manage
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
   "/v1/ops/student.update":
     post:
       operationId: student_update

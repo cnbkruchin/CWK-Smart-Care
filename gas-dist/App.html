@@ -104,6 +104,14 @@ fieldset { border: 1px solid var(--line); border-radius: 8px; }
 .stat { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; text-align: center; }
 .stat-n { font-size: 1.6rem; font-weight: 700; }
 .stat-l { color: var(--muted); font-size: .9rem; }
+.stat-ok { border-top: 4px solid var(--ok); }
+.stat-warn { border-top: 4px solid var(--warn); }
+.stat-danger { border-top: 4px solid var(--danger); }
+.note { margin: 8px 0; color: var(--muted); }
+.note summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; }
+.row-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.day-row { display: grid; grid-template-columns: 1fr; gap: 0 12px; align-items: end; border-bottom: 1px dashed var(--line); padding: 4px 0; }
+@media (min-width: 720px) { .day-row { grid-template-columns: 1.2fr 1.2fr 1.4fr auto; } }
 .checklist { padding-left: 18px; }
 
 .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 12px; }
@@ -129,6 +137,9 @@ fieldset { border: 1px solid var(--line); border-radius: 8px; }
 .mark-group { display: flex; flex-wrap: wrap; gap: 4px; }
 .mark-group label { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-height: var(--tap); display: inline-flex; align-items: center; gap: 4px; }
 @media print { .nav, .topbar, .form-actions, .btn { display: none !important; } main { max-width: none; } }
+.kv { display: grid; grid-template-columns: minmax(90px, 30%) 1fr; gap: 4px 12px; margin: 8px 0; }
+.kv dt { color: var(--muted); font-weight: 700; }
+.kv dd { margin: 0; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
@@ -898,6 +909,12 @@ fieldset { border: 1px solid var(--line); border-radius: 8px; }
       a.remove();
     }, 1e3);
   }
+  function base64ToBytes(b64) {
+    const bin = atob(b64);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
   function askText(question, { label = "เหตุผล", okLabel = "บันทึก", multiline = false } = {}) {
     return new Promise((resolve) => {
       const prev = document.activeElement;
@@ -1309,9 +1326,77 @@ fieldset { border: 1px solid var(--line); border-radius: 8px; }
     EXTERNAL_SERVICE_ERROR: { retryable: true, th: "บริการภายนอกขัดข้อง ระบบจะลองใหม่อัตโนมัติ" },
     INTERNAL_ERROR: { retryable: true, th: "เกิดข้อผิดพลาดภายในระบบ กรุณาลองใหม่ หากยังพบปัญหาให้แจ้งรหัสอ้างอิงต่อผู้ดูแลระบบ" }
   });
+  var AppError = class extends Error {
+    /**
+     * @param {keyof typeof ERROR_CODES} code
+     * @param {string} [message] developer-facing message (never contains secrets or other users' data)
+     * @param {{fieldErrors?: Array<{field:string, code:string, message_th:string}>, details?: object, messageTh?: string, retryable?: boolean, cause?: unknown}} [opts]
+     */
+    constructor(code, message, opts = {}) {
+      super(message || code);
+      const def = ERROR_CODES[code] || ERROR_CODES.INTERNAL_ERROR;
+      this.name = "AppError";
+      this.code = ERROR_CODES[code] ? code : "INTERNAL_ERROR";
+      this.messageTh = opts.messageTh || def.th;
+      this.retryable = typeof opts.retryable === "boolean" ? opts.retryable : def.retryable;
+      this.fieldErrors = opts.fieldErrors || [];
+      this.details = opts.details || null;
+      if (opts.cause) this.cause = opts.cause;
+    }
+  };
 
   // src/shared/time.js
   var TZ_OFFSETS_MINUTES = Object.freeze({ "Asia/Bangkok": 420, UTC: 0 });
+  function tzOffset(tz) {
+    const off = TZ_OFFSETS_MINUTES[tz || "Asia/Bangkok"];
+    if (off === void 0) throw new AppError("CONFIGURATION_REQUIRED", `unsupported timezone ${tz}`);
+    return off;
+  }
+  var DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+  var HHMM_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+  function isIsoDate(s) {
+    if (typeof s !== "string") return false;
+    const m = DATE_RE.exec(s);
+    if (!m) return false;
+    const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+    return d.getUTCFullYear() === +m[1] && d.getUTCMonth() === +m[2] - 1 && d.getUTCDate() === +m[3];
+  }
+  function hhmmToMinutes(s) {
+    const m = HHMM_RE.exec(s);
+    if (!m) throw new AppError("VALIDATION_ERROR", `invalid HH:MM ${s}`);
+    return +m[1] * 60 + +m[2];
+  }
+  function schoolDateOf(isoUtc, tz = "Asia/Bangkok") {
+    const ms = new Date(isoUtc).getTime() + tzOffset(tz) * 6e4;
+    return new Date(ms).toISOString().slice(0, 10);
+  }
+  function localPartsOf(isoUtc, tz = "Asia/Bangkok") {
+    const local = new Date(new Date(isoUtc).getTime() + tzOffset(tz) * 6e4).toISOString();
+    return {
+      date: local.slice(0, 10),
+      hh: +local.slice(11, 13),
+      mm: +local.slice(14, 16),
+      ss: +local.slice(17, 19),
+      ms: +local.slice(20, 23),
+      hhmm: local.slice(11, 16)
+    };
+  }
+  function localToUtc(date, hhmm, tz = "Asia/Bangkok") {
+    if (!isIsoDate(date)) throw new AppError("VALIDATION_ERROR", `invalid date ${date}`);
+    const mins = hhmmToMinutes(hhmm);
+    const [y, mo, d] = date.split("-").map(Number);
+    const ms = Date.UTC(y, mo - 1, d, 0, mins) - tzOffset(tz) * 6e4;
+    return new Date(ms).toISOString();
+  }
+  function addDays(date, n) {
+    const [y, m, d] = date.split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+  }
+  function isoWeekday(date) {
+    const [y, m, d] = date.split("-").map(Number);
+    const wd = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+    return wd === 0 ? 7 : wd;
+  }
 
   // src/shared/thai-format.js
   var THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
@@ -1325,6 +1410,20 @@ fieldset { border: 1px solid var(--line); border-radius: 8px; }
     if (!y || !m || !d) return "";
     const months = opts.long ? THAI_MONTHS : THAI_MONTHS_SHORT;
     return `${d} ${months[m - 1]} ${toBuddhistYear(y)}`;
+  }
+  function formatThaiDateTime(isoUtc, tz = "Asia/Bangkok", opts = {}) {
+    if (!isoUtc) return "";
+    const p = localPartsOf(isoUtc, tz);
+    const time = opts.seconds ? `${pad2(p.hh)}:${pad2(p.mm)}:${pad2(p.ss)}` : `${pad2(p.hh)}:${pad2(p.mm)}`;
+    return `${formatThaiDate(p.date, opts)} ${time} น.`;
+  }
+  function formatThaiTime(isoUtc, tz = "Asia/Bangkok") {
+    if (!isoUtc) return "";
+    const p = localPartsOf(isoUtc, tz);
+    return `${pad2(p.hh)}:${pad2(p.mm)} น.`;
+  }
+  function pad2(n) {
+    return String(n).padStart(2, "0");
   }
 
   // frontend/src/screens/settings.js
@@ -1631,8 +1730,1229 @@ fieldset { border: 1px solid var(--line); border-radius: 8px; }
     return root;
   }
 
+  // frontend/src/lib/dates.js
+  function schoolTz(app) {
+    return app.publicConfig && app.publicConfig.timezone || "Asia/Bangkok";
+  }
+  function todayLocal(app) {
+    return schoolDateOf((/* @__PURE__ */ new Date()).toISOString(), schoolTz(app));
+  }
+  function localTimestamp(app, date, hhmm) {
+    return localToUtc(date, hhmm, schoolTz(app));
+  }
+
+  // frontend/src/screens/dashboard.js
+  var POLL_MS = 6e4;
+  function tile(label, value, kind = "neutral") {
+    return h("div", { class: `stat stat-${kind}` }, h("div", { class: "stat-n" }, String(value != null ? value : 0)), h("div", { class: "stat-l" }, label));
+  }
+  function totalsView(t) {
+    return h(
+      "div",
+      { class: "stats" },
+      tile("นักเรียนในทะเบียน (วันเรียน)", t.school_days),
+      tile("มาเรียน", t.present, "ok"),
+      tile("มาสาย (นับ)", t.late_counted, t.late_counted ? "warn" : "neutral"),
+      tile("ลาทั้งวัน", t.full_day_leave),
+      tile("ลาบางช่วง", t.partial_leave),
+      tile("ขาด (ยืนยันแล้ว)", t.absent_confirmed, t.absent_confirmed ? "danger" : "neutral"),
+      tile("รอตรวจสอบ", t.unknown, t.unknown ? "warn" : "neutral")
+    );
+  }
+  function countingNote(lines) {
+    return h("details", { class: "note" }, h("summary", null, "วิธีนับ (นิยามเดียวกับรายงาน)"), h("ul", null, lines.map((l) => h("li", null, l))));
+  }
+  async function renderDashboard(app, params) {
+    const root = h("div");
+    const date = input("school_date", { type: "date", value: params.date || todayLocal(app) });
+    const scoped = app.can("attendance.rollcall") || app.session.homeroom_class_ids.length || app.can("student.search");
+    let classSel = null;
+    if (scoped && !app.session.linked_student_ids.length) {
+      const classes = (await app.api.get("class.list", {})).items;
+      classSel = select("class_id", [h("option", { value: "" }, "ทุกห้อง (ตามสิทธิ์)"), ...classes.map((c) => h("option", { value: c.id, selected: c.id === params.class_id }, c.name_th))]);
+    }
+    const body = h("div", { "aria-live": "polite" });
+    const stamp = h("p", { class: "muted small" });
+    let names = null;
+    const load = async (quiet = false) => {
+      if (!quiet) mount(body, loading());
+      try {
+        const r = await app.api.get("dashboard.summary", { school_date: date.value || null, class_id: classSel && classSel.value ? classSel.value : null }, { channel: "dashboard" });
+        const out = [];
+        if (r.lateness_rule && r.lateness_rule.is_example) out.push(alertBox("warn", `กฎการมาสายที่ใช้ยังเป็น "ค่าตัวอย่าง" (เริ่มสาย ${r.lateness_rule.cutoff_time}) — โรงเรียนต้องยืนยันค่าจริงในหน้าตั้งค่าก่อนใช้งานจริง`));
+        if (!r.lateness_rule) out.push(alertBox("warn", "ยังไม่มีกฎการมาสายที่มีผลวันนี้ ระบบจะไม่ตัดสินว่ามาสาย"));
+        out.push(totalsView(r.totals));
+        if (r.students) {
+          if (!names) {
+            try {
+              names = new Map((await app.api.get("student.listMine", {})).items.map((s) => [s.id, s]));
+            } catch (_) {
+              names = /* @__PURE__ */ new Map();
+            }
+          }
+          out.push(section("บุตรหลาน/ตนเอง", r.students.length ? table([
+            { label: "นักเรียน", render: (x) => {
+              const s = names.get(x.student_id);
+              return s ? `${s.first_name_th} ${s.last_name_th}` : "—";
+            } },
+            { label: "สถานะวันนี้", render: (x) => enumLabel("PresenceStatus", x.presence_status) },
+            { label: "มาสาย", render: (x) => x.is_late ? badge(`สาย ${x.late_minutes} นาที`, "warn") : "—" },
+            { label: "ลา", render: (x) => x.leave_units || "—" }
+          ], r.students, { onRow: (x) => app.go("profile", { id: x.student_id }) }) : empty("ไม่มีนักเรียนในทะเบียนวันนี้")));
+        } else {
+          out.push(h("p", null, `เช็กชื่อแล้ว ${r.roll_call.classes_submitted}/${r.roll_call.classes_total} ห้อง · งานรอตรวจสอบ ${r.open_tasks} รายการ`));
+          out.push(r.classes.length ? table([
+            { label: "ห้อง", key: "class_name_th" },
+            { label: "เช็กชื่อ", render: (c) => c.roll_call_submitted ? badge("ส่งแล้ว", "ok", "✔") : badge("ยังไม่ส่ง", "warn", "⚠") },
+            { label: "นักเรียน", key: "school_days" },
+            { label: "มา", key: "present" },
+            { label: "สาย", key: "late_counted" },
+            { label: "ลาทั้งวัน", key: "full_day_leave" },
+            { label: "ขาด", key: "absent_confirmed" },
+            { label: "รอตรวจสอบ", key: "unknown" }
+          ], r.classes, { onRow: (c) => app.can("attendance.rollcall") || app.can("attendance.read") ? app.go("rollcall", { class_id: c.class_id, date: r.school_date }) : null }) : empty("ไม่มีห้องในขอบเขตสิทธิ์"));
+        }
+        out.push(countingNote(r.counting_note_th));
+        mount(body, out);
+        mount(stamp, `ข้อมูลวันที่ ${formatThaiDate(r.school_date)} · ปรับปรุงล่าสุด ${formatThaiTime((/* @__PURE__ */ new Date()).toISOString())}`);
+      } catch (e2) {
+        if (e2.code !== "STALE_RESPONSE" && !quiet) mount(body, errorState(e2, () => load()));
+      }
+    };
+    const tick = () => {
+      if (!root.isConnected || app.current !== "dashboard") return;
+      if (document.visibilityState === "visible") load(true);
+      setTimeout(tick, POLL_MS + Math.floor(Math.random() * 15e3));
+    };
+    setTimeout(tick, POLL_MS + Math.floor(Math.random() * 15e3));
+    root.appendChild(form([h("div", { class: "grid3" }, field("วันที่", date), classSel ? field("ห้อง", classSel) : null)], async () => {
+      await load();
+      return false;
+    }, { submitLabel: "แสดง" }));
+    root.appendChild(stamp);
+    root.appendChild(body);
+    if (app.can("attendance.exempt")) root.appendChild(await exemptionForm(app, date));
+    load();
+    return root;
+  }
+  async function exemptionForm(app, dateInput) {
+    const classes = (await app.api.get("class.list", {})).items;
+    const cls = select("class_id", [h("option", { value: "" }, "— เลือกห้อง —"), ...classes.map((c) => h("option", { value: c.id }, c.name_th))]);
+    const list = h("div");
+    const reasonCode = select("reason_code", [["TRANSPORT_DELAY", "รถรับส่งล่าช้า"], ["WEATHER", "สภาพอากาศ"], ["SCHOOL_EVENT", "กิจกรรมโรงเรียน"], ["OTHER", "อื่น ๆ"]].map(([v, t]) => h("option", { value: v }, t)));
+    const reasonText = input("reason_text", { placeholder: "เช่น รถรับส่งสาย ... เสียระหว่างทาง (ไม่ใส่ข้อมูลสุขภาพ)" });
+    let checks = [];
+    cls.addEventListener("change", async () => {
+      checks = [];
+      if (!cls.value) {
+        mount(list, "");
+        return;
+      }
+      mount(list, loading());
+      try {
+        const r = await app.api.get("attendance.classDay", { class_id: cls.value, school_date: dateInput.value }, { channel: "exempt-class" });
+        const late = r.items.filter((x) => x.is_late && !x.lateness_exempted);
+        checks = late.map((x) => ({ id: x.student.id, box: h("input", { type: "checkbox", checked: true, "aria-label": `เลือก ${x.student.first_name_th}` }) }));
+        mount(list, late.length ? table([
+          { label: "เลือก", render: (x) => checks.find((c) => c.id === x.student.id).box },
+          { label: "นักเรียน", render: (x) => `${x.student.first_name_th} ${x.student.last_name_th}` },
+          { label: "เวลามาถึง", render: (x) => x.arrived_at ? formatThaiTime(x.arrived_at) : "—" },
+          { label: "สาย (นาที)", key: "late_minutes" }
+        ], late) : empty("ไม่มีนักเรียนมาสายที่ยังไม่ได้รับการยกเว้นในห้องนี้"));
+      } catch (e2) {
+        if (e2.code !== "STALE_RESPONSE") mount(list, errorState(e2));
+      }
+    });
+    return section(
+      "รับรองข้อยกเว้นการนับสาย",
+      alertBox("info", "ระบบเก็บเวลามาถึงจริงไว้เสมอ และแสดงผลการยกเว้นแยกต่างหาก (ไม่ลบประวัติ)"),
+      form([h("div", { class: "grid3" }, field("ห้อง", cls), field("เหตุผล", reasonCode, { required: true }), field("รายละเอียด", reasonText, { required: true })), list], async () => {
+        const ids = checks.filter((c) => c.box.checked).map((c) => c.id);
+        if (!ids.length) throw { message_th: "ยังไม่ได้เลือกนักเรียน" };
+        const r = await app.api.mutate("attendance.exempt", { school_date: dateInput.value, student_ids: ids, reason_code: reasonCode.value, reason_text: reasonText.value.trim() });
+        cls.dispatchEvent(new Event("change"));
+        return `บันทึกข้อยกเว้นแล้ว ${r.applied} คน`;
+      }, { submitLabel: "บันทึกข้อยกเว้น", confirmText: "ยืนยันการยกเว้นการนับสายของนักเรียนที่เลือก?" })
+    );
+  }
+
+  // frontend/src/offline.js
+  var DB_NAME = "cwk-offline-v1";
+  var STORE = "arrivals";
+  var RETENTION_HOURS = 24;
+  function open() {
+    return new Promise((resolve, reject) => {
+      if (!globalThis.indexedDB) {
+        reject(new Error("IndexedDB ไม่พร้อมใช้งานบนเบราว์เซอร์นี้"));
+        return;
+      }
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = () => req.result.createObjectStore(STORE, { keyPath: "local_id" });
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  async function tx(mode, fn) {
+    const db = await open();
+    return new Promise((resolve, reject) => {
+      const t = db.transaction(STORE, mode);
+      const store2 = t.objectStore(STORE);
+      const out = fn(store2);
+      t.oncomplete = () => {
+        db.close();
+        resolve(out && out.result !== void 0 ? out.result : out);
+      };
+      t.onerror = () => {
+        db.close();
+        reject(t.error);
+      };
+    });
+  }
+  async function available() {
+    try {
+      await open();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+  function queueArrival(rec) {
+    return tx("readwrite", (s) => s.put({ ...rec, queued_at: (/* @__PURE__ */ new Date()).toISOString() }));
+  }
+  function pending() {
+    return tx("readonly", (s) => s.getAll());
+  }
+  async function remove(localIds) {
+    await tx("readwrite", (s) => {
+      for (const id of localIds) s.delete(id);
+    });
+  }
+  async function purgeExpired() {
+    const all = await pending();
+    const cutoff = Date.now() - RETENTION_HOURS * 3600 * 1e3;
+    const expired = all.filter((r) => Date.parse(r.queued_at) < cutoff).map((r) => r.local_id);
+    if (expired.length) await remove(expired);
+    return expired.length;
+  }
+
+  // frontend/src/screens/gate.js
+  var audioCtx = null;
+  function beep(ok) {
+    try {
+      audioCtx = audioCtx || new (globalThis.AudioContext || globalThis.webkitAudioContext)();
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.frequency.value = ok ? 880 : 300;
+      g.gain.value = 0.08;
+      o.connect(g);
+      g.connect(audioCtx.destination);
+      o.start();
+      o.stop(audioCtx.currentTime + 0.15);
+    } catch (_) {
+    }
+  }
+  function store(k, v) {
+    try {
+      if (v === void 0) return sessionStorage.getItem(k);
+      sessionStorage.setItem(k, v);
+    } catch (_) {
+      return null;
+    }
+    return null;
+  }
+  async function renderGate(app) {
+    const stations = (await app.api.get("station.list", {})).items;
+    if (!stations.length) return alertBox("warn", 'ยังไม่มีจุดลงเวลา ให้ผู้ดูแลเพิ่มในหน้า "ตั้งค่า"');
+    const root = h("div", { class: "gate" });
+    const stationSel = select("station_id", stations.map((s) => h("option", { value: s.id, selected: store("cwk.station") === s.id }, s.name_th)));
+    stationSel.addEventListener("change", () => store("cwk.station", stationSel.value));
+    const sound = h("input", { type: "checkbox", checked: store("cwk.sound") === "1" });
+    sound.addEventListener("change", () => store("cwk.sound", sound.checked ? "1" : "0"));
+    const queueTime = input("queue_time", { type: "time" });
+    const code = input("code", { class: "input gate-input", autocomplete: "off", inputmode: "numeric", autofocus: true, "aria-label": "รหัสนักเรียนหรือสแกนบัตร", placeholder: "สแกนบัตร / พิมพ์รหัส แล้วกด Enter" });
+    const card = h("div", { "aria-live": "assertive" });
+    const result = h("div", { "aria-live": "assertive" });
+    const pendingBox = h("div");
+    const logBox = h("div");
+    let current = null;
+    let busy = false;
+    const refocus = () => setTimeout(() => code.focus(), 0);
+    const refreshPending = async () => {
+      try {
+        const list = await pending();
+        mount(pendingBox, list.length ? alertBox("warn", `มี ${list.length} รายการบันทึกในเครื่อง (ยังไม่ส่งเข้าระบบ)`) : "", list.length ? actionButton("ส่งรายการออฟไลน์", syncOffline, { variant: "secondary" }) : "");
+      } catch (_) {
+        mount(pendingBox, "");
+      }
+    };
+    const syncOffline = async () => {
+      const list = await pending();
+      if (!list.length) return;
+      try {
+        const r = await app.api.mutate("attendance.syncOffline", { station_id: stationSel.value, records: list.slice(0, 50).map(({ local_id, idempotency_key, student_code, captured_at, claimed_user_id }) => ({ local_id, idempotency_key, student_code, captured_at, claimed_user_id })) });
+        const done = r.results.filter((x) => ["RECORDED", "DUPLICATE", "REVIEW", "REJECTED"].includes(x.status)).map((x) => x.local_id);
+        await remove(done);
+        const review = r.results.filter((x) => x.status === "REVIEW" || x.status === "REJECTED");
+        toast(`ส่งแล้ว ${done.length} รายการ${review.length ? ` (ต้องตรวจ ${review.length})` : ""}`, review.length ? "warn" : "ok");
+      } catch (e2) {
+        toast(e2.message_th || "ส่งไม่สำเร็จ", "danger");
+      }
+      refreshPending();
+      loadLog();
+    };
+    const loadLog = async () => {
+      try {
+        const log = await app.api.get("attendance.stationLog", { station_id: stationSel.value, limit: 15 }, { channel: "gate-log" });
+        mount(logBox, log.items.length ? table([{ label: "เวลา", render: (r) => formatThaiTime(r.occurred_at) }, { label: "รหัส", key: "student_code" }, { label: "ชื่อ", key: "name" }, { label: "", render: (r) => r.offline ? badge("ออฟไลน์", "warn") : "" }], log.items) : empty("ยังไม่มีรายการวันนี้"));
+      } catch (e2) {
+        if (e2.code !== "STALE_RESPONSE") mount(logBox, "");
+      }
+    };
+    const show = async (payload) => {
+      mount(card, loading("กำลังค้นหา…"));
+      mount(result, "");
+      try {
+        const r = await app.api.get("attendance.lookupForGate", payload, { channel: "gate-lookup" });
+        current = r;
+        const s = r.student;
+        const photo = h("div", { class: "gate-photo", "aria-label": "รูปนักเรียน" }, "ไม่มีรูป");
+        const recordBtn = actionButton(r.status.arrived ? "บันทึกไว้แล้ว" : "บันทึกเวลามาถึง (Enter)", record, { large: true });
+        if (r.status.arrived) recordBtn.disabled = true;
+        mount(card, h(
+          "div",
+          { class: "card gate-card" },
+          photo,
+          h(
+            "div",
+            null,
+            h("div", { class: "gate-result" }, `${s.prefix_th || ""}${s.first_name_th} ${s.last_name_th}`),
+            h("div", null, `รหัส ${s.student_code} · ห้อง ${s.class_name_th || "—"}`),
+            !r.eligible ? alertBox("danger", "ไม่อยู่ในทะเบียนวันนี้") : null,
+            r.status.arrived ? alertBox("info", `บันทึกแล้วเวลา ${formatThaiTime(r.status.arrived_at)}`) : null,
+            r.status.leave_units ? alertBox("info", `มีใบลาที่อนุมัติวันนี้: ${r.status.leave_units}`) : null,
+            h("div", { class: "form-actions" }, recordBtn)
+          )
+        ));
+        if (!r.status.arrived) recordBtn.focus();
+        if (s.photo_file_id) {
+          app.api.get("student.photo", { student_id: s.id }, { channel: "gate-photo" }).then((p) => {
+            if (p.has_photo && current && current.student.id === s.id) {
+              const img = document.createElement("img");
+              img.className = "gate-photo";
+              img.alt = "รูปนักเรียน";
+              img.src = `data:${p.mime_type};base64,${p.content_base64}`;
+              mount(photo, img);
+            }
+          }).catch(() => {
+          });
+        }
+      } catch (e2) {
+        current = null;
+        if (e2.code === "STORAGE_UNAVAILABLE" && payload.code) return offerOffline(payload.code);
+        if (e2.code !== "STALE_RESPONSE") {
+          mount(card, errorState(e2));
+          if (sound.checked) beep(false);
+          refocus();
+        }
+      }
+    };
+    const offerOffline = async (scanned) => {
+      const can = await available();
+      mount(card, alertBox("warn", "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้"), can ? actionButton(`บันทึกรหัส ${scanned} ไว้ในเครื่อง (ยังไม่ตรวจตัวบุคคล)`, async () => {
+        await queueArrival({ local_id: uuid(), idempotency_key: uuid(), student_code: scanned, station_id: stationSel.value, captured_at: (/* @__PURE__ */ new Date()).toISOString(), claimed_user_id: app.session.user.id });
+        mount(card, alertBox("warn", `บันทึกในเครื่องแล้ว — ยังไม่ใช่รายการสำเร็จในระบบ จนกว่าจะส่ง`));
+        refreshPending();
+        code.value = "";
+        refocus();
+      }) : alertBox("danger", "อุปกรณ์นี้บันทึกออฟไลน์ไม่ได้ ใช้แบบบันทึกฉุกเฉิน (กระดาษ) แล้วนำเข้าภายหลังโดยผู้ตรวจ"));
+    };
+    async function record() {
+      if (!current || busy) return;
+      busy = true;
+      const payload = { student_id: current.student.id, station_id: stationSel.value, source: "SCAN_KEYBOARD" };
+      if (queueTime.value) Object.assign(payload, { source: "QUEUE_BATCH", arrived_at: localTimestamp(app, todayLocal(app), queueTime.value) });
+      try {
+        const r = await app.api.mutate("attendance.recordArrival", payload);
+        mount(result, h("div", { class: `gate-result alert ${r.duplicate ? "alert-info" : r.is_late && r.late_counted ? "alert-warn" : "alert-ok"}`, role: "status" }, `${r.duplicate ? "ℹ" : r.is_late ? "⏰" : "✔"} ${current.student.first_name_th}: ${r.message_th}`));
+        if (sound.checked) beep(!r.is_late);
+        mount(card, "");
+        current = null;
+        code.value = "";
+        loadLog();
+      } catch (e2) {
+        mount(result, errorState(e2));
+        if (sound.checked) beep(false);
+      } finally {
+        busy = false;
+        refocus();
+      }
+    }
+    code.addEventListener("keydown", (e2) => {
+      if (e2.key !== "Enter") return;
+      e2.preventDefault();
+      const v = code.value.trim();
+      if (!v) {
+        if (current) record();
+        return;
+      }
+      code.value = "";
+      show({ code: v });
+    });
+    root.addEventListener("keydown", (e2) => {
+      if (e2.key === "Enter" && current && document.activeElement !== code && e2.target.tagName !== "BUTTON") record();
+    });
+    const nameQ = input("name_q", { placeholder: "ค้นหาชื่อ", autocomplete: "off" });
+    const nameResults = h("div");
+    const searchByName = async () => {
+      if (!nameQ.value.trim()) return;
+      mount(nameResults, loading());
+      try {
+        const r = await app.api.get("student.search", { q: nameQ.value.trim(), limit: 10 }, { channel: "gate-name" });
+        mount(nameResults, r.items.length ? h("ul", { class: "checklist" }, r.items.map((s) => h("li", null, h("button", { type: "button", class: "btn btn-link", onclick: () => show({ student_id: s.id }) }, `${s.student_code} ${s.first_name_th} ${s.last_name_th} (${s.class_name_th || "—"})`)))) : empty("ไม่พบ"));
+      } catch (e2) {
+        if (e2.code !== "STALE_RESPONSE") mount(nameResults, errorState(e2));
+      }
+    };
+    nameQ.addEventListener("keydown", (e2) => {
+      if (e2.key === "Enter") {
+        e2.preventDefault();
+        searchByName();
+      }
+    });
+    const camBox = h("div");
+    const camSupported = "BarcodeDetector" in globalThis && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+    const startCamera = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        const video = h("video", { autoplay: true, playsinline: true, muted: true, style: { width: "100%", maxWidth: "360px" } });
+        video.srcObject = stream;
+        const stop = () => stream.getTracks().forEach((t) => t.stop());
+        mount(camBox, video, actionButton("ปิดกล้อง", async () => {
+          stop();
+          mount(camBox, "");
+        }, { variant: "secondary" }));
+        const detector = new globalThis.BarcodeDetector({ formats: ["qr_code", "code_128", "code_39", "ean_13"] });
+        const loop = async () => {
+          if (!document.body.contains(video)) {
+            stop();
+            return;
+          }
+          try {
+            const codes = await detector.detect(video);
+            if (codes.length) {
+              stop();
+              mount(camBox, "");
+              show({ code: codes[0].rawValue });
+              return;
+            }
+          } catch (_) {
+          }
+          setTimeout(loop, 300);
+        };
+        loop();
+      } catch (e2) {
+        mount(camBox, alertBox("warn", "เปิดกล้องไม่ได้ในอุปกรณ์/เบราว์เซอร์นี้ ใช้เครื่องสแกนหรือพิมพ์รหัสแทน"));
+      }
+    };
+    root.append(
+      h("div", { class: "grid3" }, field("จุดลงเวลา", stationSel), field("เวลามาถึงของแถวรอ (ถ้ามี)", queueTime, { hint: "ใช้เมื่อนักเรียนต่อแถวรอ ไม่เพิ่มโทษเพราะดำเนินการช้า" }), h("label", { class: "check" }, sound, " เสียงแจ้งผล")),
+      field("สแกน/พิมพ์รหัส", code),
+      card,
+      result,
+      pendingBox,
+      section("ค้นหาด้วยชื่อ", field("ชื่อ", nameQ), nameResults),
+      section("สแกนด้วยกล้อง", camSupported ? actionButton("เปิดกล้อง", startCamera, { variant: "secondary" }) : alertBox("info", "เบราว์เซอร์นี้ไม่รองรับการสแกนด้วยกล้อง ใช้เครื่องสแกนแบบคีย์บอร์ดหรือพิมพ์รหัส"), camBox),
+      section("รายการล่าสุดของจุดนี้", logBox),
+      alertBox("info", "การลงเวลาที่ประตูไม่ใช่หลักฐานว่านักเรียนเข้าห้องเรียนแล้ว")
+    );
+    window.addEventListener("online", syncOffline);
+    purgeExpired().catch(() => {
+    });
+    refreshPending();
+    loadLog();
+    refocus();
+    return root;
+  }
+
+  // frontend/src/screens/rollcall.js
+  var MARKS = ["PRESENT", "LATE", "ABSENT", "LEAVE_REPORTED"];
+  function markRadios(name, current, disabled) {
+    return h("div", { class: "mark-group", role: "radiogroup", "aria-label": "ผลเช็กชื่อ" }, MARKS.map((m) => h("label", null, h("input", { type: "radio", name, value: m, checked: current === m, disabled }), enumLabel("RollCallMark", m))));
+  }
+  function evidence(it) {
+    const out = [];
+    if (it.arrived_at) out.push(badge(`ประตู ${formatThaiTime(it.arrived_at)}${it.is_late ? ` (สาย ${it.late_minutes} น.)` : ""}`, it.is_late ? "warn" : "ok"));
+    if (it.full_day_leave) out.push(badge("ลาทั้งวัน (อนุมัติ)", "info"));
+    else if (it.leave_units) out.push(badge(`ลา: ${it.leave_units}`, "info"));
+    if (it.confirmed_absence) out.push(badge("ยืนยันขาดแล้ว", "danger"));
+    if (it.has_conflict) out.push(badge("ข้อมูลขัดกัน", "danger", "⚠"));
+    return out.length ? h("div", { class: "row-actions" }, out) : "—";
+  }
+  async function renderRollcall(app, params) {
+    const classes = (await app.api.get("class.list", {})).items;
+    const mine = app.session.homeroom_class_ids || [];
+    const ordered = [...classes.filter((c) => mine.includes(c.id)), ...classes.filter((c) => !mine.includes(c.id))];
+    const initial = params.class_id || mine[0] || "";
+    const cls = select("class_id", [h("option", { value: "" }, "— เลือกห้อง —"), ...ordered.map((c) => h("option", { value: c.id, selected: c.id === initial }, `${c.name_th}${mine.includes(c.id) ? " (ห้องที่ปรึกษา)" : ""}`))]);
+    const date = input("school_date", { type: "date", value: params.date || todayLocal(app), max: todayLocal(app) });
+    const body = h("div", { "aria-live": "polite" });
+    const tasksBox = h("div");
+    const root = h("div", null, h("div", { class: "grid3" }, field("ห้อง", cls), field("วันที่", date)), body, tasksBox);
+    const load = async () => {
+      if (!cls.value) {
+        mount(body, empty("เลือกห้องเพื่อเช็กชื่อ"));
+        mount(tasksBox, "");
+        return;
+      }
+      mount(body, loading());
+      try {
+        const r = await app.api.get("rollcall.get", { class_id: cls.value, school_date: date.value }, { channel: "rollcall" });
+        mount(body, sheet(app, r, load));
+      } catch (e2) {
+        if (e2.code !== "STALE_RESPONSE") mount(body, errorState(e2, load));
+      }
+      if (app.can("attendance.reconcile")) mount(tasksBox, await reviewTasks(app, cls.value, load));
+    };
+    cls.addEventListener("change", () => {
+      app.drafts.set("rollcall.class", cls.value);
+      load();
+    });
+    date.addEventListener("change", load);
+    load();
+    return root;
+  }
+  function sheet(app, r, reload) {
+    const verified = r.session && r.session.status === "VERIFIED";
+    const locked = !r.can_mark || verified;
+    const rows = r.items.map((it, i) => {
+      const current = it.mark && it.mark !== "NOT_MARKED" ? it.mark : it.full_day_leave ? "LEAVE_REPORTED" : "PRESENT";
+      return { it, name: `m-${i}`, radios: markRadios(`m-${i}`, current, locked) };
+    });
+    const status = r.session ? alertBox(verified ? "ok" : "info", `${enumLabel("RollCallStatus", r.session.status)} เมื่อ ${formatThaiDateTime(r.session.submitted_at)}${verified ? ' — แก้ไขต่อจากนี้ใช้ "แก้ไขข้อมูล" ในหน้าประวัตินักเรียน' : " — ส่งซ้ำเพื่อแก้ไขได้จนกว่าจะยืนยัน"}`) : alertBox("warn", `ยังไม่ได้เช็กชื่อ ${r.class.name_th} วันที่ ${formatThaiDate(r.school_date)}`);
+    const allPresent = actionButton("ทุกคนมา (ยกเว้นที่ลาทั้งวัน)", async () => {
+      for (const row of rows) {
+        const v = row.it.full_day_leave ? "LEAVE_REPORTED" : "PRESENT";
+        const radio = row.radios.querySelector(`input[value="${v}"]`);
+        if (radio) radio.checked = true;
+      }
+    }, { variant: "secondary" });
+    const submit = actionButton(r.session ? "ส่งผลเช็กชื่ออีกครั้ง" : "ส่งผลเช็กชื่อ", async () => {
+      const marks = [];
+      for (const row of rows) {
+        const sel = row.radios.querySelector("input:checked");
+        const m = sel ? sel.value : "PRESENT";
+        if (m !== "PRESENT") marks.push({ student_id: row.it.student.id, mark: m });
+      }
+      try {
+        const res = await app.api.mutate("rollcall.submit", { class_id: r.class.id, school_date: r.school_date, marks }, { expectedVersion: r.session ? r.session.version : null });
+        toast(`ส่งแล้ว: ไม่พบตัว ${res.ABSENT} · สาย ${res.LATE} · แจ้งลา ${res.LEAVE_REPORTED}`);
+        reload();
+      } catch (e2) {
+        toast(e2.code === "CONFLICT" ? "มีผู้อื่นแก้ผลเช็กชื่อห้องนี้ไปแล้ว ระบบโหลดข้อมูลล่าสุดให้ กรุณาตรวจและส่งอีกครั้ง" : e2.message_th || "ส่งไม่สำเร็จ", "danger");
+        if (e2.code === "CONFLICT") reload();
+      }
+    }, { large: true });
+    const out = [status];
+    if (!r.items.length) return h("div", null, out, empty("ไม่มีนักเรียนในทะเบียนของห้องนี้ในวันนั้น"));
+    out.push(table([
+      { label: "เลขที่", render: (x) => {
+        var _a;
+        return (_a = x.it.roll_no) != null ? _a : "—";
+      } },
+      { label: "นักเรียน", render: (x) => h("a", { href: `#/profile?id=${encodeURIComponent(x.it.student.id)}` }, `${x.it.student.first_name_th} ${x.it.student.last_name_th}`) },
+      { label: "หลักฐาน", render: (x) => evidence(x.it) },
+      { label: "สถานะวันนี้", render: (x) => enumLabel("PresenceStatus", x.it.presence_status) },
+      { label: "ผลเช็กชื่อ", render: (x) => x.radios }
+    ], rows, { caption: `${r.class.name_th} · ${formatThaiDate(r.school_date)} · ${r.items.length} คน` }));
+    if (!locked) out.push(h("div", { class: "form-actions" }, allPresent, submit));
+    else if (!r.can_mark) out.push(alertBox("info", "บัญชีนี้ดูผลได้อย่างเดียว (ไม่ใช่ครูที่ปรึกษาของห้องนี้)"));
+    if (r.session && r.session.status === "SUBMITTED" && app.can("attendance.verify")) out.push(verifyBox(app, r, reload));
+    return h("div", null, out);
+  }
+  function verifyBox(app, r, reload) {
+    const unknown = r.items.filter((x) => x.presence_status === "UNKNOWN");
+    if (!unknown.length) return section("ยืนยันผลรายวัน", alertBox("ok", "ไม่มีนักเรียนที่ยังไม่ทราบสถานะ"));
+    const boxes = unknown.map((x) => ({ id: x.student.id, box: h("input", { type: "checkbox", "aria-label": `ยืนยันขาด ${x.student.first_name_th}` }) }));
+    const note = textarea("note", { rows: 2, placeholder: "เช่น โทรติดต่อผู้ปกครองแล้ว (ไม่ใส่ข้อมูลสุขภาพ)" });
+    return section(
+      "ยืนยันขาดเรียน (เฉพาะนักเรียนที่ยังไม่ทราบสถานะ)",
+      alertBox("warn", 'ยืนยันเฉพาะรายที่ตรวจสอบแล้วว่าไม่มาโรงเรียน ระบบจะแจ้งผู้ปกครองว่า "ขาดเรียน" เฉพาะรายการที่ยืนยัน'),
+      table([
+        { label: "ยืนยันขาด", render: (x) => boxes.find((b) => b.id === x.student.id).box },
+        { label: "นักเรียน", render: (x) => `${x.student.first_name_th} ${x.student.last_name_th}` },
+        { label: "ผลเช็กชื่อ", render: (x) => enumLabel("RollCallMark", x.mark) }
+      ], unknown),
+      field("หมายเหตุ", note),
+      h("div", { class: "form-actions" }, actionButton("ยืนยันผลรายวัน", async () => {
+        const ids = boxes.filter((b) => b.box.checked).map((b) => b.id);
+        try {
+          const res = await app.api.mutate("attendance.verifyDay", { class_id: r.class.id, school_date: r.school_date, confirm_absent_student_ids: ids, note: note.value.trim() || null });
+          toast(`ยืนยันขาด ${res.confirmed.length} คน${res.refused.length ? ` · ไม่ผ่าน ${res.refused.length} (${res.refused.map((x) => x.reason_th).join(", ")})` : ""}`, res.refused.length ? "warn" : "ok");
+          reload();
+        } catch (e2) {
+          toast(e2.message_th || "ยืนยันไม่สำเร็จ", "danger");
+        }
+      }, { confirmText: "ยืนยันผลรายวันของห้องนี้? (ห้องจะถูกล็อกผลเช็กชื่อ แก้ไขต่อได้ผ่านการแก้ไขข้อมูลเท่านั้น)" }))
+    );
+  }
+  async function reviewTasks(app, classId, reload) {
+    try {
+      const r = await app.api.get("reconciliation.list", { class_id: classId, status: "OPEN" }, { channel: "rollcall-tasks" });
+      if (!r.items.length) return section("งานตรวจสอบของห้อง", empty("ไม่มีงานค้าง"));
+      return section("งานตรวจสอบของห้อง", table([
+        { label: "วันที่", render: (t) => t.school_date ? formatThaiDate(t.school_date) : "—" },
+        { label: "ประเภท", render: (t) => enumLabel("ReconciliationTaskType", t.task_type) },
+        { label: "นักเรียน", render: (t) => t.student_id ? h("a", { href: `#/profile?id=${encodeURIComponent(t.student_id)}` }, t.student_name || "เปิดประวัติ") : "—" },
+        { label: "รายละเอียด", key: "description_th" },
+        {
+          label: "ดำเนินการ",
+          render: (t) => h(
+            "div",
+            { class: "row-actions" },
+            t.evidence_refs && t.evidence_refs.correction_id ? h("a", { class: "btn btn-secondary", href: `#/profile?id=${encodeURIComponent(t.student_id)}&correction=${encodeURIComponent(t.evidence_refs.correction_id)}` }, "พิจารณาคำขอแก้ไข") : [
+              actionButton("แก้ไขแล้ว", () => resolveTask(app, t, "RESOLVED", reload), { variant: "secondary" }),
+              actionButton("ไม่ต้องดำเนินการ", () => resolveTask(app, t, "DISMISSED", reload), { variant: "secondary" })
+            ]
+          )
+        }
+      ], r.items));
+    } catch (e2) {
+      return e2.code === "STALE_RESPONSE" ? h("div") : section("งานตรวจสอบของห้อง", errorState(e2));
+    }
+  }
+  async function resolveTask(app, t, status, reload) {
+    const note = await askText(status === "RESOLVED" ? "สรุปการแก้ไข" : "เหตุผลที่ไม่ต้องดำเนินการ", { label: "บันทึก", multiline: true });
+    if (!note) return;
+    try {
+      await app.api.mutate("reconciliation.resolve", { task_id: t.id, status, resolution_note: note }, { expectedVersion: t.version });
+      toast("ปิดงานแล้ว");
+      reload();
+    } catch (e2) {
+      toast(e2.message_th || "บันทึกไม่สำเร็จ", "danger");
+    }
+  }
+
+  // frontend/src/screens/leave-detail.js
+  var PENDING = ["PENDING_GUARDIAN", "PENDING_SCHOOL", "RETURNED"];
+  var MAX_FILE_BYTES = 5 * 1024 * 1024;
+  function statusKind(s) {
+    if (["APPROVED"].includes(s)) return "ok";
+    if (["REJECTED", "CANCELLED"].includes(s)) return "danger";
+    if (["PARTIALLY_APPROVED", "RETURNED", "CANCELLATION_REQUESTED"].includes(s)) return "warn";
+    return "info";
+  }
+  function leaveStatusBadge(s) {
+    return badge(enumLabel("LeaveStatus", s), statusKind(s));
+  }
+  function segUnit(s) {
+    return s.unit === "PERIODS" ? `คาบ ${(s.periods || []).join(", ")}` : enumLabel("LeaveUnit", s.unit);
+  }
+  async function showLeaveDetail(app, box, id, { onChanged = null, onResubmit = null } = {}) {
+    mount(box, loading());
+    let d;
+    try {
+      d = await app.api.get("leave.get", { leave_request_id: id }, { channel: "leave-detail" });
+    } catch (e2) {
+      if (e2.code !== "STALE_RESPONSE") mount(box, errorState(e2, () => showLeaveDetail(app, box, id, { onChanged, onResubmit })));
+      return;
+    }
+    const r = d.request;
+    const reload = () => {
+      showLeaveDetail(app, box, id, { onChanged, onResubmit });
+      if (onChanged) onChanged();
+    };
+    const run = async (operation, payload, okText) => {
+      try {
+        await app.api.mutate(operation, { leave_request_id: r.id, ...payload }, { expectedVersion: r.version });
+        toast(okText);
+        reload();
+      } catch (e2) {
+        toast(e2.code === "CONFLICT" ? "ใบลานี้ถูกแก้ไขโดยผู้อื่นแล้ว ระบบโหลดข้อมูลล่าสุดให้" : e2.message_th || "ทำรายการไม่สำเร็จ", "danger");
+        if (e2.code === "CONFLICT" || e2.code === "INVALID_STATE") reload();
+      }
+    };
+    const actions = [];
+    if (d.can.confirm_guardian && r.status === "PENDING_GUARDIAN") {
+      actions.push(actionButton("ยืนยันใบลา (ผู้ปกครอง)", () => run("leave.confirmGuardian", { decision: "CONFIRMED", comment: null }, "ยืนยันแล้ว — ส่งต่อให้โรงเรียนพิจารณา")));
+      actions.push(actionButton("ไม่ยืนยัน", async () => {
+        const c = await askText("เหตุผลที่ไม่ยืนยัน", { multiline: true });
+        if (c) await run("leave.confirmGuardian", { decision: "DECLINED", comment: c }, "บันทึกว่าไม่ยืนยันแล้ว");
+      }, { variant: "secondary" }));
+    }
+    const segDecisions = /* @__PURE__ */ new Map();
+    if (d.can.decide && r.status === "PENDING_SCHOOL") {
+      actions.push(actionButton("อนุมัติ", async () => {
+        const c = r.attachment_required && !d.attachments.length ? await askText("ใบลานี้ควรมีเอกสารแนบตามกฎ แต่ยังไม่มี — ระบุเหตุผลที่อนุมัติ", { multiline: true }) : null;
+        if (r.attachment_required && !d.attachments.length && !c) return;
+        await run("leave.decide", { decision: "APPROVED", comment: c }, "อนุมัติแล้ว");
+      }, { confirmText: "อนุมัติใบลานี้ทุกช่วง?" }));
+      if (d.segments.filter((s) => s.status === "REQUESTED").length > 1) {
+        actions.push(actionButton("อนุมัติบางช่วง (ตามที่เลือกในตาราง)", async () => {
+          const active = d.segments.filter((s) => s.status === "REQUESTED");
+          const map = Object.fromEntries(active.map((s) => [s.id, segDecisions.get(s.id) ? segDecisions.get(s.id).value : "APPROVED"]));
+          const c = await askText("เหตุผลที่อนุมัติบางช่วง", { multiline: true });
+          if (c) await run("leave.decide", { decision: "PARTIALLY_APPROVED", segment_decisions: map, comment: c }, "บันทึกผลรายช่วงแล้ว");
+        }, { variant: "secondary" }));
+      }
+      actions.push(actionButton("ไม่อนุมัติ", async () => {
+        const c = await askText("เหตุผลที่ไม่อนุมัติ", { multiline: true });
+        if (c) await run("leave.decide", { decision: "REJECTED", comment: c }, "บันทึกว่าไม่อนุมัติแล้ว");
+      }, { variant: "secondary" }));
+    }
+    if (d.can.decide && ["PENDING_SCHOOL", "PENDING_GUARDIAN"].includes(r.status)) {
+      actions.push(actionButton("ส่งกลับให้แก้ไข", async () => {
+        const c = await askText("สิ่งที่ต้องแก้ไข", { multiline: true });
+        if (c) await run("leave.decide", { decision: "RETURNED", comment: c }, "ส่งกลับแล้ว");
+      }, { variant: "secondary" }));
+    }
+    if (d.can.decide && r.status === "CANCELLATION_REQUESTED") {
+      actions.push(actionButton("อนุมัติการยกเลิก", async () => {
+        const c = await askText("เหตุผล", { multiline: true });
+        if (c) await run("leave.decideCancel", { approve: true, reason: c }, "ยกเลิกใบลาแล้ว — ระบบคำนวณการมาเรียนใหม่");
+      }));
+      actions.push(actionButton("ไม่อนุมัติการยกเลิก", async () => {
+        const c = await askText("เหตุผล", { multiline: true });
+        if (c) await run("leave.decideCancel", { approve: false, reason: c }, "บันทึกแล้ว");
+      }, { variant: "secondary" }));
+    }
+    if (d.can.decide && ["APPROVED", "PARTIALLY_APPROVED"].includes(r.status)) {
+      actions.push(actionButton("ยกเลิกใบลาโดยผู้มีอำนาจ", async () => {
+        const c = await askText("เหตุผลที่ยกเลิก (จะคำนวณการมาเรียนของวันที่เกี่ยวข้องใหม่)", { multiline: true });
+        if (c) await run("leave.decideCancel", { approve: true, reason: c }, "ยกเลิกใบลาแล้ว");
+      }, { variant: "secondary" }));
+    }
+    if (d.can.decide && app.session.roles.includes("STUDENT_AFFAIRS") && ["PENDING_GUARDIAN", "PENDING_SCHOOL"].includes(r.status)) {
+      actions.push(actionButton("เปลี่ยนผู้พิจารณา", async () => {
+        const to = r.current_approver_role === "HOMEROOM_TEACHER" ? "STUDENT_AFFAIRS" : "HOMEROOM_TEACHER";
+        const c = await askText(`ส่งต่อให้ ${to === "STUDENT_AFFAIRS" ? "กลุ่มงานกิจการนักเรียน" : "ครูที่ปรึกษา"} — ระบุเหตุผล`);
+        if (c) await run("leave.reroute", { approver_role: to, approver_user_id: null, reason: c }, "เปลี่ยนผู้พิจารณาแล้ว");
+      }, { variant: "secondary" }));
+    }
+    if (d.can.own && PENDING.includes(r.status)) {
+      actions.push(actionButton("ถอนคำขอลา", () => run("leave.withdraw", { reason: null }, "ถอนคำขอแล้ว"), { variant: "secondary", confirmText: "ถอนคำขอลานี้?" }));
+    }
+    if (d.can.own && r.status === "RETURNED" && onResubmit) {
+      actions.push(actionButton("แก้ไขและส่งใหม่", async () => onResubmit(d), { variant: "primary" }));
+    }
+    if (!d.can.decide && app.can("leave.cancel") && ["APPROVED", "PARTIALLY_APPROVED"].includes(r.status)) {
+      actions.push(actionButton("ขอยกเลิกใบลา", async () => {
+        const c = await askText("เหตุผลที่ขอยกเลิก", { multiline: true });
+        if (c) await run("leave.requestCancel", { reason: c }, "ส่งคำขอยกเลิกแล้ว (รอโรงเรียนพิจารณา)");
+      }, { variant: "secondary" }));
+    }
+    const attachInput = h("input", { type: "file", accept: "application/pdf,image/jpeg,image/png", class: "input" });
+    const canAttach = (d.can.own || d.can.decide) && !["WITHDRAWN", "CANCELLED"].includes(r.status);
+    const segRows = d.segments.map((s) => {
+      let ctl = null;
+      if (d.can.decide && r.status === "PENDING_SCHOOL" && s.status === "REQUESTED") {
+        ctl = h("select", { class: "input", "aria-label": `ผลวันที่ ${s.school_date}` }, h("option", { value: "APPROVED" }, "อนุมัติ"), h("option", { value: "REJECTED" }, "ไม่อนุมัติ"));
+        segDecisions.set(s.id, ctl);
+      }
+      return { ...s, ctl };
+    });
+    mount(
+      box,
+      section(
+        `ใบลา: ${d.student.name} (${d.student.student_code})`,
+        h(
+          "p",
+          null,
+          leaveStatusBadge(r.status),
+          " ",
+          badge(`ผู้ปกครอง: ${enumLabel("GuardianConfirmation", r.guardian_confirmation_status)}`, "neutral"),
+          " ",
+          badge(`โรงเรียน: ${enumLabel("SchoolApproval", r.school_approval_status)}`, "neutral")
+        ),
+        h(
+          "dl",
+          { class: "kv" },
+          h("dt", null, "ประเภท"),
+          h("dd", null, enumLabel("LeaveType", r.leave_type)),
+          h("dt", null, "เหตุผล"),
+          h("dd", null, r.reason),
+          h("dt", null, "ผู้ยื่น"),
+          h("dd", null, `${d.requester_name} (${enumLabel("RequesterType", r.requester_type)}) เมื่อ ${formatThaiDateTime(r.submitted_at)}`),
+          h("dt", null, "ผู้พิจารณา"),
+          h("dd", null, r.current_approver_role ? enumLabel("Role", r.current_approver_role) : "—"),
+          r.is_retroactive ? [h("dt", null, "ยื่นย้อนหลัง"), h("dd", null, r.retroactive_reason || "—")] : null
+        ),
+        r.attachment_required && !d.attachments.length ? alertBox("warn", "กฎการลากำหนดให้แนบเอกสาร (เช่น ใบรับรองแพทย์) แต่ยังไม่มีไฟล์แนบ") : null,
+        table([
+          { label: "วันที่", render: (s) => formatThaiDate(s.school_date) },
+          { label: "ช่วง", render: segUnit },
+          { label: "สถานะ", render: (s) => enumLabel("SegmentStatus", s.status) },
+          ...segDecisions.size ? [{ label: "ผลรายช่วง", render: (s) => s.ctl || "—" }] : []
+        ], segRows, { caption: "ช่วงลา (นับแยกหน่วย ทั้งวัน/ครึ่งวัน/คาบ)" }),
+        actions.length ? h("div", { class: "form-actions row-actions" }, actions) : null
+      ),
+      section(
+        "เอกสารแนบ",
+        d.attachments.length ? table([
+          { label: "ไฟล์", key: "filename" },
+          { label: "ประเภท", render: (a) => a.classification === "MEDICAL" ? badge("เอกสารสุขภาพ (อ่อนไหว)", "warn") : "ทั่วไป" },
+          { label: "ขนาด", render: (a) => `${Math.ceil(a.size_bytes / 1024)} KB` },
+          { label: "", render: (a) => actionButton("ดาวน์โหลด", async () => {
+            try {
+              const f = await app.api.get("attachment.download", { attachment_id: a.id });
+              downloadBlob(f.filename, base64ToBytes(f.content_base64), f.mime_type);
+            } catch (e2) {
+              toast(e2.message_th || "ดาวน์โหลดไม่สำเร็จ", "danger");
+            }
+          }, { variant: "secondary" }) }
+        ], d.attachments) : h("p", { class: "muted" }, "ไม่มีไฟล์แนบ"),
+        canAttach ? h("div", null, field("แนบไฟล์เพิ่ม (PDF/JPG/PNG ไม่เกิน 5 MB)", attachInput), actionButton("อัปโหลด", async () => {
+          const file = attachInput.files[0];
+          if (!file) {
+            toast("ยังไม่ได้เลือกไฟล์", "warn");
+            return;
+          }
+          if (file.size > MAX_FILE_BYTES) {
+            toast("ไฟล์ใหญ่เกิน 5 MB", "danger");
+            return;
+          }
+          try {
+            await app.api.mutate("leave.addAttachment", { leave_request_id: r.id, file: { filename: file.name, mime_type: file.type || null, content_base64: await fileToBase64(file) } });
+            toast("แนบไฟล์แล้ว");
+            reload();
+          } catch (e2) {
+            toast(e2.message_th || "แนบไฟล์ไม่สำเร็จ", "danger");
+          }
+        }, { variant: "secondary" })) : null
+      ),
+      section(
+        "ประวัติการพิจารณา",
+        d.approvals.length ? table([
+          { label: "เมื่อ", render: (a) => formatThaiDateTime(a.decided_at) },
+          { label: "ขั้นตอน", render: (a) => enumLabel("ApprovalStepType", a.step_type) },
+          { label: "ผล", render: (a) => enumLabel("ApprovalDecision", a.decision) },
+          { label: "โดย", key: "decided_by_name" },
+          { label: "หมายเหตุ", render: (a) => a.comment || "—" }
+        ], d.approvals) : h("p", { class: "muted" }, "ยังไม่มีการพิจารณา"),
+        h("details", null, h("summary", null, `ประวัติการแก้ไข (${d.revisions.length})`), h("ul", { class: "timeline" }, d.revisions.map((v) => h("li", null, `${formatThaiDateTime(v.acted_at)} · ${enumLabel("LeaveAction", v.action)} · ${v.actor_name}${v.from_status ? ` · ${enumLabel("LeaveStatus", v.from_status)} → ` : " · "}${enumLabel("LeaveStatus", v.to_status)}${v.comment ? ` — ${v.comment}` : ""}`))))
+      )
+    );
+  }
+
+  // frontend/src/screens/leave.js
+  var MAX_DAYS = 31;
+  function dayRow(day = {}) {
+    const date = input("school_date", { type: "date", value: day.school_date || "" });
+    const unit = select("unit", enumOptions("LeaveUnit"));
+    unit.value = day.unit || "FULL_DAY";
+    const periods = input("periods", { placeholder: "เช่น 1,2,3", inputmode: "numeric", value: (day.periods || []).join(",") });
+    const periodsField = field("คาบ", periods, { hint: 'ใช้เมื่อเลือก "บางคาบ"' });
+    const sync = () => {
+      periodsField.hidden = unit.value !== "PERIODS";
+    };
+    unit.addEventListener("change", sync);
+    sync();
+    const el = h("div", { class: "day-row" }, field("วันที่", date, { required: true }), field("ช่วง", unit), periodsField);
+    return {
+      el,
+      value: () => ({
+        school_date: date.value,
+        unit: unit.value,
+        periods: unit.value === "PERIODS" ? periods.value.split(/[,\s]+/).filter(Boolean).map(Number) : null
+      })
+    };
+  }
+  async function studentPicker(app) {
+    if (app.session.linked_student_ids.length || app.session.self_student_id) {
+      const mine = (await app.api.get("student.listMine", {})).items;
+      if (!mine.length) return null;
+      return { el: select("student_id", mine.map((s) => h("option", { value: s.id }, `${s.first_name_th} ${s.last_name_th} (${s.class_name_th || "—"})`))), get value() {
+        return this.el.value;
+      } };
+    }
+    const q = input("student_q", { placeholder: "รหัสหรือชื่อนักเรียน", autocomplete: "off" });
+    const sel = select("student_id", [h("option", { value: "" }, "— ค้นหาแล้วเลือก —")]);
+    const btn = actionButton("ค้นหา", async () => {
+      try {
+        const r = await app.api.get("student.search", { q: q.value.trim() || null, limit: 20 }, { channel: "leave-student" });
+        mount(sel, r.items.length ? r.items.map((s) => h("option", { value: s.id }, `${s.student_code} ${s.first_name_th} ${s.last_name_th} (${s.class_name_th || "—"})`)) : h("option", { value: "" }, "ไม่พบ"));
+      } catch (e2) {
+        if (e2.code !== "STALE_RESPONSE") toast(e2.message_th || "ค้นหาไม่สำเร็จ", "danger");
+      }
+    }, { variant: "secondary" });
+    return { el: h("div", null, h("div", { class: "row-actions" }, q, btn), sel), get value() {
+      return sel.value;
+    } };
+  }
+  async function renderLeave(app, params) {
+    const root = h("div");
+    const detailBox = h("div");
+    const listBox = h("div", { "aria-live": "polite" });
+    let formBox = h("div");
+    const loadList = async () => {
+      if (!app.can("leave.read") && !app.can("leave.submit")) return;
+      mount(listBox, loading());
+      try {
+        const r = await app.api.get("leave.list", { limit: 30 }, { channel: "leave-list" });
+        mount(listBox, r.items.length ? table([
+          { label: "นักเรียน", render: (x) => `${x.student_name} (${x.student_code || "—"})` },
+          { label: "ประเภท", render: (x) => enumLabel("LeaveType", x.leave_type) },
+          { label: "ช่วง", render: (x) => x.start_date === addDays(x.end_date, -1) ? formatThaiDate(x.start_date) : `${formatThaiDate(x.start_date)} – ${formatThaiDate(addDays(x.end_date, -1))}` },
+          { label: "สถานะ", render: (x) => leaveStatusBadge(x.status) }
+        ], r.items, { onRow: (x) => openDetail(x.id) }) : empty("ยังไม่มีใบลา"));
+      } catch (e2) {
+        if (e2.code !== "STALE_RESPONSE") mount(listBox, errorState(e2, loadList));
+      }
+    };
+    const openDetail = (id) => {
+      showLeaveDetail(app, detailBox, id, { onChanged: loadList, onResubmit: (d) => {
+        mount(formBox, "");
+        buildForm(d).then((f) => {
+          mount(formBox, f);
+          formBox.scrollIntoView({ behavior: "smooth" });
+        });
+      } });
+      detailBox.scrollIntoView({ behavior: "smooth" });
+    };
+    const buildForm = async (resubmit = null) => {
+      const picker = resubmit ? null : await studentPicker(app);
+      if (!resubmit && !picker) return alertBox("warn", "ยังไม่มีนักเรียนที่เชื่อมกับบัญชีนี้ (โรงเรียนต้องยืนยันความสัมพันธ์ก่อน)");
+      const draftKey = resubmit ? `leave.resubmit.${resubmit.request.id}` : "leave.new";
+      const draft = app.drafts.get(draftKey) || (resubmit ? { leave_type: resubmit.request.leave_type, reason: resubmit.request.reason, days: resubmit.segments.filter((s) => s.status !== "WITHDRAWN").map((s) => ({ school_date: s.school_date, unit: s.unit, periods: s.periods })) } : {});
+      const type = select("leave_type", enumOptions("LeaveType"));
+      type.value = draft.leave_type || "SICK";
+      const reason = textarea("reason", { value: draft.reason || "", maxlength: 1e3, placeholder: "เหตุผลโดยย่อ (ไม่ต้องใส่รายละเอียดการรักษา)" });
+      const retro = textarea("retroactive_reason", { rows: 2, value: draft.retroactive_reason || "", maxlength: 1e3 });
+      const files = h("input", { type: "file", name: "attachments", multiple: true, accept: "application/pdf,image/jpeg,image/png", class: "input" });
+      const rows = [];
+      const rowsBox = h("div");
+      const addRow = (d) => {
+        if (rows.length >= MAX_DAYS) {
+          toast(`สูงสุด ${MAX_DAYS} วันต่อใบลา`, "warn");
+          return;
+        }
+        const r = dayRow(d);
+        rows.push(r);
+        rowsBox.appendChild(r.el);
+      };
+      for (const d of draft.days && draft.days.length ? draft.days : [{ school_date: params.date || todayLocal(app) }]) addRow(d);
+      const rangeFrom = input("range_from", { type: "date" });
+      const rangeTo = input("range_to", { type: "date" });
+      const addRange = actionButton("เพิ่มช่วงวันที่ (จันทร์–ศุกร์)", async () => {
+        if (!rangeFrom.value || !rangeTo.value || rangeTo.value < rangeFrom.value) {
+          toast("ระบุวันเริ่มและวันสิ้นสุดให้ถูกต้อง", "warn");
+          return;
+        }
+        const have = new Set(rows.map((r) => r.value().school_date));
+        for (let d = rangeFrom.value; d <= rangeTo.value; d = addDays(d, 1)) if (isoWeekday(d) <= 5 && !have.has(d)) addRow({ school_date: d });
+      }, { variant: "secondary" });
+      const removeLast = actionButton("ลบแถวสุดท้าย", async () => {
+        if (rows.length > 1) rows.pop().el.remove();
+      }, { variant: "secondary" });
+      const remember = () => app.drafts.set(draftKey, { leave_type: type.value, reason: reason.value, retroactive_reason: retro.value, days: rows.map((r) => r.value()) });
+      const today = todayLocal(app);
+      return section(resubmit ? `แก้ไขใบลาของ ${resubmit.student.name} และส่งใหม่` : "ยื่นใบลา", form([
+        picker ? field("นักเรียน", picker.el, { required: true }) : null,
+        h("div", { class: "grid3" }, field("ประเภทการลา", type, { required: true })),
+        field("เหตุผล", reason, { required: true }),
+        h("h3", null, "วันที่ลา"),
+        rowsBox,
+        h("div", { class: "row-actions" }, h("button", { type: "button", class: "btn btn-secondary", onclick: () => addRow({}) }, "+ เพิ่มวัน"), removeLast),
+        h("div", { class: "grid3" }, field("ตั้งแต่", rangeFrom), field("ถึง", rangeTo), h("div", { class: "field" }, addRange)),
+        alertBox("info", "ระบบตรวจวันหยุด วันซ้ำกับใบลาเดิม และทะเบียนนักเรียนให้อัตโนมัติ วันที่ไม่ใช่วันเรียนจะแจ้งเป็นข้อผิดพลาด"),
+        field("เหตุผลที่ยื่นย้อนหลัง", retro, { hint: `จำเป็นเมื่อมีวันลาก่อนวันนี้ (${formatThaiDate(today)})` }),
+        resubmit ? null : field("เอกสารแนบ (ไม่เกิน 3 ไฟล์ ไฟล์ละ 5 MB: PDF/JPG/PNG)", files, { hint: "ใบรับรองแพทย์ถือเป็นข้อมูลอ่อนไหว เห็นได้เฉพาะผู้มีสิทธิ์" })
+      ], async () => {
+        remember();
+        const days = rows.map((r2) => r2.value()).filter((d) => d.school_date);
+        if (!days.length) throw { message_th: "กรุณาระบุวันที่ลาอย่างน้อย 1 วัน" };
+        const base = { leave_type: type.value, reason: reason.value.trim(), days, retroactive_reason: retro.value.trim() || null };
+        if (resubmit) {
+          const r2 = await app.api.mutate("leave.resubmit", { leave_request_id: resubmit.request.id, ...base }, { expectedVersion: resubmit.request.version });
+          app.drafts.delete(draftKey);
+          loadList();
+          openDetail(resubmit.request.id);
+          return `ส่งใหม่แล้ว — ${enumLabel("LeaveStatus", r2.status)}`;
+        }
+        const picked = [...files.files];
+        if (picked.length > 3) throw { message_th: "แนบได้ไม่เกิน 3 ไฟล์" };
+        for (const f of picked) if (f.size > MAX_FILE_BYTES) throw { message_th: `ไฟล์ ${f.name} ใหญ่เกิน 5 MB` };
+        const attachments = [];
+        for (const f of picked) attachments.push({ filename: f.name, mime_type: f.type || null, content_base64: await fileToBase64(f) });
+        const r = await app.api.mutate("leave.submit", { student_id: picker.value, ...base, attachments });
+        app.drafts.delete(draftKey);
+        loadList();
+        openDetail(r.leave_request_id);
+        return `ส่งใบลาแล้ว — ${enumLabel("LeaveStatus", r.status)}${r.attachment_required && !attachments.length ? " (กฎกำหนดให้แนบเอกสาร กรุณาแนบเพิ่มในรายละเอียดใบลา)" : ""}`;
+      }, { submitLabel: resubmit ? "ส่งใหม่" : "ส่งใบลา" }));
+    };
+    if (app.can("leave.submit")) formBox = h("div", null, await buildForm());
+    root.appendChild(formBox);
+    root.appendChild(section("ใบลาของฉัน/ในความดูแล", listBox));
+    root.appendChild(detailBox);
+    loadList();
+    if (params.id) openDetail(params.id);
+    return root;
+  }
+
+  // frontend/src/screens/approvals.js
+  var KIND = {
+    GUARDIAN_CONFIRMATION: ["รอผู้ปกครองยืนยัน", "info"],
+    SCHOOL_APPROVAL: ["รออนุมัติ", "warn"],
+    CANCELLATION_DECISION: ["ขอยกเลิก", "danger"]
+  };
+  async function renderApprovals(app, params) {
+    const listBox = h("div", { "aria-live": "polite" });
+    const detailBox = h("div");
+    const open2 = (id) => {
+      showLeaveDetail(app, detailBox, id, { onChanged: load });
+      detailBox.scrollIntoView({ behavior: "smooth" });
+    };
+    async function load() {
+      mount(listBox, loading());
+      try {
+        const r = await app.api.get("leave.inbox", {}, { channel: "leave-inbox" });
+        mount(listBox, r.items.length ? table([
+          { label: "งาน", render: (x) => badge(...KIND[x.kind] || [x.kind, "neutral"]) },
+          { label: "นักเรียน", key: "student_name" },
+          { label: "ประเภท", render: (x) => enumLabel("LeaveType", x.request.leave_type) },
+          { label: "วันที่ลา", render: (x) => x.request.start_date === addDays(x.request.end_date, -1) ? formatThaiDate(x.request.start_date) : `${formatThaiDate(x.request.start_date)} – ${formatThaiDate(addDays(x.request.end_date, -1))}` },
+          { label: "ยื่นเมื่อ", render: (x) => formatThaiDateTime(x.request.submitted_at) },
+          { label: "หมายเหตุ", render: (x) => [x.request.is_retroactive ? badge("ย้อนหลัง", "warn") : null, x.request.attachment_required ? badge("ต้องมีเอกสาร", "info") : null] }
+        ], r.items, { onRow: (x) => open2(x.request.id) }) : empty("ไม่มีใบลารอพิจารณา"));
+      } catch (e2) {
+        if (e2.code !== "STALE_RESPONSE") mount(listBox, errorState(e2, load));
+      }
+    }
+    load();
+    if (params.id) open2(params.id);
+    return h("div", null, section("รอฉันพิจารณา", listBox), detailBox);
+  }
+
+  // frontend/src/screens/profile.js
+  var MARKS2 = ["PRESENT", "ABSENT", "LATE", "LEAVE_REPORTED"];
+  function statsTable(rows) {
+    return table([
+      { label: "ช่วง", render: (r) => r.label },
+      { label: "วันเรียน", key: "school_days" },
+      { label: "มา", key: "present" },
+      { label: "สาย (นับ)", key: "late_counted" },
+      { label: "นาทีสายรวม", key: "late_minutes" },
+      { label: "ลาทั้งวัน", key: "full_day_leave" },
+      { label: "ลาบางช่วง", key: "partial_leave" },
+      { label: "ขาด (ยืนยัน)", key: "absent_confirmed" },
+      { label: "รอตรวจสอบ", key: "unknown" }
+    ], rows);
+  }
+  function contactLink(c) {
+    if (c.channel === "PHONE" || c.channel === "SMS") return h("a", { href: `tel:${String(c.value).replace(/[^0-9+]/g, "")}` }, `📞 ${c.value}`);
+    if (c.channel === "EMAIL") return h("a", { href: `mailto:${c.value}` }, `✉ ${c.value}`);
+    return `${enumLabel("ContactChannel", c.channel)}: ${c.value}`;
+  }
+  function latestView(l) {
+    return h(
+      "div",
+      { class: "stats" },
+      h("div", { class: "stat" }, h("div", { class: "stat-n" }, l.presence_th), h("div", { class: "stat-l" }, `วันนี้ (${formatThaiDate(l.school_date)})`)),
+      h("div", { class: "stat" }, h("div", { class: "stat-n" }, l.arrived_at ? formatThaiTime(l.arrived_at) : "—"), h("div", { class: "stat-l" }, l.is_late ? `มาสาย ${l.late_minutes} นาที` : "เวลามาถึง")),
+      h("div", { class: "stat" }, h("div", { class: "stat-n" }, l.verification_th), h("div", { class: "stat-l" }, "ระดับหลักฐาน")),
+      l.leave_units ? h("div", { class: "stat" }, h("div", { class: "stat-n" }, l.leave_units), h("div", { class: "stat-l" }, "ลาวันนี้")) : null
+    );
+  }
+  async function renderProfile(app, params) {
+    if (!params.id) return alertBox("warn", "ไม่ได้ระบุนักเรียน เปิดจากรายชื่อนักเรียน");
+    const root = h("div");
+    const from = input("from", { type: "date", value: params.from || "" });
+    const to = input("to", { type: "date", value: params.to || "" });
+    const p = await app.api.get("student.profile", { student_id: params.id, from: params.from || null, to: params.to || null });
+    const s = p.student;
+    const photo = h("div", { class: "gate-photo", "aria-label": "รูปนักเรียน" }, "ไม่มีรูป");
+    if (s.photo_file_id) {
+      app.api.get("student.photo", { student_id: s.id }, { channel: "profile-photo" }).then((ph) => {
+        if (ph.has_photo) {
+          const img = document.createElement("img");
+          img.className = "gate-photo";
+          img.alt = "รูปนักเรียน";
+          img.src = `data:${ph.mime_type};base64,${ph.content_base64}`;
+          mount(photo, img);
+        }
+      }).catch(() => {
+      });
+    }
+    root.appendChild(section(
+      `${s.prefix_th || ""}${s.first_name_th} ${s.last_name_th}${s.nickname ? ` (${s.nickname})` : ""}`,
+      h("div", { class: "gate-card" }, photo, h(
+        "div",
+        null,
+        h("p", null, `รหัส ${s.student_code} · ห้อง ${s.class_name_th || "—"} · `, badge(enumLabel("StudentStatus", s.status), s.status === "ACTIVE" ? "ok" : "warn")),
+        p.access === "BASIC" ? alertBox("info", "แสดงเฉพาะข้อมูลระบุตัวและสถานะวันนี้ตามสิทธิ์ของบัญชีนี้") : null
+      )),
+      latestView(p.latest)
+    ));
+    if (p.access !== "FULL") return root;
+    const actions = [];
+    if (p.can.submit_leave) actions.push(h("a", { class: "btn btn-secondary", href: "#/leave" }, "ยื่นใบลา"));
+    if (app.can("attendance.rollcall") && s.class_id) actions.push(h("a", { class: "btn btn-secondary", href: `#/rollcall?class_id=${encodeURIComponent(s.class_id)}` }, "เช็กชื่อห้องนี้"));
+    if (actions.length) root.appendChild(h("div", { class: "row-actions" }, actions));
+    const period = { label: `${formatThaiDate(p.stats.period.from)} – ${formatThaiDate(p.stats.period.to_exclusive)} (ไม่รวมวันสุดท้าย)`, ...p.stats.period };
+    root.appendChild(section(
+      "สถิติการมาเรียน",
+      form([h("div", { class: "grid3" }, field("ตั้งแต่", from), field("ถึง (ไม่รวม)", to))], async () => {
+        app.go("profile", { id: s.id, from: from.value, to: to.value });
+        return false;
+      }, { submitLabel: "แสดงช่วงนี้" }),
+      statsTable([period, ...p.stats.months.map((m) => ({ label: m.month, ...m }))]),
+      h("details", { class: "note" }, h("summary", null, "วิธีนับ"), h("ul", null, p.stats.counting_note_th.map((l) => h("li", null, l))))
+    ));
+    const pending2 = p.timeline.filter((t) => t.kind === "correction" && t.status === "PENDING");
+    if (pending2.length && p.can.correct) root.appendChild(decideCorrections(app, s, p, pending2, params.correction));
+    if (p.can.correct) root.appendChild(correctionForm(app, s, p));
+    else if (p.can.request_correction) root.appendChild(requestForm(app, s));
+    if (p.guardians) {
+      root.appendChild(section("ผู้ปกครอง", p.guardians.length ? table([
+        { label: "ชื่อ", key: "name" },
+        { label: "ความสัมพันธ์", render: (g) => enumLabel("Relationship", g.relationship) },
+        { label: "ติดต่อหลัก", render: (g) => g.is_primary_contact ? badge("ติดต่อหลัก", "ok") : "—" },
+        { label: "สถานะ", render: (g) => enumLabel("GuardianLinkStatus", g.status) },
+        { label: "ช่องทาง", render: (g) => g.contacts.length ? h("div", { class: "row-actions" }, g.contacts.map(contactLink)) : "—" }
+      ], p.guardians) : empty("ยังไม่มีผู้ปกครองที่เชื่อมโยง")));
+    }
+    root.appendChild(section(
+      "ครูที่ปรึกษา / ประวัติห้องเรียน",
+      p.teachers.length ? h("p", null, p.teachers.map((t) => t.name).join(", ")) : h("p", { class: "muted" }, "ไม่พบครูที่ปรึกษาที่มีผลวันนี้"),
+      table([{ label: "ห้อง", key: "class_name_th" }, { label: "ตั้งแต่", render: (e2) => formatThaiDate(e2.effective_from) }, { label: "ถึง", render: (e2) => e2.effective_to ? formatThaiDate(e2.effective_to) : "ปัจจุบัน" }, { label: "เหตุผลสิ้นสุด", render: (e2) => e2.end_reason ? enumLabel("EnrollmentEndReason", e2.end_reason) : "—" }], p.enrollments)
+    ));
+    if (p.open_tasks.length) {
+      root.appendChild(section("งานตรวจสอบที่ค้าง", table([
+        { label: "วันที่", render: (t) => t.school_date ? formatThaiDate(t.school_date) : "—" },
+        { label: "ประเภท", render: (t) => enumLabel("ReconciliationTaskType", t.task_type) },
+        { label: "รายละเอียด", key: "description_th" }
+      ], p.open_tasks)));
+    }
+    if (p.cases.length) {
+      root.appendChild(section("เรื่องติดตาม", table([
+        { label: "ประเภท", render: (c) => enumLabel("CaseType", c.case_type) },
+        { label: "สถานะ", render: (c) => enumLabel("CaseStatus", c.status) },
+        { label: "กำหนด", render: (c) => c.due_at ? formatThaiDateTime(c.due_at) : "—" }
+      ], p.cases)));
+    }
+    root.appendChild(section("ไทม์ไลน์", p.timeline.length ? h("ul", { class: "timeline" }, p.timeline.map((t) => h(
+      "li",
+      { class: `kind-${t.kind}` },
+      h("div", null, t.superseded ? h("s", null, t.label_th) : h("strong", null, t.label_th), t.superseded ? " (ถูกแก้ไขแล้ว)" : "", t.offline ? badge("ออฟไลน์", "neutral") : null),
+      h("div", { class: "muted small" }, `${t.at ? formatThaiDateTime(t.at) : ""}${t.school_date ? ` · วันเรียน ${formatThaiDate(t.school_date)}` : ""}${t.source ? ` · ${enumLabel("AttendanceSource", t.source)}` : ""}`),
+      t.reason ? h("div", { class: "small" }, `เหตุผล: ${t.reason}`) : null,
+      t.leave_request_id ? h("a", { href: `#/leave?id=${encodeURIComponent(t.leave_request_id)}` }, "เปิดใบลา") : null
+    ))) : empty("ยังไม่มีรายการในช่วงนี้")));
+    return root;
+  }
+  function activeEventsOn(p, date) {
+    return p.timeline.filter((t) => t.school_date === date && ["late", "absent", "event"].includes(t.kind) && !t.superseded && t.type !== "EVENT_VOIDED");
+  }
+  function correctionFields(app, p, date) {
+    const type = select("correction_type", enumOptions("CorrectionType"));
+    const target = select("target_event_id", [h("option", { value: "" }, "— (ไม่ระบุ) —")]);
+    const time = input("new_arrived_at", { type: "time" });
+    const mark = select("new_mark", [h("option", { value: "" }, "—"), ...MARKS2.map((m) => h("option", { value: m }, enumLabel("RollCallMark", m)))]);
+    const fTarget = field("รายการที่ต้องการแก้", target);
+    const fTime = field("เวลามาถึงที่ถูกต้อง", time);
+    const fMark = field("ผลเช็กชื่อที่ถูกต้อง", mark);
+    const refreshTargets = () => mount(target, h("option", { value: "" }, "— (ไม่ระบุ) —"), activeEventsOn(p, date()).map((t) => h("option", { value: t.id }, `${t.label_th} ${t.at ? formatThaiTime(t.at) : ""}`)));
+    const sync = () => {
+      fTarget.hidden = !["VOID_EVENT", "AMEND_ARRIVAL_TIME"].includes(type.value);
+      fTime.hidden = !["AMEND_ARRIVAL_TIME", "ADD_ARRIVAL"].includes(type.value);
+      fMark.hidden = type.value !== "CHANGE_ROLL_CALL_MARK";
+    };
+    type.addEventListener("change", sync);
+    sync();
+    return {
+      type,
+      target,
+      time,
+      mark,
+      refreshTargets,
+      nodes: h("div", { class: "grid3" }, field("ประเภทการแก้ไข", type, { required: true }), fTarget, fTime, fMark),
+      payload: () => ({
+        target_event_id: target.value || null,
+        new_arrived_at: time.value && ["AMEND_ARRIVAL_TIME", "ADD_ARRIVAL"].includes(type.value) ? localTimestamp(app, date(), time.value) : null,
+        new_mark: type.value === "CHANGE_ROLL_CALL_MARK" ? mark.value || null : null
+      })
+    };
+  }
+  function correctionForm(app, s, p) {
+    const date = input("school_date", { type: "date", value: todayLocal(app), max: todayLocal(app) });
+    const reason = textarea("reason", { maxlength: 1e3, placeholder: "เหตุผลที่แก้ไข (บันทึกใน audit และแสดงในไทม์ไลน์)" });
+    const f = correctionFields(app, p, () => date.value);
+    date.addEventListener("change", f.refreshTargets);
+    f.refreshTargets();
+    return section(
+      "แก้ไขข้อมูลการมาเรียน",
+      alertBox("info", "ระบบไม่ลบข้อมูลเดิม: สร้างรายการใหม่แทนที่รายการเดิม คำนวณใหม่ และแจ้งผู้ปกครองเฉพาะกรณีข้อเท็จจริงที่เคยแจ้งไปเปลี่ยน"),
+      form([h("div", { class: "grid3" }, field("วันที่", date, { required: true })), f.nodes, field("เหตุผล", reason, { required: true })], async () => {
+        const r = await app.api.mutate("attendance.correct", { student_id: s.id, school_date: date.value, correction_type: f.type.value, reason: reason.value.trim(), ...f.payload() });
+        setTimeout(() => app.go("profile", { id: s.id }), 1200);
+        return `แก้ไขแล้ว: ${enumLabel("PresenceStatus", r.before.presence_status)} → ${enumLabel("PresenceStatus", r.after.presence_status)}${r.before.late_counted !== r.after.late_counted ? r.after.late_counted ? " (นับสาย)" : " (ไม่นับสาย)" : ""}`;
+      }, { submitLabel: "บันทึกการแก้ไข", confirmText: "ยืนยันการแก้ไขข้อมูลการมาเรียน?" })
+    );
+  }
+  function requestForm(app, s) {
+    const date = input("school_date", { type: "date", value: todayLocal(app), max: todayLocal(app) });
+    const type = select("correction_type", enumOptions("CorrectionType"));
+    const text = textarea("requested_text", { maxlength: 1e3, placeholder: "อธิบายสิ่งที่ไม่ถูกต้อง เช่น มาถึง 07:55 แต่ระบบบันทึก 08:20" });
+    return section(
+      "ขอแก้ไขข้อมูลการมาเรียน",
+      alertBox("info", "คำขอจะส่งให้ครูที่ปรึกษาพิจารณา ข้อมูลจะเปลี่ยนเมื่อครูอนุมัติเท่านั้น"),
+      form([h("div", { class: "grid3" }, field("วันที่", date, { required: true }), field("เรื่อง", type, { required: true })), field("รายละเอียด", text, { required: true })], async () => {
+        await app.api.mutate("attendance.requestCorrection", { student_id: s.id, school_date: date.value, correction_type: type.value, requested_text: text.value.trim() });
+        return "ส่งคำขอแล้ว — รอครูพิจารณา";
+      }, { submitLabel: "ส่งคำขอ" })
+    );
+  }
+  function decideCorrections(app, s, p, pending2, focusId) {
+    const cards = pending2.map((c) => {
+      const f = correctionFields(app, p, () => c.school_date);
+      f.type.value = c.correction_type;
+      f.type.disabled = true;
+      f.type.dispatchEvent(new Event("change"));
+      f.refreshTargets();
+      const note = textarea("decision_note", { rows: 2, maxlength: 1e3 });
+      const decide = (decision) => actionButton(decision === "APPLY" ? "อนุมัติและแก้ไข" : "ไม่อนุมัติ", async () => {
+        if (note.value.trim().length < 2) {
+          toast("กรุณาระบุบันทึกการพิจารณา", "warn");
+          return;
+        }
+        try {
+          await app.api.mutate("attendance.decideCorrection", { correction_id: c.id, decision, decision_note: note.value.trim(), ...decision === "APPLY" ? f.payload() : {} }, { expectedVersion: c.version });
+          toast(decision === "APPLY" ? "แก้ไขข้อมูลแล้ว" : "บันทึกว่าไม่อนุมัติแล้ว");
+          app.go("profile", { id: s.id });
+        } catch (e2) {
+          toast(e2.message_th || "บันทึกไม่สำเร็จ", "danger");
+        }
+      }, { variant: decision === "APPLY" ? "primary" : "secondary" });
+      return h(
+        "div",
+        { class: "card", id: `corr-${c.id}`, tabindex: c.id === focusId ? "-1" : null },
+        h("p", null, h("strong", null, `${formatThaiDate(c.school_date)} · ${enumLabel("CorrectionType", c.correction_type)}`), ` — ยื่นเมื่อ ${formatThaiDateTime(c.at)}`),
+        h("p", null, `คำขอ: ${c.reason || "—"}`),
+        f.nodes,
+        field("บันทึกการพิจารณา", note, { required: true }),
+        h("div", { class: "form-actions row-actions" }, decide("REJECT"), decide("APPLY"))
+      );
+    });
+    const box = section(`คำขอแก้ไขที่รอพิจารณา (${pending2.length})`, cards);
+    if (focusId) setTimeout(() => {
+      const el = document.getElementById(`corr-${focusId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+        el.focus();
+      }
+    }, 0);
+    return box;
+  }
+
   // frontend/src/screens/extra.js
-  var EXTRA_ROUTES = [];
+  var EXTRA_ROUTES = [
+    { path: "dashboard", position: "top", title_th: "ภาพรวมวันนี้", icon: "📊", anyOf: ["attendance.read"], render: renderDashboard },
+    { path: "gate", position: "top", title_th: "ลงเวลาหน้าประตู", icon: "🚪", anyOf: ["attendance.record"], render: renderGate },
+    { path: "rollcall", position: "top", title_th: "เช็กชื่อประจำวัน", icon: "✅", anyOf: ["attendance.rollcall"], render: renderRollcall },
+    { path: "leave", title_th: "แจ้งลา", icon: "📝", anyOf: ["leave.submit", "leave.read"], render: renderLeave },
+    { path: "approvals", title_th: "พิจารณาใบลา", icon: "📋", anyOf: ["leave.approve", "leave.confirm_guardian"], render: renderApprovals },
+    { path: "profile", hidden: true, title_th: "ประวัตินักเรียน", icon: "👤", anyOf: ["student.read", "student.read_basic"], render: renderProfile }
+  ];
 
   // frontend/src/screens/index.js
   var ROUTES = [

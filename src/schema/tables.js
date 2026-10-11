@@ -231,7 +231,7 @@ export const TABLES = [
       str('reason_code', 40), str('reason_text', 500), fk('linked_leave_id', 'LeaveRequests'), fk('supersedes_event_id', 'AttendanceEvents'),
       fk('roll_call_session_id', 'RollCallSessions'), fk('class_id', 'Classes'),
       str('dedupe_key', 200, { description_th: 'กันบันทึกซ้ำ เช่น ARR|student|date' }), { name: 'operation_id', type: 'uuid', required: true }, ...EVENT_META],
-    unique: [['dedupe_key']], lookup: ['student_id', 'dedupe_key'], indexes: [['student_id', 'school_date'], ['school_date', 'event_type']],
+    unique: [['dedupe_key']], lookup: ['student_id', 'school_date', 'dedupe_key'], indexes: [['student_id', 'school_date'], ['school_date', 'event_type']],
   },
   {
     name: 'DailyAttendance', group: 'Attendance', kind: 'PROJECTION', partition: 'TERM', partitionColumn: 'school_date', workbook: 'DAILY', sensitivity: 'PERSONAL', retention: 'ENROLLMENT_PLUS_5Y',
@@ -292,7 +292,7 @@ export const TABLES = [
     columns: [id(), fk('leave_request_id', 'LeaveRequests', R), fk('student_id', 'Students', R), date('school_date', R), en('unit', 'LeaveUnit', R),
       json('periods', { description_th: 'รายการคาบเมื่อ unit = PERIODS เช่น [1,2]' }), en('status', 'SegmentStatus', R), fk('decision_id', 'LeaveApprovals'),
       en('usage_status', 'SegmentUsage', R), ...ENTITY_META],
-    lookup: ['leave_request_id', 'student_id'], indexes: [['student_id', 'school_date']],
+    lookup: ['leave_request_id', 'student_id', 'school_date'], indexes: [['student_id', 'school_date']],
   },
   {
     name: 'LeaveRevisions', group: 'Leave', kind: 'EVENT', partition: 'NONE', sensitivity: 'PERSONAL', retention: 'ENROLLMENT_PLUS_5Y',

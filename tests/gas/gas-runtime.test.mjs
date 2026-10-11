@@ -13,8 +13,8 @@ const ALLOWED = ['doGet', 'doPost', 'rpc', 'cronTick', 'adminSetup', 'adminSeedD
 
 function inTwoHours() { return new Date(Date.now() + 3600 * 1000).toISOString(); }
 
-function installed({ seed = true } = {}) {
-  const sim = new GasSim({ properties: { CWK_ENV: 'DEV', CWK_AUTH_MODE: 'DEMO', CWK_DEMO_PASSPHRASE: PASS, CWK_ADMIN_TASKS_ENABLED_UNTIL: inTwoHours() } });
+function installed({ seed = true, now = null } = {}) {
+  const sim = new GasSim({ now, properties: { CWK_ENV: 'DEV', CWK_AUTH_MODE: 'DEMO', CWK_DEMO_PASSPHRASE: PASS, CWK_ADMIN_TASKS_ENABLED_UNTIL: now ? new Date(Date.parse(now) + 3600 * 1000).toISOString() : inTwoHours() } });
   sim.load(DIST);
   const setup = sim.ctx.adminSetup();
   let demo = null;
@@ -190,4 +190,56 @@ test('term.create provisions per-term Ops/Daily/Notify workbooks registered in S
   assert.equal(t.ok, true, JSON.stringify(t.error));
   const names = [...sim.books.values()].map((b) => b.getName());
   for (const g of ['Ops', 'Daily', 'Notify']) assert.ok(names.includes(`CWK-DEV-${g}-AY2027-T1`), `${g} workbook`);
+});
+
+test('daily flows on Sheets: gate arrival (dedupe), roll call, leave approval and dashboard on a fixed school day', () => {
+  // 2026-06-15 08:10 Asia/Bangkok — Monday in demo term AY2026-T1 (example cutoff 08:00, grace 0)
+  const { sim, demo } = installed({ now: '2026-06-15T01:10:00.000Z' });
+  const staff = Object.fromEntries(demo.staff.map((s) => [s.key, s.user_id]));
+  const ok = (r) => { assert.equal(r.ok, true, JSON.stringify(r.error)); return r.data; };
+  const classes = ok(env(sim, staff.homeroom1, 'class.list', {})).items;
+  let mine = null;
+  for (const c of classes) {
+    const r = env(sim, staff.homeroom1, 'rollcall.get', { class_id: c.id, school_date: '2026-06-15' });
+    if (r.ok && r.data.can_mark) { mine = r.data; break; }
+  }
+  assert.ok(mine && mine.items.length >= 3, 'homeroom1 has a class roster');
+  const station = ok(env(sim, staff.duty, 'station.list', {})).items[0];
+  const target = mine.items[1].student;
+  const look = ok(env(sim, staff.duty, 'attendance.lookupForGate', { code: target.student_code }));
+  assert.equal(look.student.id, target.id);
+  const arr = ok(env(sim, staff.duty, 'attendance.recordArrival', { student_id: target.id, station_id: station.id, source: 'SCAN_KEYBOARD' }, { mutation: true }));
+  assert.deepEqual([arr.is_late, arr.late_minutes, arr.late_counted], [true, 10, true]);
+  const dup = ok(env(sim, staff.duty, 'attendance.recordArrival', { student_id: target.id, station_id: station.id, source: 'SCAN_KEYBOARD' }, { mutation: true }));
+  assert.equal(dup.duplicate, true);
+  assert.equal(dup.event_id, arr.event_id);
+  // events land in the term partition workbook, not the master
+  const daily = [...sim.books.values()].filter((b) => /AY2026-T1/.test(b.getName()));
+  assert.ok(daily.length >= 1, 'term workbooks exist for the demo term');
+  const evSheet = daily.map((b) => b.getSheetByName('AttendanceEvents')).find(Boolean);
+  assert.ok(evSheet && evSheet.getLastRow() === 2, 'exactly one arrival row (header + 1)');
+  // roll call with one absent, then the projection and dashboard agree
+  const absent = mine.items[2].student.id;
+  const sub = ok(env(sim, staff.homeroom1, 'rollcall.submit', { class_id: mine.class.id, school_date: '2026-06-15', marks: [{ student_id: absent, mark: 'ABSENT' }] }, { mutation: true }));
+  assert.equal(sub.ABSENT, 1);
+  const again = ok(env(sim, staff.homeroom1, 'rollcall.get', { class_id: mine.class.id, school_date: '2026-06-15' }));
+  assert.equal(again.session.status, 'SUBMITTED');
+  assert.equal(again.items.find((x) => x.student.id === absent).mark, 'ABSENT');
+  assert.equal(again.items.find((x) => x.student.id === target.id).is_late, true);
+  const dash = ok(env(sim, staff.homeroom1, 'dashboard.summary', { class_id: mine.class.id }));
+  assert.equal(dash.totals.late_counted, 1);
+  assert.equal(dash.totals.school_days, mine.items.length);
+  assert.equal(dash.roll_call.classes_submitted, 1);
+  // leave: guardian of a student in this class submits, the routed homeroom approves
+  const g = demo.guardian_users.find((x) => mine.items.some((i) => i.student.id === x.student_id));
+  assert.ok(g, 'demo seed links a guardian account to a student in this class');
+  {
+    const lv = ok(env(sim, g.user_id, 'leave.submit', { student_id: g.student_id, leave_type: 'PERSONAL', reason: 'ไปทำธุระ', days: [{ school_date: '2026-06-16', unit: 'FULL_DAY' }] }, { mutation: true }));
+    assert.equal(lv.status, 'PENDING_SCHOOL');
+    const inbox = ok(env(sim, staff.homeroom1, 'leave.inbox', {})).items;
+    assert.ok(inbox.some((x) => x.request.id === lv.leave_request_id));
+    const dec = ok(env(sim, staff.homeroom1, 'leave.decide', { leave_request_id: lv.leave_request_id, decision: 'APPROVED' }, { mutation: true, expectedVersion: 1 }));
+    assert.equal(dec.status, 'APPROVED');
+    assert.equal(ok(env(sim, g.user_id, 'leave.get', { leave_request_id: lv.leave_request_id })).segments[0].status, 'APPROVED');
+  }
 });

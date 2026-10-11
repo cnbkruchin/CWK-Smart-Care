@@ -207,6 +207,16 @@ export class GasSim {
     this.nowOverride = now;
   }
 
+  /** Fixed/adjustable clock for code running in the VM (new Date() / Date.now()); host Date otherwise. */
+  setNow(iso) { this.nowOverride = iso; }
+  simDate() {
+    const sim = this;
+    return class SimDate extends Date {
+      constructor(...a) { if (a.length === 0 && sim.nowOverride) super(Date.parse(sim.nowOverride)); else super(...a); }
+      static now() { return sim.nowOverride ? Date.parse(sim.nowOverride) : Date.now(); }
+    };
+  }
+
   newId(prefix) { this.seq++; return `${prefix}-${String(this.seq).padStart(6, '0')}-${crypto.randomBytes(6).toString('hex')}`; }
   newFolder(name, parent) { const f = new Folder(this, this.newId('folder'), name, parent); this.folders.push(f); return f; }
 
@@ -315,7 +325,7 @@ export class GasSim {
   load(distDir) {
     const files = ['Code.js', 'Entrypoints.js'];
     this.htmlFiles = { App: fs.readFileSync(path.join(distDir, 'App.html'), 'utf8') };
-    const ctx = vm.createContext({ ...this.globals(), Date, Math, JSON, Uint8Array, DataView, ArrayBuffer, Uint32Array, Map, Set, Promise, Symbol, Error, TypeError, RangeError, Object, Array, String, Number, Boolean, RegExp, parseInt, parseFloat, isNaN, encodeURIComponent, decodeURIComponent, setTimeout: undefined });
+    const ctx = vm.createContext({ ...this.globals(), Date: this.simDate(), Math, JSON, Uint8Array, DataView, ArrayBuffer, Uint32Array, Map, Set, Promise, Symbol, Error, TypeError, RangeError, Object, Array, String, Number, Boolean, RegExp, parseInt, parseFloat, isNaN, encodeURIComponent, decodeURIComponent, setTimeout: undefined });
     for (const f of files) vm.runInContext(fs.readFileSync(path.join(distDir, f), 'utf8'), ctx, { filename: f });
     this.ctx = ctx;
     return ctx;

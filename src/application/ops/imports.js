@@ -3,7 +3,7 @@
 import { op } from '../dispatcher.js';
 import { obj, S, notFound } from './common.js';
 import { requirePermission } from '../authz.js';
-import { commit } from '../context.js';
+import { commit, commitRaw } from '../context.js';
 import { AppError } from '../../shared/errors.js';
 import { parseCsv, toCsv } from '../../shared/csv.js';
 import { utf8Decode } from '../../shared/canonical-json.js';
@@ -190,7 +190,7 @@ export function* importApplyJob(ctx, job, { checkpoint, timeLeftMs }) {
     }
     if (!cs.isEmpty) {
       cs.audit({ action: 'import.apply_chunk', entityType: 'ImportBatches', entityId: batch.id, after: { from_row: cursor.next_row + 2, rows: slice.length, applied, skipped, conflicts } });
-      yield ctx.mutations.commit(cs.build({ result: {} }));
+      yield* commitRaw(ctx, cs);
     }
     cursor = { next_row: cursor.next_row + slice.length, applied: cursor.applied + applied, skipped: cursor.skipped + skipped, conflicts: cursor.conflicts + conflicts };
     yield* checkpoint(cursor, { done: cursor.next_row, total: rows.length, message_th: `นำเข้าแล้ว ${cursor.next_row}/${rows.length} แถว` });
@@ -199,6 +199,6 @@ export function* importApplyJob(ctx, job, { checkpoint, timeLeftMs }) {
   const cs = ctx.changeSet('import.finish');
   cs.update('ImportBatches', b2, { status: 'APPLIED', applied_count: cursor.applied });
   cs.audit({ action: 'import.applied', entityType: 'ImportBatches', entityId: batch.id, after: cursor });
-  yield ctx.mutations.commit(cs.build({ result: {} }));
+  yield* commitRaw(ctx, cs);
   return { done: true, result: cursor };
 }

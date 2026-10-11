@@ -55,7 +55,7 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
 | EXTERNAL_SERVICE_ERROR | ใช่ | บริการภายนอกขัดข้อง ระบบจะลองใหม่อัตโนมัติ |
 | INTERNAL_ERROR | ใช่ | เกิดข้อผิดพลาดภายในระบบ กรุณาลองใหม่ หากยังพบปัญหาให้แจ้งรหัสอ้างอิงต่อผู้ดูแลระบบ |
 
-## Operations (57)
+## Operations (88)
 
 | operation | auth | permission | mutation | idempotency | rate/min | คำอธิบาย |
 |---|---|---|---|---|---|---|
@@ -63,6 +63,17 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
 | `app.publicConfig` | PUBLIC | — |  | NONE | 60 | ค่าตั้งค่าสาธารณะสำหรับหน้าเว็บ (ไม่มี secret) |
 | `assignment.create` | USER | user.manage | settings.business | ✔ | REQUIRED | 120 | กำหนดครูที่ปรึกษา/เวร/สอน/ผู้รักษาการแทน พร้อมช่วงเวลา |
 | `assignment.end` | USER | user.manage | settings.business | ✔ | REQUIRED | 120 | สิ้นสุดขอบเขตงาน |
+| `attachment.download` | USER | attachment.read | attachment.read_sensitive |  | NONE | 60 | ดาวน์โหลดไฟล์ (ตรวจสิทธิ์ทุกครั้ง; เอกสารอ่อนไหวบันทึก audit) |
+| `attendance.classDay` | USER | attendance.read |  | NONE | 300 | สรุปรายวันของห้อง (projection เดียวกับรายงาน) |
+| `attendance.correct` | USER | attendance.correct | ✔ | REQUIRED | 120 | แก้ไขข้อมูลการมาเรียนย้อนหลัง (เหตุผล + audit + เหตุการณ์ใหม่ supersede เดิม) แล้วคำนวณใหม่และแจ้งเฉพาะผู้ได้รับผลกระทบ |
+| `attendance.decideCorrection` | USER | attendance.correct | ✔ | REQUIRED | 120 | พิจารณาคำขอแก้ไข: ไม่อนุมัติ หรืออนุมัติพร้อมระบุการแก้ไข |
+| `attendance.exempt` | USER | attendance.exempt | ✔ | REQUIRED | 120 | รับรองข้อยกเว้นการนับสาย (เช่น รถโรงเรียนล่าช้า) — แสดงทั้งเหตุการณ์จริงและผลการยกเว้น |
+| `attendance.lookupForGate` | USER | student.read_basic |  | NONE | 600 | ค้นหานักเรียนด้วยรหัส/บัตรเพื่อตรวจตัวบุคคลที่ประตู (ข้อมูลระบุตัวเท่านั้น) |
+| `attendance.recordArrival` | USER | attendance.record | ✔ | REQUIRED | 600 | บันทึกเวลามาถึงโรงเรียน (เวลา server; สแกนซ้ำคืนผลเดิม; เวลาระบุเองต้องมีเหตุผล) |
+| `attendance.requestCorrection` | USER | attendance.request_correction | ✔ | REQUIRED | 120 | นักเรียน/ผู้ปกครองร้องขอแก้ไขข้อมูลการมาเรียน (เข้าคิวครูพิจารณา) |
+| `attendance.stationLog` | USER | attendance.read_station |  | NONE | 300 | รายการลงเวลาวันนี้ของจุดลงเวลา |
+| `attendance.syncOffline` | USER | attendance.record | ✔ | REQUIRED | 30 | ส่งรายการที่บันทึกขณะออฟไลน์ (ตรวจสิทธิ์ปัจจุบัน เวลาเครื่อง และใช้ idempotency key เดิม; รายการผิดปกติเข้าคิวตรวจ) |
+| `attendance.verifyDay` | USER | attendance.verify | ✔ | REQUIRED | 120 | ครูยืนยันขาดเรียนรายคน (หลังตรวจสอบแล้ว) — แจ้งผู้ปกครองว่า "ขาดเรียน" เฉพาะรายการที่ยืนยัน |
 | `auth.getCurrentUser` | IDENTITY | ตาม handler |  | NONE | 300 | ข้อมูลผู้ใช้ปัจจุบัน บทบาท และเมนูที่มีสิทธิ์ |
 | `auth.logout` | IDENTITY | ตาม handler |  | NONE | 300 | ออกจากระบบ (ล้างผลตรวจ token ที่ server cache; client เรียก signOut ของ SDK) |
 | `auth.redeemInvitation` | IDENTITY | ตาม handler | ✔ | REQUIRED | 10 | ใช้รหัสคำเชิญผูกบัญชีผู้ให้บริการยืนยันตัวตนกับผู้ใช้ในระบบ (ครั้งเดียว มีอายุ) |
@@ -71,6 +82,7 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
 | `class.list` | USER | ตาม handler |  | NONE | 300 | รายชื่อห้องเรียน (ข้อมูลไม่อ่อนไหว) |
 | `contact.add` | USER | guardian.manage | ✔ | REQUIRED | 120 | เพิ่มช่องทางติดต่อผู้ปกครอง (เจ้าหน้าที่ยืนยัน) |
 | `contact.disable` | USER | guardian.manage | ✔ | REQUIRED | 120 | ยกเลิกช่องทางติดต่อ (มี audit) |
+| `dashboard.summary` | USER | attendance.read |  | NONE | 300 | สรุปวันนี้ตามขอบเขตสิทธิ์ (ใช้ projection เดียวกับรายงาน R01) |
 | `enrollment.change` | USER | student.manage | ✔ | REQUIRED | 120 | ย้ายห้อง เลื่อนชั้น ย้ายออก พ้นสภาพ จบการศึกษา (มีวันที่มีผล) |
 | `guardian.create` | USER | guardian.manage | ✔ | REQUIRED | 120 | เพิ่มผู้ปกครองและช่องทางติดต่อ (เจ้าหน้าที่ยืนยัน) |
 | `guardian.createAccount` | USER | guardian.manage | ✔ | REQUIRED | 120 | สร้างบัญชีผู้ปกครอง (ยังไม่มีสิทธิ์จนใช้คำเชิญ) |
@@ -92,9 +104,25 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
 | `job.getStatus` | USER | ตาม handler |  | NONE | 300 | สถานะงานเบื้องหลัง (เจ้าของงาน หรือผู้ดูแลระบบ) |
 | `job.list` | USER | system.health |  | NONE | 300 | รายการงานเบื้องหลัง (ผู้ดูแลระบบ) |
 | `job.retry` | USER | system.maintenance | ✔ | REQUIRED | 120 | สั่งรันงานที่ล้มเหลวอีกครั้ง |
+| `leave.addAttachment` | USER | leave.submit | leave.approve | ✔ | REQUIRED | 120 | แนบเอกสารเพิ่ม (เช่น ใบรับรองแพทย์) ให้ใบลา |
+| `leave.confirmGuardian` | USER | leave.confirm_guardian | ✔ | REQUIRED | 120 | ผู้ปกครองยืนยัน/ไม่ยืนยันใบลาที่นักเรียนยื่น (แยกจากการอนุมัติของโรงเรียน) |
+| `leave.decide` | USER | leave.approve | ✔ | REQUIRED | 120 | โรงเรียนพิจารณาใบลา: อนุมัติ / อนุมัติบางช่วง / ไม่อนุมัติ / ส่งกลับแก้ไข (ตามเส้นทางอนุมัติ หรือผู้รักษาการแทน) |
+| `leave.decideCancel` | USER | leave.approve | ✔ | REQUIRED | 120 | พิจารณาการยกเลิกใบลา (หรือยกเลิกโดยตรงโดยผู้มีอำนาจ) — คำนวณการมาเรียนใหม่ |
+| `leave.get` | USER | leave.read |  | NONE | 300 | รายละเอียดใบลา ช่วงลา ผลพิจารณา ประวัติ และเอกสาร (ตามสิทธิ์) |
+| `leave.inbox` | USER | leave.approve | leave.confirm_guardian |  | NONE | 300 | งานที่รอฉันพิจารณา (ผู้ปกครองยืนยัน / โรงเรียนอนุมัติ / ขอยกเลิก) |
+| `leave.list` | USER | leave.read |  | NONE | 300 | รายการใบลาตามขอบเขตสิทธิ์ |
+| `leave.requestCancel` | USER | leave.cancel | ✔ | REQUIRED | 120 | ขอยกเลิกใบลาที่อนุมัติแล้ว (ต้องมีผู้มีอำนาจพิจารณา) |
+| `leave.reroute` | USER | leave.approve (STUDENT_AFFAIRS) | ✔ | REQUIRED | 120 | เปลี่ยนผู้พิจารณา (ผู้พิจารณาไม่อยู่/ส่งต่อ) โดยกลุ่มงานกิจการนักเรียน |
+| `leave.resubmit` | USER | leave.submit | ✔ | REQUIRED | 120 | แก้ไขและส่งใบลาที่ถูกส่งกลับ (revision ใหม่; ช่วงเดิมถูกถอน) |
+| `leave.submit` | USER | leave.submit | ✔ | REQUIRED | 30 | ยื่นใบลา (ทั้งวัน/ครึ่งวัน/บางคาบ หลายวัน) พร้อมเอกสาร — ตรวจวันซ้อน วันหยุด และ enrollment |
+| `leave.withdraw` | USER | leave.withdraw | ✔ | REQUIRED | 120 | ถอนคำขอลาที่ยังไม่ได้ข้อยุติ |
 | `period.create` | USER | settings.business | ✔ | REQUIRED | 120 | กำหนดคาบเรียนพร้อมวันที่มีผล |
+| `reconciliation.list` | USER | attendance.reconcile |  | NONE | 300 | งานตรวจสอบข้อมูลขัดกัน/ยังไม่ทราบสถานะ ตามขอบเขต |
+| `reconciliation.resolve` | USER | attendance.reconcile | ✔ | REQUIRED | 120 | ปิดงานตรวจสอบพร้อมบันทึกข้อสรุป |
 | `role.grant` | USER | role.assign | ✔ | REQUIRED | 120 | กำหนดบทบาทพร้อมช่วงวันที่มีผล |
 | `role.revoke` | USER | role.assign | ✔ | REQUIRED | 120 | เพิกถอนบทบาท (มีผลทันที) |
+| `rollcall.get` | USER | attendance.rollcall | attendance.read |  | NONE | 300 | รายชื่อเช็กชื่อประจำวันตาม enrollment ของวันนั้น พร้อมข้อมูลประตูและใบลา |
+| `rollcall.submit` | USER | attendance.rollcall | ✔ | REQUIRED | 120 | ส่งผลเช็กชื่อ (ระบุเฉพาะนักเรียนที่ไม่ใช่ "มา"; ส่งซ้ำได้ก่อนยืนยัน) |
 | `rule.activate` | USER | settings.business | ✔ | REQUIRED | 120 | เปิดใช้กฎ (ห้ามช่วงซ้อนกับเวอร์ชันที่ใช้งาน; ต้องปิดเวอร์ชันเดิมก่อน) — ไม่คำนวณย้อนหลังอัตโนมัติ |
 | `rule.createVersion` | USER | settings.business | ✔ | REQUIRED | 120 | สร้างกฎเวอร์ชันใหม่ (ร่าง) พร้อมตรวจ schema ของพารามิเตอร์ |
 | `rule.setEnd` | USER | settings.business | ✔ | REQUIRED | 120 | กำหนดวันสิ้นสุดของกฎที่ใช้งาน (เก็บกฎเดิมไว้อธิบายผลคำนวณเดิม) |
@@ -107,7 +135,10 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
 | `student.createAccount` | USER | student.manage | ✔ | REQUIRED | 120 | สร้างบัญชีนักเรียน (รอเปิดใช้งานด้วยคำเชิญ) |
 | `student.get` | USER | student.read | student.read_basic |  | NONE | 300 | ข้อมูลนักเรียน (เต็ม หรือเฉพาะระบุตัวตามสิทธิ์) |
 | `student.listMine` | USER | ตาม handler |  | NONE | 300 | นักเรียนที่ผู้ปกครองดูแล/ตนเอง (ตามความสัมพันธ์ที่ยืนยัน) |
+| `student.photo` | USER | student.read_basic |  | NONE | 600 | รูปนักเรียนสำหรับตรวจตัวบุคคล (ข้อมูลระบุตัว) |
+| `student.profile` | USER | student.read | student.read_basic |  | NONE | 300 | หน้าประวัตินักเรียน: ข้อมูล สถานะล่าสุด สถิติ timeline ผู้ปกครอง ครู งานค้าง (ตามสิทธิ์) |
 | `student.search` | USER | student.search |  | NONE | 240 | ค้นหานักเรียนตามสิทธิ์ (กรองที่ server ก่อนแบ่งหน้า) |
+| `student.setPhoto` | USER | student.manage | ✔ | REQUIRED | 120 | ตั้งรูปนักเรียน (ใช้ตรวจตัวบุคคลที่ประตู; ระบบย่อรูปที่เครื่องก่อนส่ง) |
 | `student.update` | USER | student.manage | ✔ | REQUIRED | 120 | แก้ไขข้อมูลนักเรียน (มี audit และ version) |
 | `system.health` | USER | system.health |  | NONE | 30 | สถานะระบบ (ไม่เปิดเผยความลับ) |
 | `system.setMode` | USER | system.maintenance | ✔ | REQUIRED | 120 | เปิด/ปิดโหมดอ่านอย่างเดียว (server บังคับทุกช่องทาง) |
@@ -265,6 +296,481 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
     "reason": {
       "type": "string",
       "minLength": 1,
+      "maxLength": 500
+    }
+  }
+}
+```
+
+### attachment.download
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "attachment_id"
+  ],
+  "properties": {
+    "attachment_id": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### attendance.classDay
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "class_id",
+    "school_date"
+  ],
+  "properties": {
+    "class_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "school_date": {
+      "type": "string",
+      "format": "date"
+    }
+  }
+}
+```
+
+### attendance.correct
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "student_id",
+    "school_date",
+    "correction_type",
+    "reason"
+  ],
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "school_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "correction_type": {
+      "type": "string",
+      "enum": [
+        "VOID_EVENT",
+        "AMEND_ARRIVAL_TIME",
+        "ADD_ARRIVAL",
+        "CHANGE_ROLL_CALL_MARK",
+        "EXEMPT_LATENESS"
+      ]
+    },
+    "target_event_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "new_arrived_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "timestamp"
+    },
+    "new_mark": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "PRESENT",
+        "ABSENT",
+        "LATE",
+        "LEAVE_REPORTED",
+        null
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 1000
+    },
+    "correction_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### attendance.decideCorrection
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "correction_id",
+    "decision",
+    "decision_note"
+  ],
+  "properties": {
+    "correction_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "APPLY",
+        "REJECT"
+      ]
+    },
+    "decision_note": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 1000
+    },
+    "target_event_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "new_arrived_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "timestamp"
+    },
+    "new_mark": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "PRESENT",
+        "ABSENT",
+        "LATE",
+        "LEAVE_REPORTED",
+        null
+      ]
+    }
+  }
+}
+```
+
+### attendance.exempt
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "school_date",
+    "student_ids",
+    "reason_code",
+    "reason_text"
+  ],
+  "properties": {
+    "school_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "student_ids": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 200,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "reason_code": {
+      "type": "string",
+      "enum": [
+        "TRANSPORT_DELAY",
+        "WEATHER",
+        "SCHOOL_EVENT",
+        "OTHER"
+      ]
+    },
+    "reason_text": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 500
+    }
+  }
+}
+```
+
+### attendance.lookupForGate
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "code": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 64
+    },
+    "student_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### attendance.recordArrival
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "student_id",
+    "station_id",
+    "source"
+  ],
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "station_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "SCAN_KEYBOARD",
+        "SCAN_CAMERA",
+        "SEARCH_CODE",
+        "SEARCH_NAME",
+        "MANUAL_TIME",
+        "QUEUE_BATCH"
+      ]
+    },
+    "arrived_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "timestamp"
+    },
+    "reason_code": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "TRANSPORT_DELAY",
+        "HEALTH",
+        "FAMILY",
+        "WEATHER",
+        "OTHER",
+        null
+      ]
+    },
+    "reason_text": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500
+    }
+  }
+}
+```
+
+### attendance.requestCorrection
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "student_id",
+    "school_date",
+    "correction_type",
+    "requested_text"
+  ],
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "school_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "correction_type": {
+      "type": "string",
+      "enum": [
+        "VOID_EVENT",
+        "AMEND_ARRIVAL_TIME",
+        "ADD_ARRIVAL",
+        "CHANGE_ROLL_CALL_MARK",
+        "EXEMPT_LATENESS"
+      ]
+    },
+    "requested_text": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 1000
+    }
+  }
+}
+```
+
+### attendance.stationLog
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "station_id"
+  ],
+  "properties": {
+    "station_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "limit": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 200
+    }
+  }
+}
+```
+
+### attendance.syncOffline
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "station_id",
+    "records"
+  ],
+  "properties": {
+    "station_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "records": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "local_id",
+          "idempotency_key",
+          "student_code",
+          "captured_at"
+        ],
+        "properties": {
+          "local_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "idempotency_key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "student_code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "captured_at": {
+            "type": "string",
+            "format": "timestamp"
+          },
+          "claimed_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### attendance.verifyDay
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "class_id",
+    "school_date",
+    "confirm_absent_student_ids"
+  ],
+  "properties": {
+    "class_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "school_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "confirm_absent_student_ids": {
+      "type": "array",
+      "maxItems": 200,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "note": {
+      "type": [
+        "string",
+        "null"
+      ],
       "maxLength": 500
     }
   }
@@ -484,6 +990,32 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
       "type": "string",
       "minLength": 1,
       "maxLength": 300
+    }
+  }
+}
+```
+
+### dashboard.summary
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "school_date": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "class_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
     }
   }
 }
@@ -1283,6 +1815,543 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
 }
 ```
 
+### leave.addAttachment
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "leave_request_id",
+    "file"
+  ],
+  "properties": {
+    "leave_request_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "filename",
+        "content_base64"
+      ],
+      "properties": {
+        "filename": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "mime_type": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 100
+        },
+        "content_base64": {
+          "type": "string",
+          "minLength": 4
+        }
+      }
+    }
+  }
+}
+```
+
+### leave.confirmGuardian
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "leave_request_id",
+    "decision"
+  ],
+  "properties": {
+    "leave_request_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "CONFIRMED",
+        "DECLINED"
+      ]
+    },
+    "comment": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1000
+    }
+  }
+}
+```
+
+### leave.decide
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "leave_request_id",
+    "decision"
+  ],
+  "properties": {
+    "leave_request_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "APPROVED",
+        "PARTIALLY_APPROVED",
+        "REJECTED",
+        "RETURNED"
+      ]
+    },
+    "segment_decisions": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "comment": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1000
+    }
+  }
+}
+```
+
+### leave.decideCancel
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "leave_request_id",
+    "approve",
+    "reason"
+  ],
+  "properties": {
+    "leave_request_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "approve": {
+      "type": "boolean"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 1000
+    }
+  }
+}
+```
+
+### leave.get
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "leave_request_id"
+  ],
+  "properties": {
+    "leave_request_id": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### leave.inbox
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "limit": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 200
+    }
+  }
+}
+```
+
+### leave.list
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "student_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "status": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "DRAFT",
+        "SUBMITTED",
+        "PENDING_GUARDIAN",
+        "PENDING_SCHOOL",
+        "RETURNED",
+        "APPROVED",
+        "PARTIALLY_APPROVED",
+        "REJECTED",
+        "WITHDRAWN",
+        "CANCELLATION_REQUESTED",
+        "CANCELLED",
+        null
+      ]
+    },
+    "from": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "to": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "cursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500
+    },
+    "limit": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 200
+    }
+  }
+}
+```
+
+### leave.requestCancel
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "leave_request_id",
+    "reason"
+  ],
+  "properties": {
+    "leave_request_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 1000
+    }
+  }
+}
+```
+
+### leave.reroute
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "leave_request_id",
+    "approver_role",
+    "reason"
+  ],
+  "properties": {
+    "leave_request_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "approver_role": {
+      "type": "string",
+      "enum": [
+        "HOMEROOM_TEACHER",
+        "STUDENT_AFFAIRS"
+      ]
+    },
+    "approver_user_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 500
+    }
+  }
+}
+```
+
+### leave.resubmit
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "leave_request_id",
+    "leave_type",
+    "reason",
+    "days"
+  ],
+  "properties": {
+    "leave_request_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "leave_type": {
+      "type": "string",
+      "enum": [
+        "SICK",
+        "PERSONAL",
+        "SCHOOL_ACTIVITY",
+        "OTHER"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 1000
+    },
+    "days": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 31,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "school_date",
+          "unit"
+        ],
+        "properties": {
+          "school_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "FULL_DAY",
+              "HALF_DAY_AM",
+              "HALF_DAY_PM",
+              "PERIODS"
+            ]
+          },
+          "periods": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "maxItems": 20,
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 20
+            }
+          }
+        }
+      }
+    },
+    "retroactive_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1000
+    }
+  }
+}
+```
+
+### leave.submit
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "student_id",
+    "leave_type",
+    "reason",
+    "days"
+  ],
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "leave_type": {
+      "type": "string",
+      "enum": [
+        "SICK",
+        "PERSONAL",
+        "SCHOOL_ACTIVITY",
+        "OTHER"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 1000
+    },
+    "days": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 31,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "school_date",
+          "unit"
+        ],
+        "properties": {
+          "school_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "FULL_DAY",
+              "HALF_DAY_AM",
+              "HALF_DAY_PM",
+              "PERIODS"
+            ]
+          },
+          "periods": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "maxItems": 20,
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 20
+            }
+          }
+        }
+      }
+    },
+    "retroactive_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1000
+    },
+    "attachments": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "filename",
+          "content_base64"
+        ],
+        "properties": {
+          "filename": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "mime_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 100
+          },
+          "content_base64": {
+            "type": "string",
+            "minLength": 4
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### leave.withdraw
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "leave_request_id"
+  ],
+  "properties": {
+    "leave_request_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500
+    }
+  }
+}
+```
+
 ### period.create
 
 ```json
@@ -1348,6 +2417,84 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
         "M6",
         null
       ]
+    }
+  }
+}
+```
+
+### reconciliation.list
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "status": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "OPEN",
+        "RESOLVED",
+        "DISMISSED",
+        null
+      ]
+    },
+    "class_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "cursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500
+    },
+    "limit": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 200
+    }
+  }
+}
+```
+
+### reconciliation.resolve
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task_id",
+    "status",
+    "resolution_note"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "RESOLVED",
+        "DISMISSED"
+      ]
+    },
+    "resolution_note": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 1000
     }
   }
 }
@@ -1423,6 +2570,80 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
       "type": "string",
       "minLength": 1,
       "maxLength": 500
+    }
+  }
+}
+```
+
+### rollcall.get
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "class_id",
+    "school_date"
+  ],
+  "properties": {
+    "class_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "school_date": {
+      "type": "string",
+      "format": "date"
+    }
+  }
+}
+```
+
+### rollcall.submit
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "class_id",
+    "school_date",
+    "marks"
+  ],
+  "properties": {
+    "class_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "school_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "marks": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "student_id",
+          "mark"
+        ],
+        "properties": {
+          "student_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mark": {
+            "type": "string",
+            "enum": [
+              "PRESENT",
+              "ABSENT",
+              "LATE",
+              "LEAVE_REPORTED"
+            ]
+          }
+        }
+      }
     }
   }
 }
@@ -1797,6 +3018,56 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
 }
 ```
 
+### student.photo
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "student_id"
+  ],
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### student.profile
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "student_id"
+  ],
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "from": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "to": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    }
+  }
+}
+```
+
 ### student.search
 
 ```json
@@ -1847,6 +3118,52 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
       ],
       "minimum": 1,
       "maximum": 200
+    }
+  }
+}
+```
+
+### student.setPhoto
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "student_id",
+    "file"
+  ],
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "filename",
+        "content_base64"
+      ],
+      "properties": {
+        "filename": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "mime_type": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 100
+        },
+        "content_base64": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 1500000
+        }
+      }
     }
   }
 }

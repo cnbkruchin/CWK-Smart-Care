@@ -1,3 +1,5 @@
-// Scheduled tasks registered by feature modules (attendance day opening, outbox dispatch,
-// webhook processing, follow-up rules, metrics). Order matters: recovery runs before this list.
-export const SCHEDULED_TASKS = [];
+// Scheduled tasks registered by feature modules. Order matters: journal recovery runs before this
+// list (GAS cronTick); jobs run after it.
+import { ATTENDANCE_TICK } from './jobs/attendance-jobs.js';
+
+export const SCHEDULED_TASKS = [ATTENDANCE_TICK];

@@ -704,15 +704,16 @@ CREATE TABLE attendance_events (
 CREATE TRIGGER attendance_events_append_only BEFORE UPDATE OR DELETE ON attendance_events FOR EACH ROW EXECUTE FUNCTION cwk_forbid_mutation();
 CREATE UNIQUE INDEX attendance_events_uq1 ON attendance_events (dedupe_key);
 CREATE INDEX attendance_events_ix1 ON attendance_events (student_id);
-CREATE INDEX attendance_events_ix2 ON attendance_events (dedupe_key);
-CREATE INDEX attendance_events_ix3 ON attendance_events (student_id, school_date);
-CREATE INDEX attendance_events_ix4 ON attendance_events (school_date, event_type);
-CREATE INDEX attendance_events_ix5 ON attendance_events (station_id);
-CREATE INDEX attendance_events_ix6 ON attendance_events (actor_id);
-CREATE INDEX attendance_events_ix7 ON attendance_events (linked_leave_id);
-CREATE INDEX attendance_events_ix8 ON attendance_events (supersedes_event_id);
-CREATE INDEX attendance_events_ix9 ON attendance_events (roll_call_session_id);
-CREATE INDEX attendance_events_ix10 ON attendance_events (class_id);
+CREATE INDEX attendance_events_ix2 ON attendance_events (school_date);
+CREATE INDEX attendance_events_ix3 ON attendance_events (dedupe_key);
+CREATE INDEX attendance_events_ix4 ON attendance_events (student_id, school_date);
+CREATE INDEX attendance_events_ix5 ON attendance_events (school_date, event_type);
+CREATE INDEX attendance_events_ix6 ON attendance_events (station_id);
+CREATE INDEX attendance_events_ix7 ON attendance_events (actor_id);
+CREATE INDEX attendance_events_ix8 ON attendance_events (linked_leave_id);
+CREATE INDEX attendance_events_ix9 ON attendance_events (supersedes_event_id);
+CREATE INDEX attendance_events_ix10 ON attendance_events (roll_call_session_id);
+CREATE INDEX attendance_events_ix11 ON attendance_events (class_id);
 
 -- DailyAttendance: สรุปรายวันต่อคน (projection สร้างใหม่ได้จาก AttendanceEvents, RollCallSessions, LeaveSegments, Enrollments, ปฏิทินและกฎ) id = UUIDv5(student_id|school_date)
 CREATE TABLE daily_attendance (
@@ -965,8 +966,9 @@ CREATE TABLE leave_segments (
 );
 CREATE INDEX leave_segments_ix1 ON leave_segments (leave_request_id);
 CREATE INDEX leave_segments_ix2 ON leave_segments (student_id);
-CREATE INDEX leave_segments_ix3 ON leave_segments (student_id, school_date);
-CREATE INDEX leave_segments_ix4 ON leave_segments (decision_id);
+CREATE INDEX leave_segments_ix3 ON leave_segments (school_date);
+CREATE INDEX leave_segments_ix4 ON leave_segments (student_id, school_date);
+CREATE INDEX leave_segments_ix5 ON leave_segments (decision_id);
 
 -- LeaveRevisions: ประวัติทุกการเปลี่ยนแปลงใบลา (append-only ห้ามเขียนทับเหตุผล/ผู้อนุมัติเดิม)
 CREATE TABLE leave_revisions (

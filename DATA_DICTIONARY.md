@@ -558,7 +558,7 @@ Business settings ที่ไม่ลับ (แยกจาก Script Propert
 
 - kind: **EVENT** · partition: **TERM** (school_date) · sensitivity: **PERSONAL** · retention: `ENROLLMENT_PLUS_5Y`
 - unique: (dedupe_key)
-- lookup/index (access pattern): student_id, dedupe_key, student_id+school_date, school_date+event_type
+- lookup/index (access pattern): student_id, school_date, dedupe_key, student_id+school_date, school_date+event_type
 
 | คอลัมน์ | ชนิด | required | ข้อจำกัด | คำอธิบาย |
 |---|---|---|---|---|
@@ -939,7 +939,7 @@ Business settings ที่ไม่ลับ (แยกจาก Script Propert
 
 - kind: **ENTITY** · partition: **NONE** · sensitivity: **PERSONAL** · retention: `ENROLLMENT_PLUS_5Y`
 - unique: —
-- lookup/index (access pattern): leave_request_id, student_id, student_id+school_date
+- lookup/index (access pattern): leave_request_id, student_id, school_date, student_id+school_date
 
 | คอลัมน์ | ชนิด | required | ข้อจำกัด | คำอธิบาย |
 |---|---|---|---|---|

@@ -71,6 +71,9 @@ export function invalidateConfigCache(ctx) {
     ctx.cache.remove('cwk:rules');
     ctx.cache.remove('cwk:school');
   }
+  ctx._rules = null;
+  ctx._settings = null;
+  ctx._memo = null;
 }
 
 /** Commit a change set. Adds the idempotency record for mutation requests that carry a key. */
@@ -82,8 +85,20 @@ export function* commit(ctx, builder, result = {}) {
   const cs = builder.build({ result, idempotency: idem });
   const out = yield ctx.mutations.commit(cs);
   if (out && out.replayed) ctx.replayed = true;
+  if (cs.writes.some((w) => CONFIG_TABLES.has(w.table))) invalidateConfigCache(ctx);
   return out ? out.result : result;
 }
+
+/** Commit without idempotency (internal/job writes); still drops config caches when needed. */
+export function* commitRaw(ctx, builder) {
+  const cs = builder.build({ result: {} });
+  const out = yield ctx.mutations.commit(cs);
+  if (cs.writes.some((w) => CONFIG_TABLES.has(w.table))) invalidateConfigCache(ctx);
+  return out;
+}
+
+/** Tables whose cached copies (terms, rules, school) must be dropped after a commit touches them. */
+export const CONFIG_TABLES = new Set(['Terms', 'RuleVersions', 'Schools', 'Settings', 'SchoolCalendar', 'Periods', 'AcademicYears']);
 
 export function* loadRules(ctx) {
   if (ctx._rules) return ctx._rules;
