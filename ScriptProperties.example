@@ -22,7 +22,7 @@ CWK_FIREBASE_TENANT_ID=                       # ว่าง = ไม่ใช�
 CWK_AUTH_PERSISTENCE=SESSION                  # SESSION | LOCAL | NONE (Firebase SDK persistence)
 CWK_GATEWAY_URL=https://cwk-gateway-example.a.run.app
 CWK_GATEWAY_KEY_ID=gas-dev-1
-[SECRET] CWK_GATEWAY_SECRET=                  # ≥ 32 ไบต์สุ่ม (base64) ค่าเดียวกับ GAS_SHARED_SECRET ของ gateway
+[SECRET] CWK_GATEWAY_SECRET=                  # ≥ 32 ไบต์สุ่ม (base64) ค่าเดียวกับ CWK_GATEWAY_SECRET ของ gateway (docs/GATEWAY_TH.md)
 [SECRET] CWK_DEMO_PASSPHRASE=                 # DEV/STAGING เท่านั้น; PROD ปฏิเสธ DEMO
 
 # ── LINE (เปิดภายหลังเมื่อระบบหลักพร้อม) ──
@@ -30,12 +30,13 @@ CWK_LINE_ENABLED=false
 [SECRET] CWK_LINE_CHANNEL_ACCESS_TOKEN=
 CWK_LINE_WEBHOOK_KEY_ID=line-dev-1
 [SECRET] CWK_LINE_WEBHOOK_SECRET=             # HMAC ของ envelope gateway → GAS (ไม่ใช่ channel secret)
-CWK_LINE_RETRY_WINDOW_HOURS=12
+CWK_LINE_RETRY_WINDOW_HOURS=12                # อายุที่ยอมใช้ X-Line-Retry-Key เดิม (ตรวจกับเอกสาร LINE ก่อนเปลี่ยน)
+CWK_LINE_ADD_FRIEND_URL=                      # https://lin.ee/... ลิงก์เพิ่มเพื่อน OA ของโรงเรียน (แสดงในหน้า "การแจ้งเตือน")
 
 # ── Email ──
 CWK_EMAIL_ENABLED=true
 CWK_EMAIL_SENDER_NAME=CWK Smart Care (ทดสอบ)
-CWK_NOTIFY_ALLOWLIST=teacher.test@example.com,guardian.test@example.com   # DEV/STAGING: ส่งได้เฉพาะผู้รับในรายการ; PROD ไม่ใช้
+CWK_NOTIFY_ALLOWLIST=teacher.test@example.com,guardian.test@example.com   # DEV/STAGING: ส่งออกนอกระบบได้เฉพาะอีเมล/LINE user ID ในรายการ (ว่าง = ไม่ส่งเลย); PROD ต้องว่าง
 
 # ── Web app ──
 CWK_WEBAPP_URL=                               # URL /exec ของ deployment (ใช้สร้างลิงก์ในข้อความ)

@@ -2786,6 +2786,7 @@ fieldset { border: 1px solid var(--line); border-radius: 8px; }
     if (p.access !== "FULL") return root;
     const actions = [];
     if (p.can.submit_leave) actions.push(h("a", { class: "btn btn-secondary", href: "#/leave" }, "ยื่นใบลา"));
+    if (p.can.manage_cases) actions.push(h("a", { class: "btn btn-secondary", href: `#/cases?new=${encodeURIComponent(s.id)}` }, "เปิดเรื่องติดตาม"));
     if (app.can("attendance.rollcall") && s.class_id) actions.push(h("a", { class: "btn btn-secondary", href: `#/rollcall?class_id=${encodeURIComponent(s.class_id)}` }, "เช็กชื่อห้องนี้"));
     if (actions.length) root.appendChild(h("div", { class: "row-actions" }, actions));
     const period = { label: `${formatThaiDate(p.stats.period.from)} – ${formatThaiDate(p.stats.period.to_exclusive)} (ไม่รวมวันสุดท้าย)`, ...p.stats.period };
@@ -2828,7 +2829,7 @@ fieldset { border: 1px solid var(--line); border-radius: 8px; }
         { label: "ประเภท", render: (c) => enumLabel("CaseType", c.case_type) },
         { label: "สถานะ", render: (c) => enumLabel("CaseStatus", c.status) },
         { label: "กำหนด", render: (c) => c.due_at ? formatThaiDateTime(c.due_at) : "—" }
-      ], p.cases)));
+      ], p.cases, { onRow: app.can("case.read") ? (c) => app.go("cases", { id: c.id }) : null })));
     }
     root.appendChild(section("ไทม์ไลน์", p.timeline.length ? h("ul", { class: "timeline" }, p.timeline.map((t) => h(
       "li",
@@ -2944,6 +2945,498 @@ fieldset { border: 1px solid var(--line); border-radius: 8px; }
     return box;
   }
 
+  // frontend/src/screens/cases.js
+  var PRIORITY_KIND = { URGENT: "danger", HIGH: "warn", NORMAL: "info", LOW: "neutral" };
+  function caseRow(c) {
+    return [
+      badge(enumLabel("Priority", c.priority), PRIORITY_KIND[c.priority] || "neutral"),
+      " ",
+      c.overdue ? badge("เกินกำหนด", "danger", "⏰") : null
+    ];
+  }
+  function telLinks(guardians) {
+    if (!guardians) return null;
+    if (!guardians.length) return empty("ไม่มีผู้ปกครองที่เชื่อมโยง");
+    return h("ul", { class: "checklist" }, guardians.map((g) => h(
+      "li",
+      null,
+      h("strong", null, g.name),
+      ` (${enumLabel("Relationship", g.relationship)})${g.is_primary_contact ? " · ติดต่อหลัก" : ""} `,
+      h("span", { class: "row-actions" }, g.contacts.map((c) => c.channel === "PHONE" || c.channel === "SMS" ? h("a", { class: "btn btn-secondary", href: `tel:${String(c.value).replace(/[^0-9+]/g, "")}` }, `📞 ${c.value}`) : c.channel === "EMAIL" ? h("a", { class: "btn btn-secondary", href: `mailto:${c.value}` }, `✉ ${c.value}`) : `${enumLabel("ContactChannel", c.channel)}: ${c.value}`))
+    )));
+  }
+  function evidenceView(c) {
+    const ev = c.trigger_evidence;
+    if (!ev || !ev.items) return null;
+    return h(
+      "div",
+      null,
+      ev.is_example_rule ? alertBox("warn", 'เกณฑ์ที่ใช้เปิดเรื่องนี้ยังเป็น "ค่าตัวอย่าง" — ไม่ใช่ระเบียบของโรงเรียนจนกว่าจะกำหนดค่าจริง') : null,
+      h("p", null, `ช่วงที่นับ: ${formatThaiDate(ev.window_from)} – ${formatThaiDate(ev.window_to)} · พบ ${ev.count} ครั้ง (เกณฑ์ ${ev.threshold})`),
+      table([
+        { label: "วันที่", render: (x) => formatThaiDate(x.school_date) },
+        { label: "รายละเอียด", render: (x) => x.late_minutes !== void 0 ? `มาถึง ${x.arrived_at ? formatThaiDateTime(x.arrived_at) : "—"} · สาย ${x.late_minutes} นาที${x.exempted ? " (ได้รับการยกเว้น)" : ""}` : "ขาดเรียน (ครูยืนยันแล้ว)" }
+      ], ev.items, { caption: "หลักฐานที่เข้าเกณฑ์ (ระบบไม่ตัดสินพฤติกรรมหรือบทลงโทษ)" })
+    );
+  }
+  async function caseDetail(app, box, id, reload) {
+    mount(box, loading());
+    let d;
+    try {
+      d = await app.api.get("case.get", { case_id: id }, { channel: "case-detail" });
+    } catch (e2) {
+      if (e2.code !== "STALE_RESPONSE") mount(box, errorState(e2));
+      return;
+    }
+    const c = d.case;
+    const again = () => {
+      caseDetail(app, box, id, reload);
+      reload();
+    };
+    const run = async (operation, payload, okText) => {
+      try {
+        await app.api.mutate(operation, { case_id: c.id, ...payload }, { expectedVersion: c.version });
+        toast(okText);
+        again();
+      } catch (e2) {
+        toast(e2.code === "CONFLICT" ? "เรื่องนี้ถูกแก้ไขโดยผู้อื่นแล้ว ระบบโหลดข้อมูลล่าสุดให้" : e2.message_th || "ทำรายการไม่สำเร็จ", "danger");
+        if (e2.code === "CONFLICT") again();
+      }
+    };
+    const actions = [];
+    if (d.can.manage && c.status !== "CLOSED") {
+      if (c.status !== "RESOLVED") actions.push(actionButton("บันทึกว่าแก้ไขแล้ว", async () => {
+        const n = await askText("สรุปสิ่งที่ทำ", { multiline: true });
+        if (n) await run("case.resolve", { note: n }, "บันทึกแล้ว");
+      }, { variant: "secondary" }));
+      actions.push(actionButton("ปิดเรื่อง", async () => {
+        const n = await askText("ข้อสรุปการปิดเรื่อง", { multiline: true });
+        if (n) await run("case.close", { resolution_summary: n }, "ปิดเรื่องแล้ว");
+      }, { variant: "secondary" }));
+      actions.push(actionButton("ส่งต่อผู้รับผิดชอบ", async () => assignDialog(app, c, run), { variant: "secondary" }));
+    }
+    if (d.can.manage && (c.status === "CLOSED" || c.status === "RESOLVED")) {
+      actions.push(actionButton("เปิดเรื่องอีกครั้ง", async () => {
+        const n = await askText("เหตุผลที่เปิดใหม่", { multiline: true });
+        if (n) await run("case.reopen", { reason: n }, "เปิดเรื่องอีกครั้งแล้ว");
+      }, { variant: "secondary" }));
+    }
+    const nodes = [
+      section(
+        `${c.student ? c.student.name : ""} — ${enumLabel("CaseType", c.case_type)}`,
+        h(
+          "p",
+          null,
+          caseRow(c),
+          " ",
+          badge(enumLabel("CaseStatus", c.status), c.status === "CLOSED" ? "neutral" : "info"),
+          ` · ผู้รับผิดชอบ: ${c.owner_name || "—"} · กำหนด: ${c.due_at ? formatThaiDateTime(c.due_at) : "—"}`
+        ),
+        h("p", null, h("strong", null, "เหตุที่เปิดเรื่อง: "), c.trigger_summary_th),
+        c.next_action_th ? h("p", null, h("strong", null, "สิ่งที่ต้องทำต่อ: "), c.next_action_th) : null,
+        c.resolution_summary ? h("p", null, h("strong", null, "ข้อสรุป: "), c.resolution_summary) : null,
+        c.student ? h("p", null, h("a", { href: `#/profile?id=${encodeURIComponent(c.student.id)}` }, "เปิดประวัตินักเรียน")) : null,
+        evidenceView(c),
+        actions.length ? h("div", { class: "form-actions row-actions" }, actions) : null
+      )
+    ];
+    if (d.guardians) nodes.push(section("ติดต่อผู้ปกครอง", alertBox("info", "การกดโทรไม่ถือว่าติดต่อสำเร็จ — บันทึกผลทุกครั้ง (ติดต่อไม่ได้ก็ต้องบันทึก)"), telLinks(d.guardians)));
+    if (d.can.record_contact && c.status !== "CLOSED") nodes.push(contactForm(app, c, d.guardians || [], again), appointmentForm(app, c, again));
+    nodes.push(section("บันทึกการติดต่อ", d.contacts.length ? table([
+      { label: "เมื่อ", render: (x) => formatThaiDateTime(x.contacted_at) },
+      { label: "ช่องทาง", render: (x) => `${enumLabel("ContactChannel", x.channel)} · ${enumLabel("ContactDirection", x.direction)}` },
+      { label: "ผล", render: (x) => enumLabel("ContactOutcome", x.outcome) },
+      { label: "สรุป", key: "summary" },
+      { label: "โดย", key: "contacted_by_name" }
+    ], d.contacts) : h("p", { class: "muted" }, "ยังไม่มีบันทึกการติดต่อ")));
+    if (d.appointments.length) {
+      nodes.push(section("นัดหมาย", table([
+        { label: "เวลา", render: (a) => formatThaiDateTime(a.scheduled_at) },
+        { label: "สถานที่", render: (a) => a.location || "—" },
+        { label: "สถานะ", render: (a) => enumLabel("AppointmentStatus", a.status) },
+        { label: "ผล", render: (a) => a.outcome_note || "—" },
+        { label: "", render: (a) => d.can.record_contact && ["SCHEDULED", "RESCHEDULED"].includes(a.status) ? h(
+          "div",
+          { class: "row-actions" },
+          actionButton("พบแล้ว", () => apptUpdate(app, a, "COMPLETED", again), { variant: "secondary" }),
+          actionButton("ไม่มาตามนัด", () => apptUpdate(app, a, "NO_SHOW", again), { variant: "secondary" }),
+          actionButton("ยกเลิก", () => apptUpdate(app, a, "CANCELLED", again), { variant: "secondary" })
+        ) : "" }
+      ], d.appointments)));
+    }
+    nodes.push(section("ประวัติเรื่อง", h("ul", { class: "timeline" }, d.events.map((e2) => h(
+      "li",
+      null,
+      h("strong", null, enumLabel("CaseEventType", e2.event_type)),
+      ` · ${formatThaiDateTime(e2.occurred_at)} · ${e2.actor_name}`,
+      e2.note ? h("div", { class: "small" }, e2.note) : null
+    )))));
+    mount(box, nodes);
+    box.scrollIntoView({ behavior: "smooth" });
+  }
+  async function apptUpdate(app, a, status, again) {
+    const note = await askText(status === "COMPLETED" ? "ผลการพบ" : "เหตุผล/รายละเอียด", { multiline: true });
+    if (!note) return;
+    try {
+      await app.api.mutate("appointment.update", { appointment_id: a.id, status, outcome_note: note }, { expectedVersion: a.version });
+      toast("บันทึกแล้ว");
+      again();
+    } catch (e2) {
+      toast(e2.message_th || "บันทึกไม่สำเร็จ", "danger");
+    }
+  }
+  async function assignDialog(app, c, run) {
+    let people;
+    try {
+      people = (await app.api.get("case.assignable", { student_id: c.student.id })).items.filter((p) => p.user_id !== c.owner_user_id);
+    } catch (e2) {
+      toast(e2.message_th || "โหลดรายชื่อไม่สำเร็จ", "danger");
+      return;
+    }
+    if (!people.length) {
+      toast("ไม่มีผู้ที่รับมอบหมายได้", "warn");
+      return;
+    }
+    const sel = h("select", { class: "input" }, people.map((p) => h("option", { value: p.user_id }, `${p.display_name} (${enumLabel("Role", p.role)})`)));
+    const reason = h("input", { class: "input", type: "text" });
+    await new Promise((resolve) => {
+      const close = () => {
+        overlay.remove();
+        resolve();
+      };
+      const ok = actionButton("ส่งต่อ", async () => {
+        if (reason.value.trim().length < 3) {
+          toast("ระบุเหตุผล", "warn");
+          return;
+        }
+        close();
+        await run("case.assign", { owner_user_id: sel.value, reason: reason.value.trim() }, "ส่งต่อแล้ว");
+      });
+      const overlay = h("div", { class: "modal-overlay", role: "presentation" }, h(
+        "div",
+        { class: "modal", role: "dialog", "aria-modal": "true", "aria-label": "ส่งต่อผู้รับผิดชอบ" },
+        h("h2", null, "ส่งต่อผู้รับผิดชอบ"),
+        field("ผู้รับ", sel),
+        field("เหตุผล", reason, { required: true }),
+        h("div", { class: "form-actions" }, h("button", { type: "button", class: "btn", onclick: close }, "ยกเลิก"), ok)
+      ));
+      overlay.addEventListener("keydown", (e2) => {
+        if (e2.key === "Escape") close();
+      });
+      document.body.appendChild(overlay);
+      sel.focus();
+    });
+  }
+  function contactForm(app, c, guardians, again) {
+    const channel = select("channel", enumOptions("ContactChannel"));
+    const direction = select("direction", enumOptions("ContactDirection"));
+    const outcome = select("outcome", enumOptions("ContactOutcome"));
+    const guardian = select("guardian_id", [h("option", { value: "" }, "— ไม่ระบุ —"), ...guardians.map((g) => h("option", { value: g.guardian_id }, g.name))]);
+    const summary = textarea("summary", { maxlength: 2e3, placeholder: "สรุปสั้น ๆ ไม่ใส่ข้อมูลสุขภาพเกินจำเป็น" });
+    const followUp = h("input", { type: "checkbox", name: "follow_up_required" });
+    const nextDate = input("next_date", { type: "date", min: todayLocal(app) });
+    const nextTime = input("next_time", { type: "time", value: "09:00" });
+    return section("บันทึกผลการติดต่อ", form([
+      h("div", { class: "grid3" }, field("ช่องทาง", channel, { required: true }), field("ทิศทาง", direction, { required: true }), field("ผล", outcome, { required: true })),
+      h("div", { class: "grid3" }, field("ผู้ปกครอง", guardian), h("label", { class: "check" }, followUp, " ต้องติดตามต่อ"), field("ติดตามครั้งถัดไป (วันที่)", nextDate), field("เวลา", nextTime)),
+      field("สรุป", summary, { required: true })
+    ], async () => {
+      const r = await app.api.mutate("contact.log", {
+        student_id: c.student.id,
+        case_id: c.id,
+        guardian_id: guardian.value || null,
+        channel: channel.value,
+        direction: direction.value,
+        outcome: outcome.value,
+        summary: summary.value.trim(),
+        follow_up_required: followUp.checked,
+        next_follow_up_at: followUp.checked && nextDate.value ? localTimestamp(app, nextDate.value, nextTime.value || "09:00") : null
+      });
+      setTimeout(again, 600);
+      return r ? "บันทึกการติดต่อแล้ว" : false;
+    }, { submitLabel: "บันทึกการติดต่อ" }));
+  }
+  function appointmentForm(app, c, again) {
+    const date = input("date", { type: "date", min: todayLocal(app) });
+    const time = input("time", { type: "time", value: "15:30" });
+    const loc = input("location", { maxlength: 200, placeholder: "เช่น ห้องแนะแนว" });
+    const note = input("attendees_note", { maxlength: 500, placeholder: "ผู้เข้าร่วม" });
+    return section("นัดหมาย", form([h("div", { class: "grid3" }, field("วันที่", date, { required: true }), field("เวลา", time, { required: true }), field("สถานที่", loc)), field("ผู้เข้าร่วม", note)], async () => {
+      if (!date.value) throw { message_th: "ระบุวันที่นัด" };
+      await app.api.mutate("appointment.create", { case_id: c.id, scheduled_at: localTimestamp(app, date.value, time.value), location: loc.value || null, attendees_note: note.value || null });
+      setTimeout(again, 600);
+      return "บันทึกนัดหมายแล้ว";
+    }, { submitLabel: "นัดหมาย" }));
+  }
+  async function newCaseForm(app, studentId, onCreated) {
+    const summary = textarea("summary_th", { maxlength: 1e3, placeholder: "ข้อเท็จจริงที่ทำให้ต้องติดตาม (ไม่ตัดสินพฤติกรรม)" });
+    const priority = select("priority", enumOptions("Priority"));
+    priority.value = "NORMAL";
+    const next = input("next_action_th", { maxlength: 500, placeholder: "เช่น โทรคุยกับผู้ปกครอง" });
+    return section("เปิดเรื่องติดตาม", form([field("เหตุที่เปิดเรื่อง", summary, { required: true }), h("div", { class: "grid3" }, field("ความสำคัญ", priority), field("สิ่งที่ต้องทำต่อ", next))], async () => {
+      const r = await app.api.mutate("case.create", { student_id: studentId, summary_th: summary.value.trim(), priority: priority.value, next_action_th: next.value.trim() || null });
+      onCreated(r.case_id);
+      return "เปิดเรื่องแล้ว";
+    }, { submitLabel: "เปิดเรื่อง" }));
+  }
+  async function renderCases(app, params) {
+    const root = h("div");
+    const listBox = h("div", { "aria-live": "polite" });
+    const inboxBox = h("div");
+    const detailBox = h("div");
+    const view = select("view", [["mine", "เรื่องของฉัน"], ["all", "ทั้งหมดในขอบเขต"], ["overdue", "เกินกำหนด"], ["CLOSED", "ปิดแล้ว"]].map(([v, t]) => h("option", { value: v }, t)));
+    view.value = app.drafts.get("cases.view") || "mine";
+    const load = async () => {
+      app.drafts.set("cases.view", view.value);
+      mount(listBox, loading());
+      try {
+        const q = view.value === "mine" ? { mine: true } : view.value === "overdue" ? { overdue_only: true } : view.value === "CLOSED" ? { status: "CLOSED" } : {};
+        const r = await app.api.get("case.list", q, { channel: "case-list" });
+        mount(listBox, r.items.length ? table([
+          { label: "ความสำคัญ", render: caseRow },
+          { label: "นักเรียน", render: (c) => c.student ? `${c.student.name} (${c.student.class_name_th || "—"})` : "—" },
+          { label: "ประเภท", render: (c) => enumLabel("CaseType", c.case_type) },
+          { label: "สถานะ", render: (c) => enumLabel("CaseStatus", c.status) },
+          { label: "กำหนด", render: (c) => c.due_at ? formatThaiDateTime(c.due_at) : "—" },
+          { label: "ผู้รับผิดชอบ", render: (c) => c.owner_name || "—" }
+        ], r.items, { onRow: (c) => caseDetail(app, detailBox, c.id, load) }) : empty("ไม่มีเรื่องติดตามในมุมมองนี้"));
+      } catch (e2) {
+        if (e2.code !== "STALE_RESPONSE") mount(listBox, errorState(e2, load));
+      }
+      if (app.can("case.record_contact")) {
+        try {
+          const ib = await app.api.get("contact.inbox", {}, { channel: "contact-inbox" });
+          mount(inboxBox, section(`ข้อความ/คำขอติดต่อจากผู้ปกครองที่รอตอบ (${ib.total})`, ib.items.length ? table([
+            { label: "เมื่อ", render: (x) => formatThaiDateTime(x.contacted_at) },
+            { label: "นักเรียน", key: "student_name" },
+            { label: "ผู้ปกครอง", render: (x) => x.guardian_name || "—" },
+            { label: "ช่องทาง", render: (x) => enumLabel("ContactChannel", x.channel) },
+            { label: "ข้อความ", key: "summary" },
+            { label: "", render: (x) => actionButton("โทรกลับแล้ว — บันทึก", async () => replyInbound(app, x, load), { variant: "secondary" }) }
+          ], ib.items) : empty("ไม่มีรายการรอตอบ")));
+        } catch (e2) {
+          if (e2.code !== "STALE_RESPONSE") mount(inboxBox, errorState(e2));
+        }
+      }
+    };
+    view.addEventListener("change", load);
+    root.append(h("div", { class: "grid3" }, field("มุมมอง", view)), listBox, inboxBox);
+    if (params.new && app.can("case.manage")) root.append(await newCaseForm(app, params.new, (id) => {
+      load();
+      caseDetail(app, detailBox, id, load);
+    }));
+    root.append(detailBox);
+    load();
+    if (params.id) caseDetail(app, detailBox, params.id, load);
+    return root;
+  }
+  async function replyInbound(app, x, reload) {
+    const note = await askText(`สรุปการโทรกลับ ${x.guardian_name || "ผู้ปกครอง"} (${x.student_name})`, { multiline: true });
+    if (!note) return;
+    try {
+      await app.api.mutate("contact.log", { student_id: x.student_id, case_id: x.case_id, channel: "PHONE", direction: "OUTBOUND", outcome: "REACHED", summary: note, follow_up_required: false, handles_contact_id: x.id });
+      toast("บันทึกแล้ว");
+      reload();
+    } catch (e2) {
+      toast(e2.message_th || "บันทึกไม่สำเร็จ", "danger");
+    }
+  }
+
+  // frontend/src/screens/notifications.js
+  var ACTION_LABEL = { ACKNOWLEDGED: "รับทราบ", CALLBACK_REQUESTED: "ขอให้ครูติดต่อกลับ" };
+  function sourceLink(n) {
+    if (n.source_entity_type === "LeaveRequests") return h("a", { href: `#/leave?id=${encodeURIComponent(n.source_entity_id)}` }, "เปิดใบลา");
+    if (n.source_entity_type === "Cases") return h("a", { href: `#/cases?id=${encodeURIComponent(n.source_entity_id)}` }, "เปิดเรื่องติดตาม");
+    if (n.student_id) return h("a", { href: `#/profile?id=${encodeURIComponent(n.student_id)}` }, "เปิดประวัตินักเรียน");
+    return null;
+  }
+  async function channelsSection(app) {
+    let s;
+    try {
+      s = await app.api.get("channel.status", {}, { channel: "channel-status" });
+    } catch (e2) {
+      return section("ช่องทางรับแจ้งเตือน", errorState(e2));
+    }
+    const active = s.bindings.filter((b) => b.channel === "LINE" && b.status === "ACTIVE");
+    const parts = [h("p", null, `อีเมล: ${s.email || "ยังไม่มี (ติดต่อโรงเรียนเพื่อเพิ่ม)"}`)];
+    if (!s.line_enabled) parts.push(alertBox("info", "โรงเรียนยังไม่เปิดใช้การแจ้งเตือนทาง LINE — ใช้การแจ้งเตือนในแอปและอีเมล"));
+    else if (active.length) {
+      parts.push(h("p", null, badge("เชื่อม LINE แล้ว", "ok", "✔"), ` ${active[0].address_masked} เมื่อ ${formatThaiDateTime(active[0].verified_at)}`));
+      parts.push(actionButton("ยกเลิกการเชื่อม LINE", async () => {
+        try {
+          await app.api.mutate("channel.unbind", { binding_id: active[0].id }, { expectedVersion: active[0].version });
+          toast("ยกเลิกการเชื่อม LINE แล้ว");
+          app.render();
+        } catch (e2) {
+          toast(e2.message_th || "ไม่สำเร็จ", "danger");
+        }
+      }, { variant: "secondary", confirmText: "ยกเลิกการเชื่อม LINE? จะไม่ได้รับแจ้งเตือนทาง LINE อีก" }));
+    } else if (s.can_bind) {
+      parts.push(h(
+        "ol",
+        null,
+        h("li", null, "เพิ่มเพื่อน LINE Official Account ของโรงเรียน", s.line_add_friend_url ? [" — ", h("a", { href: s.line_add_friend_url, target: "_top", rel: "noopener" }, "เปิดหน้าเพิ่มเพื่อน")] : " (ขอลิงก์จากโรงเรียน)"),
+        h("li", null, "ระบบจะส่งลิงก์เชื่อมบัญชีให้ทางแชต LINE — เปิดลิงก์นั้นแล้วเข้าสู่ระบบด้วยบัญชีนี้"),
+        h("li", null, "ยืนยันในหน้าของ LINE — เสร็จแล้วจะได้รับข้อความยืนยันทาง LINE")
+      ));
+      parts.push(alertBox("info", "การเชื่อม LINE เป็นคนละขั้นกับการยืนยันความสัมพันธ์ผู้ปกครอง-นักเรียน ซึ่งโรงเรียนเป็นผู้ยืนยัน"));
+    }
+    return section("ช่องทางรับแจ้งเตือน", parts);
+  }
+  async function renderNotifications(app) {
+    const root = h("div");
+    const listBox = h("div", { "aria-live": "polite" });
+    const onlyPending = h("input", { type: "checkbox", checked: true });
+    const load = async () => {
+      mount(listBox, loading());
+      try {
+        const r = await app.api.get("notification.list", { unread_only: onlyPending.checked, limit: 50 }, { channel: "notif-list" });
+        const unreadIds = r.items.filter((x) => x.in_app_state === "UNREAD").map((x) => x.recipient_id);
+        mount(
+          listBox,
+          h("p", null, `ยังไม่อ่าน ${r.unread} · รอรับทราบ ${r.pending_ack}`),
+          r.items.length ? h("ul", { class: "timeline" }, r.items.map((n) => h(
+            "li",
+            { class: n.ack_state === "PENDING_ACK" ? "kind-late" : null },
+            h(
+              "div",
+              null,
+              h("strong", null, n.title),
+              " ",
+              n.in_app_state === "UNREAD" ? badge("ใหม่", "info") : null,
+              " ",
+              n.ack_required ? badge(enumLabel("AckState", n.ack_state), n.ack_state === "PENDING_ACK" ? "warn" : "ok") : null
+            ),
+            h("div", null, n.body),
+            h("div", { class: "muted small" }, formatThaiDateTime(n.created_at), n.ack_due_at && n.ack_state === "PENDING_ACK" ? ` · กรุณารับทราบภายใน ${formatThaiDateTime(n.ack_due_at)}` : ""),
+            n.acknowledgements.length ? h("div", { class: "small" }, n.acknowledgements.map((a) => `${ACTION_LABEL[a.action]} (${enumLabel("AckChannel", a.channel)}) ${formatThaiDateTime(a.acted_at)}`).join(" · ")) : null,
+            h("div", { class: "row-actions" }, n.actions.map((a) => actionButton(ACTION_LABEL[a], async () => {
+              try {
+                await app.api.mutate("notification.acknowledge", { recipient_id: n.recipient_id, action: a, note: null });
+                toast(a === "ACKNOWLEDGED" ? "บันทึกการรับทราบแล้ว" : "ส่งคำขอให้ครูติดต่อกลับแล้ว");
+                load();
+              } catch (e2) {
+                toast(e2.message_th || "ไม่สำเร็จ", "danger");
+              }
+            }, { variant: a === "ACKNOWLEDGED" ? "primary" : "secondary" })), sourceLink(n))
+          ))) : empty("ไม่มีการแจ้งเตือน")
+        );
+        if (unreadIds.length) app.api.mutate("notification.markRead", { recipient_ids: unreadIds.slice(0, 100) }).catch(() => {
+        });
+      } catch (e2) {
+        if (e2.code !== "STALE_RESPONSE") mount(listBox, errorState(e2, load));
+      }
+    };
+    onlyPending.addEventListener("change", load);
+    root.append(h("label", { class: "check" }, onlyPending, " แสดงเฉพาะที่ยังไม่อ่าน/รอรับทราบ"), listBox, await channelsSection(app));
+    load();
+    return root;
+  }
+  async function renderLineLink(app) {
+    const token = app.boot && app.boot.line_link_token;
+    if (!token) return alertBox("warn", "ไม่พบรหัสเชื่อมบัญชี กรุณาเปิดลิงก์จากแชต LINE ของโรงเรียนอีกครั้ง");
+    const out = h("div", { "aria-live": "polite" }, loading("กำลังเตรียมการเชื่อม LINE…"));
+    try {
+      const r = await app.api.mutate("channel.startLineLink", { link_token: token });
+      app.boot.line_link_token = null;
+      mount(
+        out,
+        alertBox("info", `กำลังเชื่อม LINE กับบัญชี ${app.session.user.display_name} — ยืนยันในหน้าของ LINE ภายใน 10 นาที`),
+        h("a", { class: "btn btn-primary btn-lg", href: r.redirect_url, target: "_top", rel: "noopener" }, "ไปยืนยันที่ LINE")
+      );
+    } catch (e2) {
+      mount(out, errorState(e2));
+    }
+    return out;
+  }
+  async function renderNotifyMonitor(app, params) {
+    const root = h("div");
+    const counts = h("div");
+    const listBox = h("div", { "aria-live": "polite" });
+    const detail = h("div");
+    const state = h("select", { class: "input", "aria-label": "สถานะ" }, ["FAILED_FINAL", "RETRY_WAIT", "QUEUED", "PROCESSING", "CANCELLED", "PROVIDER_ACCEPTED"].map((s) => h("option", { value: s }, enumLabel("DeliveryState", s))));
+    state.value = params.state || "FAILED_FINAL";
+    const load = async () => {
+      mount(listBox, loading());
+      try {
+        const r = await app.api.get("notification.monitor", { state: state.value, days: 30 }, { channel: "notif-monitor" });
+        const channels = Object.keys(r.counts);
+        mount(counts, channels.length ? table([
+          { label: "ช่องทาง", render: (c) => enumLabel("Channel", c) },
+          ...["QUEUED", "PROCESSING", "RETRY_WAIT", "PROVIDER_ACCEPTED", "FAILED_FINAL", "CANCELLED"].map((s) => ({ label: enumLabel("DeliveryState", s), render: (c) => r.counts[c][s] || 0 }))
+        ], channels, { caption: "สรุป 30 วัน (ผู้ให้บริการรับคำขอ ≠ ผู้รับอ่านแล้ว)" }) : empty("ยังไม่มีรายการส่งออกนอกระบบ"));
+        mount(listBox, r.items.length ? table([
+          { label: "ประเภท", render: (x) => enumLabel("NotificationType", x.notification_type) },
+          { label: "ผู้รับ", render: (x) => x.recipient_name || "—" },
+          { label: "ช่องทาง", render: (x) => enumLabel("Channel", x.channel) },
+          { label: "ครั้ง", render: (x) => `${x.attempts}/${x.max_attempts}` },
+          { label: "สาเหตุ", render: (x) => x.last_error_code || x.held_reason || "—" },
+          { label: "อัปเดต", render: (x) => formatThaiDateTime(x.updated_at) },
+          { label: "", render: (x) => rowActions(app, x, load, detail) }
+        ], r.items) : empty("ไม่มีรายการในสถานะนี้"));
+      } catch (e2) {
+        if (e2.code !== "STALE_RESPONSE") mount(listBox, errorState(e2, load));
+      }
+    };
+    state.addEventListener("change", load);
+    root.append(
+      counts,
+      h("div", { class: "grid3" }, h("div", { class: "field" }, h("label", null, "สถานะ"), state)),
+      listBox,
+      detail,
+      alertBox("info", '"ส่งซ้ำแบบเดิม" ใช้ retry key เดิมของ LINE (LINE ไม่ส่งซ้ำถ้าเคยรับแล้ว) · "ส่งใหม่" สร้างข้อความใหม่ ผู้รับอาจได้รับซ้ำ — อีเมลใช้ได้เฉพาะ "ส่งใหม่"')
+    );
+    load();
+    return root;
+  }
+  function rowActions(app, x, reload, detail) {
+    const btns = [actionButton("ดูการพยายามส่ง", async () => {
+      try {
+        const d = await app.api.get("notification.monitor", { outbox_id: x.outbox_id });
+        mount(detail, section("ประวัติการส่ง", table([
+          { label: "ครั้งที่", key: "attempt_no" },
+          { label: "เริ่ม", render: (a) => formatThaiDateTime(a.started_at) },
+          { label: "ผล", render: (a) => enumLabel("AttemptResult", a.result) },
+          { label: "HTTP", render: (a) => {
+            var _a;
+            return (_a = a.http_status) != null ? _a : "—";
+          } },
+          { label: "รหัสคำขอผู้ให้บริการ", render: (a) => a.provider_request_id || "—" },
+          { label: "ข้อผิดพลาด", render: (a) => a.error_code || "—" }
+        ], d.attempts)));
+      } catch (e2) {
+        toast(e2.message_th || "โหลดไม่สำเร็จ", "danger");
+      }
+    }, { variant: "secondary" })];
+    if (app.can("notification.resend") && x.delivery_state === "FAILED_FINAL") {
+      if (x.retry_same_allowed) btns.push(actionButton("ส่งซ้ำแบบเดิม", () => resend(app, x, "RETRY_SAME", reload), { variant: "secondary" }));
+      btns.push(actionButton("ส่งใหม่", () => resend(app, x, "RESEND_NEW", reload), { variant: "secondary" }));
+    }
+    if (app.can("notification.resend") && ["QUEUED", "RETRY_WAIT"].includes(x.delivery_state)) {
+      btns.push(actionButton("ยกเลิกการส่ง", async () => {
+        try {
+          await app.api.mutate("notification.cancel", { outbox_id: x.outbox_id, reason: "ยกเลิกโดยเจ้าหน้าที่" }, { expectedVersion: x.version });
+          toast("ยกเลิกแล้ว");
+          reload();
+        } catch (e2) {
+          toast(e2.message_th || "ไม่สำเร็จ", "danger");
+        }
+      }, { variant: "secondary", confirmText: "ยกเลิกการส่งรายการนี้?" }));
+    }
+    return h("div", { class: "row-actions" }, btns);
+  }
+  async function resend(app, x, mode, reload) {
+    const reason = await askText(mode === "RETRY_SAME" ? "ส่งซ้ำด้วย retry key เดิม (LINE จะไม่ส่งซ้ำถ้าเคยรับแล้ว) — ระบุเหตุผล" : "ส่งเป็นข้อความใหม่ ผู้รับอาจได้รับซ้ำ — ระบุเหตุผล", { multiline: true });
+    if (!reason) return;
+    try {
+      await app.api.mutate("notification.resend", { outbox_id: x.outbox_id, mode, reason }, { expectedVersion: x.version });
+      toast("เข้าคิวส่งแล้ว — ระบบจะส่งในรอบถัดไป");
+      reload();
+    } catch (e2) {
+      toast(e2.message_th || "ไม่สำเร็จ", "danger");
+    }
+  }
+
   // frontend/src/screens/extra.js
   var EXTRA_ROUTES = [
     { path: "dashboard", position: "top", title_th: "ภาพรวมวันนี้", icon: "📊", anyOf: ["attendance.read"], render: renderDashboard },
@@ -2951,6 +3444,10 @@ fieldset { border: 1px solid var(--line); border-radius: 8px; }
     { path: "rollcall", position: "top", title_th: "เช็กชื่อประจำวัน", icon: "✅", anyOf: ["attendance.rollcall"], render: renderRollcall },
     { path: "leave", title_th: "แจ้งลา", icon: "📝", anyOf: ["leave.submit", "leave.read"], render: renderLeave },
     { path: "approvals", title_th: "พิจารณาใบลา", icon: "📋", anyOf: ["leave.approve", "leave.confirm_guardian"], render: renderApprovals },
+    { path: "notifications", position: "top", title_th: "การแจ้งเตือน", icon: "🔔", anyOf: ["notification.read_own"], render: renderNotifications },
+    { path: "cases", title_th: "งานติดตามและการติดต่อ", icon: "📞", anyOf: ["case.read", "case.record_contact"], render: renderCases },
+    { path: "notify-monitor", position: "admin", title_th: "ติดตามการส่งแจ้งเตือน", icon: "📮", anyOf: ["notification.monitor"], render: renderNotifyMonitor },
+    { path: "line-link", hidden: true, title_th: "เชื่อมบัญชี LINE", icon: "💬", render: renderLineLink },
     { path: "profile", hidden: true, title_th: "ประวัตินักเรียน", icon: "👤", anyOf: ["student.read", "student.read_basic"], render: renderProfile }
   ];
 

@@ -31,6 +31,7 @@ export function loadGasConfig() {
     lineEnabled: get('CWK_LINE_ENABLED', 'false') === 'true',
     lineWebhookKeyId: get('CWK_LINE_WEBHOOK_KEY_ID'),
     lineRetryWindowHours: Number(get('CWK_LINE_RETRY_WINDOW_HOURS', '12')),
+    lineAddFriendUrl: /^https:\/\//.test(get('CWK_LINE_ADD_FRIEND_URL', '') || '') ? get('CWK_LINE_ADD_FRIEND_URL') : null,
     emailEnabled: get('CWK_EMAIL_ENABLED', 'true') === 'true',
     emailSenderName: get('CWK_EMAIL_SENDER_NAME', 'CWK Smart Care'),
     notifyAllowlist: (get('CWK_NOTIFY_ALLOWLIST', '') || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),

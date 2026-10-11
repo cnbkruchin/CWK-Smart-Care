@@ -109,7 +109,8 @@
         "string",
         "null"
       ],
-      "format": "uuid"
+      "format": "uuid",
+      "description": "รายการก่อนหน้าที่บันทึกนี้แก้ไขแทน หรือรายการติดต่อเข้า (INBOUND) ที่บันทึกนี้ตอบกลับ/ปิดแล้ว"
     },
     "operation_id": {
       "type": "string",

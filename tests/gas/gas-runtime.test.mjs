@@ -243,3 +243,89 @@ test('daily flows on Sheets: gate arrival (dedupe), roll call, leave approval an
     assert.equal(ok(env(sim, g.user_id, 'leave.get', { leave_request_id: lv.leave_request_id })).segments[0].status, 'APPROVED');
   }
 });
+
+test('notifications on Apps Script: MailApp email, doPost envelope → LINE account link, LINE push with retry key', async () => {
+  const { buildEnvelope } = await import('../../gateway/src/app.mjs');
+  const now = '2026-06-15T03:30:00.000Z'; // 10:30 Bangkok, outside quiet hours
+  const sim = new GasSim({ now, properties: {
+    CWK_ENV: 'DEV', CWK_AUTH_MODE: 'DEMO', CWK_DEMO_PASSPHRASE: PASS, CWK_ADMIN_TASKS_ENABLED_UNTIL: new Date(Date.parse(now) + 3600 * 1000).toISOString(),
+    CWK_LINE_ENABLED: 'true', CWK_LINE_CHANNEL_ACCESS_TOKEN: 'emulator-line-token', CWK_LINE_WEBHOOK_SECRET: 'emulator-envelope-secret', CWK_LINE_WEBHOOK_KEY_ID: 'line-k1',
+    CWK_WEBAPP_URL: 'https://script.google.com/macros/s/EMULATOR/exec',
+  } });
+  sim.load(DIST);
+  sim.ctx.adminSetup();
+  const demo = sim.ctx.adminSeedDemo();
+  const staff = Object.fromEntries(demo.staff.map((s) => [s.key, s.user_id]));
+  const ok = (r) => { assert.equal(r.ok, true, JSON.stringify(r.error)); return r.data; };
+  // LINE Messaging API double behind UrlFetchApp
+  const pushes = [];
+  const seenKeys = new Set();
+  const replies = [];
+  sim.fetchHandler = (url, params) => {
+    const headers = params.headers || {};
+    assert.equal(headers.Authorization, 'Bearer emulator-line-token');
+    if (url.endsWith('/linkToken')) return { status: 200, body: JSON.stringify({ linkToken: 'EmuLinkToken123' }) };
+    if (url.endsWith('/v2/bot/message/reply')) { replies.push(JSON.parse(params.payload)); return { status: 200, body: '{}' }; }
+    if (url.endsWith('/v2/bot/message/push')) {
+      const key = headers['X-Line-Retry-Key'];
+      assert.match(key, /^[0-9a-f-]{36}$/);
+      if (seenKeys.has(key)) return { status: 409, body: '{"message":"The retry key is already accepted"}', headers: { 'x-line-accepted-request-id': 'req-1' } };
+      seenKeys.add(key);
+      pushes.push(JSON.parse(params.payload));
+      return { status: 200, body: '{}', headers: { 'x-line-request-id': `req-${pushes.length}` } };
+    }
+    return { status: 404, body: '{}' };
+  };
+  // find homeroom1's class and a linked guardian there
+  let mine = null;
+  for (const c of ok(env(sim, staff.homeroom1, 'class.list', {})).items) {
+    const r = env(sim, staff.homeroom1, 'rollcall.get', { class_id: c.id, school_date: '2026-06-15' });
+    if (r.ok && r.data.can_mark) { mine = r.data; break; }
+  }
+  const g = demo.guardian_users.find((x) => mine.items.some((i) => i.student.id === x.student_id));
+  assert.ok(g);
+  const gEmail = `guardian${demo.guardian_users.indexOf(g) + 1}@example.com`;
+  sim.props.CWK_NOTIFY_ALLOWLIST = `${gEmail},U0123456789abcdef0123456789abcdef`;
+  sim.ctx.adminInstallTriggers();
+  const tick = () => JSON.parse(sim.ctx.cronTick({ triggerUid: sim.triggers[0].getUniqueId() }));
+  // 1) email path works without LINE being linked
+  ok(env(sim, staff.homeroom1, 'rollcall.submit', { class_id: mine.class.id, school_date: '2026-06-15', marks: [{ student_id: g.student_id, mark: 'ABSENT' }] }, { mutation: true }));
+  ok(env(sim, staff.homeroom1, 'attendance.verifyDay', { class_id: mine.class.id, school_date: '2026-06-15', confirm_absent_student_ids: [g.student_id] }, { mutation: true }));
+  const t1 = tick();
+  assert.equal(t1.tasks['outbox.dispatch'].sent, 1, JSON.stringify(t1.tasks['outbox.dispatch']));
+  const mail = sim.mail.find((m) => m.to === gEmail);
+  assert.ok(mail, 'MailApp.sendEmail called for the allowlisted guardian');
+  assert.match(mail.subject, /แจ้งขาดเรียน/);
+  assert.equal(mail.noReply, true);
+  // 2) LINE account link through doPost envelopes (Thai text in payload exercises UTF-8 hashing)
+  const post = (event) => {
+    const e = buildEnvelope({ keyId: 'line-k1', secret: 'emulator-envelope-secret', nonce: event.webhookEventId, payload: JSON.stringify(event), nowMs: Date.parse(now) });
+    return JSON.parse(sim.ctx.doPost({ postData: { contents: JSON.stringify(e), type: 'application/json' } }).getContent());
+  };
+  const LINE_ID = 'U0123456789abcdef0123456789abcdef';
+  const base = { timestamp: Date.parse(now), mode: 'active', source: { type: 'user', userId: LINE_ID }, deliveryContext: { isRedelivery: false } };
+  assert.deepEqual(post({ ...base, type: 'follow', webhookEventId: '01HXEMU0000000000000000001', replyToken: 'rt1' }), { ok: true, stored: true });
+  assert.match(replies[0].messages[0].text, /page=line-link&linkToken=EmuLinkToken123/);
+  const start = ok(env(sim, g.user_id, 'channel.startLineLink', { link_token: 'EmuLinkToken123' }, { mutation: true }));
+  const nonce = new URL(start.redirect_url).searchParams.get('nonce');
+  assert.deepEqual(post({ ...base, type: 'accountLink', webhookEventId: '01HXEMU0000000000000000002', replyToken: 'rt2', link: { result: 'ok', nonce } }), { ok: true, stored: true });
+  assert.equal(ok(env(sim, g.user_id, 'channel.status', {})).bindings[0].status, 'ACTIVE');
+  assert.deepEqual(post({ ...base, type: 'accountLink', webhookEventId: '01HXEMU0000000000000000002', replyToken: 'rt2', link: { result: 'ok', nonce } }), { ok: true, stored: true, duplicate: true });
+  // a forged envelope is refused and nothing is stored
+  const forged = JSON.parse(sim.ctx.doPost({ postData: { contents: JSON.stringify({ v: 1, kid: 'line-k1', ts: Math.floor(Date.parse(now) / 1000), nonce: '01HXEMU0000000000000000003', source: 'LINE', payload: '{}', sig: 'AAAA' }) } }).getContent());
+  assert.deepEqual([forged.ok, forged.stored], [false, false]);
+  // inbound Thai message from the bound guardian reaches the homeroom contact inbox
+  assert.deepEqual(post({ ...base, type: 'message', webhookEventId: '01HXEMU0000000000000000004', replyToken: 'rt4', message: { type: 'text', id: 'm1', text: 'ลูกไม่สบาย ขอลาพรุ่งนี้ค่ะ' } }), { ok: true, stored: true });
+  assert.ok(ok(env(sim, staff.homeroom1, 'contact.inbox', {})).items.some((x) => x.summary.includes('ไม่สบาย')));
+  // 3) the next notification goes to LINE with a retry key; a re-push with the same key is a 409 no-op
+  const station = ok(env(sim, staff.duty, 'station.list', {})).items[0];
+  sim.setNow('2026-06-16T01:20:00.000Z'); // 08:20 next school day → late
+  ok(env(sim, staff.duty, 'attendance.recordArrival', { student_id: g.student_id, station_id: station.id, source: 'SCAN_KEYBOARD' }, { mutation: true }));
+  sim.setNow('2026-06-16T03:00:00.000Z');
+  const t2 = tick();
+  assert.ok(t2.tasks['outbox.dispatch'].sent >= 1, JSON.stringify(t2.tasks['outbox.dispatch']));
+  assert.equal(pushes.length, 1);
+  assert.equal(pushes[0].to, LINE_ID);
+  assert.match(pushes[0].messages[0].text, /มาสาย|แจ้งมาสาย/);
+  assert.ok(pushes[0].messages[1].template.actions.some((a) => a.type === 'postback'));
+});

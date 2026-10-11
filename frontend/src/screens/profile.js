@@ -55,6 +55,7 @@ export async function renderProfile(app, params) {
 
   const actions = [];
   if (p.can.submit_leave) actions.push(h('a', { class: 'btn btn-secondary', href: '#/leave' }, 'ยื่นใบลา'));
+  if (p.can.manage_cases) actions.push(h('a', { class: 'btn btn-secondary', href: `#/cases?new=${encodeURIComponent(s.id)}` }, 'เปิดเรื่องติดตาม'));
   if (app.can('attendance.rollcall') && s.class_id) actions.push(h('a', { class: 'btn btn-secondary', href: `#/rollcall?class_id=${encodeURIComponent(s.class_id)}` }, 'เช็กชื่อห้องนี้'));
   if (actions.length) root.appendChild(h('div', { class: 'row-actions' }, actions));
 
@@ -93,7 +94,7 @@ export async function renderProfile(app, params) {
     root.appendChild(section('เรื่องติดตาม', table([
       { label: 'ประเภท', render: (c) => enumLabel('CaseType', c.case_type) }, { label: 'สถานะ', render: (c) => enumLabel('CaseStatus', c.status) },
       { label: 'กำหนด', render: (c) => (c.due_at ? formatThaiDateTime(c.due_at) : '—') },
-    ], p.cases)));
+    ], p.cases, { onRow: app.can('case.read') ? (c) => app.go('cases', { id: c.id }) : null })));
   }
 
   root.appendChild(section('ไทม์ไลน์', p.timeline.length ? h('ul', { class: 'timeline' }, p.timeline.map((t) => h('li', { class: `kind-${t.kind}` },

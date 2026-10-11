@@ -3,7 +3,7 @@ import { createContext, ruleFor, setting } from '../context.js';
 import { systemPrincipal } from '../principal.js';
 import { computeDay, preloadDay, refreshDay, stageProjection, listAll } from '../services/attendance-core.js';
 import { emitNotification, homeroomRecipients } from '../services/notify.js';
-import { enqueueJob } from '../jobs.js';
+import { enqueueOnceEver } from '../jobs.js';
 import { dayInfo } from '../../domain/calendar.js';
 import { rosterForClass } from '../../domain/enrollment.js';
 import { dateInRange, localPartsOf, eachDate, addDays, hhmmToMinutes } from '../../shared/time.js';
@@ -111,16 +111,6 @@ export function* unknownCheckJob(ctx, job) {
     tasks++;
   }
   return { done: true, result: { tasks } };
-}
-
-/** Enqueue a once-per-key job (any status) so a daily job never repeats after success. */
-function* enqueueOnceEver(ctx, spec) {
-  const existing = yield ctx.store.findBy('Jobs', 'dedupe_key', spec.dedupe_key);
-  if (existing.length) return false;
-  const cs = ctx.changeSet('jobs.schedule');
-  enqueueJob(cs, ctx, { ...spec, owner_user_id: SYSTEM_USER_ID });
-  yield ctx.mutations.commit(cs.build({ result: {} }));
-  return true;
 }
 
 export const ATTENDANCE_TICK = {

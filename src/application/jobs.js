@@ -111,3 +111,13 @@ export function* enqueueJobOnce(ctx, cs, spec) {
   }
   return enqueueJob(cs, ctx, spec);
 }
+
+/** Enqueue a once-per-key job (any status) so a daily job never repeats after success; commits itself. */
+export function* enqueueOnceEver(ctx, spec) {
+  const existing = yield ctx.store.findBy('Jobs', 'dedupe_key', spec.dedupe_key);
+  if (existing.length) return false;
+  const cs = ctx.changeSet('jobs.schedule');
+  enqueueJob(cs, ctx, { ...spec, owner_user_id: SYSTEM_USER_ID });
+  yield ctx.mutations.commit(cs.build({ result: {} }));
+  return true;
+}

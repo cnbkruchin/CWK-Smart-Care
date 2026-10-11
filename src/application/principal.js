@@ -66,3 +66,13 @@ export function* loadFacts(ctx, user, date) {
 export function systemPrincipal(userId) {
   return { authenticated: true, linked: true, system: true, user_id: userId, user: null, roles: new Set(), facts: emptyFacts(userId), claims: null };
 }
+
+/**
+ * Principal for a user identified through a verified channel binding (e.g. a LINE postback from the
+ * LINE user bound by account-link). Same roles/facts as a web session; disabled users are refused.
+ */
+export function* principalForBoundUser(ctx, user, via) {
+  if (!user || user.status !== 'ACTIVE') throw new AppError('ACCOUNT_DISABLED', 'bound user not active');
+  const facts = yield* loadFacts(ctx, user, ctx.today);
+  return { authenticated: true, linked: true, claims: { provider: via }, user_id: user.id, user, roles: facts.roles, facts, via };
+}

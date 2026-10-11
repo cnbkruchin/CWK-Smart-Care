@@ -45,7 +45,7 @@ export const MACHINES = Object.freeze({
     transitions: [
       t(['(new)'], 'OPEN', ['STUDENT_AFFAIRS', 'HOMEROOM_TEACHER', 'SYSTEM'], ['OPEN'], 'กฎเข้าเงื่อนไขพร้อมหลักฐาน หรือครูเปิดเอง; ไม่มีเรื่องเปิดอยู่ที่ dedupe_key เดียวกัน และพ้น cooldown', 'แจ้งเจ้าของเรื่อง (CASE_NEW)'),
       t(['OPEN', 'IN_PROGRESS', 'WAITING_RESPONSE'], 'ASSIGN', ['STUDENT_AFFAIRS', 'HOMEROOM_TEACHER'], ['OPEN', 'IN_PROGRESS', 'WAITING_RESPONSE'], 'ผู้รับต้องมีสิทธิ์ case.manage ต่อนักเรียน', 'CaseEvents ASSIGNED/TRANSFERRED; แจ้งผู้รับ'),
-      t(['OPEN', 'WAITING_RESPONSE'], 'RECORD_CONTACT', ['STUDENT_AFFAIRS', 'HOMEROOM_TEACHER'], ['IN_PROGRESS', 'WAITING_RESPONSE'], 'บันทึกผลการติดต่อจริง', 'ContactLogs + CaseEvents'),
+      t(['OPEN', 'IN_PROGRESS', 'WAITING_RESPONSE'], 'RECORD_CONTACT', ['STUDENT_AFFAIRS', 'HOMEROOM_TEACHER'], ['IN_PROGRESS', 'WAITING_RESPONSE'], 'บันทึกผลการติดต่อจริง (ไม่บันทึกว่าโทรสำเร็จจนกว่าเจ้าหน้าที่บันทึกผล)', 'ContactLogs + CaseEvents; ติดต่อไม่ได้/ต้องติดตาม → รอการตอบกลับ'),
       t(['OPEN', 'IN_PROGRESS', 'WAITING_RESPONSE'], 'RESOLVE', ['STUDENT_AFFAIRS', 'HOMEROOM_TEACHER'], ['RESOLVED'], 'มีข้อสรุป', 'CaseEvents'),
       t(['OPEN', 'IN_PROGRESS', 'WAITING_RESPONSE', 'RESOLVED'], 'CLOSE', ['STUDENT_AFFAIRS', 'HOMEROOM_TEACHER'], ['CLOSED'], 'ต้องมี resolution_summary', 'ตั้ง cooldown_until ตามกฎ'),
       t(['CLOSED', 'RESOLVED'], 'REOPEN', ['STUDENT_AFFAIRS', 'HOMEROOM_TEACHER'], ['OPEN'], 'ต้องมีเหตุผล', 'reopened_count + 1'),

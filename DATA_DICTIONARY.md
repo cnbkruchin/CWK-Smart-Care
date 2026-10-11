@@ -1071,7 +1071,7 @@ Business settings ที่ไม่ลับ (แยกจาก Script Propert
 
 - kind: **EVENT** · partition: **NONE** · sensitivity: **SENSITIVE** · retention: `ENROLLMENT_PLUS_5Y`
 - unique: —
-- lookup/index (access pattern): student_id, case_id
+- lookup/index (access pattern): student_id, case_id, supersedes_id, direction
 
 | คอลัมน์ | ชนิด | required | ข้อจำกัด | คำอธิบาย |
 |---|---|---|---|---|
@@ -1087,7 +1087,7 @@ Business settings ที่ไม่ลับ (แยกจาก Script Propert
 | summary | string(2000) |  |  |  |
 | follow_up_required | bool | ✔ |  |  |
 | next_follow_up_at | timestamp (UTC) |  |  |  |
-| supersedes_id | uuid |  | FK → ContactLogs.id |  |
+| supersedes_id | uuid |  | FK → ContactLogs.id | รายการก่อนหน้าที่บันทึกนี้แก้ไขแทน หรือรายการติดต่อเข้า (INBOUND) ที่บันทึกนี้ตอบกลับ/ปิดแล้ว |
 | operation_id | uuid | ✔ |  |  |
 | created_at | timestamp (UTC) | ✔ |  | เวลาบันทึก (UTC) |
 | created_by | uuid | ✔ |  | ผู้บันทึก (ยืนยันโดย server) |
@@ -1230,7 +1230,7 @@ logical file ID → provider object (Drive file ID / path) เปลี่ยน
 
 - kind: **ENTITY** · partition: **TERM** (created_at) · sensitivity: **PERSONAL** · retention: `TERM_PLUS_1Y`
 - unique: (notification_id, recipient_user_id)
-- lookup/index (access pattern): recipient_user_id, notification_id
+- lookup/index (access pattern): recipient_user_id, notification_id, ack_state
 
 | คอลัมน์ | ชนิด | required | ข้อจำกัด | คำอธิบาย |
 |---|---|---|---|---|
@@ -1255,7 +1255,7 @@ logical file ID → provider object (Drive file ID / path) เปลี่ยน
 
 - kind: **ENTITY** · partition: **TERM** (created_at) · sensitivity: **PERSONAL** · retention: `TERM_PLUS_1Y`
 - unique: (dedupe_key)
-- lookup/index (access pattern): dedupe_key, notification_id, delivery_state+next_attempt_at
+- lookup/index (access pattern): dedupe_key, notification_id, delivery_state, delivery_state+next_attempt_at
 
 | คอลัมน์ | ชนิด | required | ข้อจำกัด | คำอธิบาย |
 |---|---|---|---|---|
@@ -1368,7 +1368,7 @@ logical file ID → provider object (Drive file ID / path) เปลี่ยน
 
 - kind: **ENTITY** · partition: **TERM** (received_at) · sensitivity: **PERSONAL** · retention: `90D`
 - unique: (source, webhook_event_id)
-- lookup/index (access pattern): webhook_event_id, status
+- lookup/index (access pattern): webhook_event_id, status, status
 
 | คอลัมน์ | ชนิด | required | ข้อจำกัด | คำอธิบาย |
 |---|---|---|---|---|

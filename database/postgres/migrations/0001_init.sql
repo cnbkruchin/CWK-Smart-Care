@@ -1120,9 +1120,10 @@ CREATE TABLE contact_logs (
 CREATE TRIGGER contact_logs_append_only BEFORE UPDATE OR DELETE ON contact_logs FOR EACH ROW EXECUTE FUNCTION cwk_forbid_mutation();
 CREATE INDEX contact_logs_ix1 ON contact_logs (student_id);
 CREATE INDEX contact_logs_ix2 ON contact_logs (case_id);
-CREATE INDEX contact_logs_ix3 ON contact_logs (guardian_id);
-CREATE INDEX contact_logs_ix4 ON contact_logs (contacted_by);
-CREATE INDEX contact_logs_ix5 ON contact_logs (supersedes_id);
+CREATE INDEX contact_logs_ix3 ON contact_logs (supersedes_id);
+CREATE INDEX contact_logs_ix4 ON contact_logs (direction);
+CREATE INDEX contact_logs_ix5 ON contact_logs (guardian_id);
+CREATE INDEX contact_logs_ix6 ON contact_logs (contacted_by);
 
 -- Appointments: นัดหมาย
 CREATE TABLE appointments (
@@ -1298,6 +1299,7 @@ CREATE TABLE notification_recipients (
 CREATE UNIQUE INDEX notification_recipients_uq1 ON notification_recipients (notification_id, recipient_user_id);
 CREATE INDEX notification_recipients_ix1 ON notification_recipients (recipient_user_id);
 CREATE INDEX notification_recipients_ix2 ON notification_recipients (notification_id);
+CREATE INDEX notification_recipients_ix3 ON notification_recipients (ack_state);
 
 -- NotificationOutbox: คิวส่งภายนอก (email/LINE/SMS) แยก delivery state ออกจากการรับทราบ; dedupe_key กันส่งซ้ำ
 CREATE TABLE notification_outbox (
@@ -1351,10 +1353,11 @@ CREATE TABLE notification_outbox (
 CREATE UNIQUE INDEX notification_outbox_uq1 ON notification_outbox (dedupe_key);
 CREATE INDEX notification_outbox_ix1 ON notification_outbox (dedupe_key);
 CREATE INDEX notification_outbox_ix2 ON notification_outbox (notification_id);
-CREATE INDEX notification_outbox_ix3 ON notification_outbox (delivery_state, next_attempt_at);
-CREATE INDEX notification_outbox_ix4 ON notification_outbox (recipient_id);
-CREATE INDEX notification_outbox_ix5 ON notification_outbox (recipient_user_id);
-CREATE INDEX notification_outbox_ix6 ON notification_outbox (resend_of_outbox_id);
+CREATE INDEX notification_outbox_ix3 ON notification_outbox (delivery_state);
+CREATE INDEX notification_outbox_ix4 ON notification_outbox (delivery_state, next_attempt_at);
+CREATE INDEX notification_outbox_ix5 ON notification_outbox (recipient_id);
+CREATE INDEX notification_outbox_ix6 ON notification_outbox (recipient_user_id);
+CREATE INDEX notification_outbox_ix7 ON notification_outbox (resend_of_outbox_id);
 
 -- NotificationAttempts: ผลการเรียกผู้ให้บริการแต่ละครั้ง (append-only)
 CREATE TABLE notification_attempts (

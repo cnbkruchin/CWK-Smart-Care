@@ -42,7 +42,7 @@
 |---|---|---|---|---|---|---|
 | (new) | OPEN | STUDENT_AFFAIRS, HOMEROOM_TEACHER, SYSTEM | กฎเข้าเงื่อนไขพร้อมหลักฐาน หรือครูเปิดเอง; ไม่มีเรื่องเปิดอยู่ที่ dedupe_key เดียวกัน และพ้น cooldown | OPEN | ✔ | แจ้งเจ้าของเรื่อง (CASE_NEW) |
 | OPEN, IN_PROGRESS, WAITING_RESPONSE | ASSIGN | STUDENT_AFFAIRS, HOMEROOM_TEACHER | ผู้รับต้องมีสิทธิ์ case.manage ต่อนักเรียน | OPEN / IN_PROGRESS / WAITING_RESPONSE | ✔ | CaseEvents ASSIGNED/TRANSFERRED; แจ้งผู้รับ |
-| OPEN, WAITING_RESPONSE | RECORD_CONTACT | STUDENT_AFFAIRS, HOMEROOM_TEACHER | บันทึกผลการติดต่อจริง | IN_PROGRESS / WAITING_RESPONSE | ✔ | ContactLogs + CaseEvents |
+| OPEN, IN_PROGRESS, WAITING_RESPONSE | RECORD_CONTACT | STUDENT_AFFAIRS, HOMEROOM_TEACHER | บันทึกผลการติดต่อจริง (ไม่บันทึกว่าโทรสำเร็จจนกว่าเจ้าหน้าที่บันทึกผล) | IN_PROGRESS / WAITING_RESPONSE | ✔ | ContactLogs + CaseEvents; ติดต่อไม่ได้/ต้องติดตาม → รอการตอบกลับ |
 | OPEN, IN_PROGRESS, WAITING_RESPONSE | RESOLVE | STUDENT_AFFAIRS, HOMEROOM_TEACHER | มีข้อสรุป | RESOLVED | ✔ | CaseEvents |
 | OPEN, IN_PROGRESS, WAITING_RESPONSE, RESOLVED | CLOSE | STUDENT_AFFAIRS, HOMEROOM_TEACHER | ต้องมี resolution_summary | CLOSED | ✔ | ตั้ง cooldown_until ตามกฎ |
 | CLOSED, RESOLVED | REOPEN | STUDENT_AFFAIRS, HOMEROOM_TEACHER | ต้องมีเหตุผล | OPEN | ✔ | reopened_count + 1 |

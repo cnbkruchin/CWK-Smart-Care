@@ -32,6 +32,8 @@ components:
           enum:
             - academicYear.create
             - app.publicConfig
+            - appointment.create
+            - appointment.update
             - assignment.create
             - assignment.end
             - attachment.download
@@ -49,10 +51,25 @@ components:
             - auth.logout
             - auth.redeemInvitation
             - calendar.set
+            - case.assign
+            - case.assignable
+            - case.close
+            - case.create
+            - case.get
+            - case.list
+            - case.reopen
+            - case.resolve
+            - case.update
+            - channel.revokeForUser
+            - channel.startLineLink
+            - channel.status
+            - channel.unbind
             - class.create
             - class.list
             - contact.add
             - contact.disable
+            - contact.inbox
+            - contact.log
             - dashboard.summary
             - enrollment.change
             - guardian.create
@@ -87,6 +104,12 @@ components:
             - leave.resubmit
             - leave.submit
             - leave.withdraw
+            - notification.acknowledge
+            - notification.cancel
+            - notification.list
+            - notification.markRead
+            - notification.monitor
+            - notification.resend
             - period.create
             - reconciliation.list
             - reconciliation.resolve
@@ -327,6 +350,139 @@ paths:
         mutation: false
         idempotency: NONE
         rate_limit_per_minute: 60
+  "/v1/ops/appointment.create":
+    post:
+      operationId: appointment_create
+      summary: "นัดหมายผู้ปกครอง/นักเรียน"
+      tags:
+        - appointment
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - case_id
+                - scheduled_at
+              properties:
+                case_id:
+                  type: string
+                  format: uuid
+                scheduled_at:
+                  type: string
+                  format: timestamp
+                duration_minutes:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 5
+                  maximum: 600
+                location:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 200
+                attendees_note:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 500
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: case.record_contact
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/appointment.update":
+    post:
+      operationId: appointment_update
+      summary: "บันทึกผลนัดหมาย/เลื่อน/ยกเลิก"
+      tags:
+        - appointment
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - appointment_id
+                - status
+              properties:
+                appointment_id:
+                  type: string
+                  format: uuid
+                status:
+                  type: string
+                  enum:
+                    - SCHEDULED
+                    - COMPLETED
+                    - NO_SHOW
+                    - CANCELLED
+                    - RESCHEDULED
+                outcome_note:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 2000
+                scheduled_at:
+                  type:
+                    - string
+                    - "null"
+                  format: timestamp
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: case.record_contact
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
   "/v1/ops/assignment.create":
     post:
       operationId: assignment_create
@@ -1381,6 +1537,698 @@ paths:
         mutation: true
         idempotency: REQUIRED
         rate_limit_per_minute: 120
+  "/v1/ops/case.assign":
+    post:
+      operationId: case_assign
+      summary: "มอบหมาย/ส่งต่อผู้รับผิดชอบ (ผู้รับต้องมีสิทธิ์ดูแลนักเรียน)"
+      tags:
+        - case
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - case_id
+                - owner_user_id
+                - reason
+              properties:
+                case_id:
+                  type: string
+                  format: uuid
+                owner_user_id:
+                  type: string
+                  format: uuid
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 500
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: case.manage
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/case.assignable":
+    post:
+      operationId: case_assignable
+      summary: "รายชื่อผู้ที่รับมอบหมายเรื่องของนักเรียนคนนี้ได้"
+      tags:
+        - case
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - student_id
+              properties:
+                student_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: case.manage
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 300
+  "/v1/ops/case.close":
+    post:
+      operationId: case_close
+      summary: "ปิดเรื่องพร้อมข้อสรุป (เรื่องที่มาจากกฎจะมีช่วงพักก่อนเปิดใหม่)"
+      tags:
+        - case
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - case_id
+                - resolution_summary
+              properties:
+                case_id:
+                  type: string
+                  format: uuid
+                resolution_summary:
+                  type: string
+                  minLength: 5
+                  maxLength: 2000
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: case.manage
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/case.create":
+    post:
+      operationId: case_create
+      summary: "ครูเปิดเรื่องติดตามเอง (ระบุเหตุผลเชิงข้อเท็จจริง ไม่ตัดสินพฤติกรรม)"
+      tags:
+        - case
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - student_id
+                - summary_th
+                - priority
+              properties:
+                student_id:
+                  type: string
+                  format: uuid
+                summary_th:
+                  type: string
+                  minLength: 5
+                  maxLength: 1000
+                priority:
+                  type: string
+                  enum:
+                    - LOW
+                    - NORMAL
+                    - HIGH
+                    - URGENT
+                next_action_th:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 500
+                due_at:
+                  type:
+                    - string
+                    - "null"
+                  format: timestamp
+                owner_user_id:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: case.manage
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/case.get":
+    post:
+      operationId: case_get
+      summary: "รายละเอียดเรื่องติดตาม: หลักฐานที่เข้ากฎ บันทึกการติดต่อ นัดหมาย และประวัติ"
+      tags:
+        - case
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - case_id
+              properties:
+                case_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: case.read
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 300
+  "/v1/ops/case.list":
+    post:
+      operationId: case_list
+      summary: "รายการเรื่องติดตามตามขอบเขต (ของฉัน/ห้องที่ปรึกษา/ทั้งโรงเรียน)"
+      tags:
+        - case
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: []
+              properties:
+                status:
+                  type:
+                    - string
+                    - "null"
+                  enum:
+                    - OPEN
+                    - IN_PROGRESS
+                    - WAITING_RESPONSE
+                    - RESOLVED
+                    - CLOSED
+                    - ACTIVE
+                    - null
+                mine:
+                  type:
+                    - boolean
+                    - "null"
+                student_id:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                overdue_only:
+                  type:
+                    - boolean
+                    - "null"
+                limit:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 1
+                  maximum: 200
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: case.read
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 300
+  "/v1/ops/case.reopen":
+    post:
+      operationId: case_reopen
+      summary: "เปิดเรื่องที่ปิด/แก้ไขแล้วอีกครั้ง (ต้องมีเหตุผล)"
+      tags:
+        - case
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - case_id
+                - reason
+              properties:
+                case_id:
+                  type: string
+                  format: uuid
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 1000
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: case.manage
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/case.resolve":
+    post:
+      operationId: case_resolve
+      summary: "บันทึกว่าแก้ไขแล้ว (รอปิดเรื่อง)"
+      tags:
+        - case
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - case_id
+                - note
+              properties:
+                case_id:
+                  type: string
+                  format: uuid
+                note:
+                  type: string
+                  minLength: 3
+                  maxLength: 1000
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: case.manage
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/case.update":
+    post:
+      operationId: case_update
+      summary: "ปรับความสำคัญ กำหนดเวลา และสิ่งที่ต้องทำต่อ"
+      tags:
+        - case
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - case_id
+              properties:
+                case_id:
+                  type: string
+                  format: uuid
+                priority:
+                  type:
+                    - string
+                    - "null"
+                  enum:
+                    - LOW
+                    - NORMAL
+                    - HIGH
+                    - URGENT
+                    - null
+                due_at:
+                  type:
+                    - string
+                    - "null"
+                  format: timestamp
+                next_action_th:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 500
+                note:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 1000
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: case.manage
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/channel.revokeForUser":
+    post:
+      operationId: channel_revokeForUser
+      summary: "เจ้าหน้าที่ยกเลิกช่องทาง LINE ของผู้ใช้ (เช่น เปลี่ยนผู้ปกครอง/อุปกรณ์หาย)"
+      tags:
+        - channel
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - user_id
+                - reason
+              properties:
+                user_id:
+                  type: string
+                  format: uuid
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 500
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: "guardian.manage | user.manage"
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/channel.startLineLink":
+    post:
+      operationId: channel_startLineLink
+      summary: "เริ่มเชื่อม LINE (ต้องเข้าสู่ระบบแล้ว): สร้าง nonce ใช้ครั้งเดียว อายุ 10 นาที แล้วส่งไปหน้ายืนยันของ LINE"
+      tags:
+        - channel
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - link_token
+              properties:
+                link_token:
+                  type: string
+                  pattern: "^[A-Za-z0-9_-]{8,128}$"
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: channel.bind
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 10
+  "/v1/ops/channel.status":
+    post:
+      operationId: channel_status
+      summary: "ช่องทางแจ้งเตือนของฉัน (อีเมล/LINE)"
+      tags:
+        - channel
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: []
+              properties: {}
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: null
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 300
+  "/v1/ops/channel.unbind":
+    post:
+      operationId: channel_unbind
+      summary: "ยกเลิกการเชื่อม LINE ของฉัน (ไม่รับข้อความทาง LINE อีก)"
+      tags:
+        - channel
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - binding_id
+              properties:
+                binding_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: channel.bind
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
   "/v1/ops/class.create":
     post:
       operationId: class_create
@@ -1603,6 +2451,156 @@ paths:
       x-cwk:
         auth: USER
         permission: guardian.manage
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/contact.inbox":
+    post:
+      operationId: contact_inbox
+      summary: "ข้อความ/คำขอติดต่อจากผู้ปกครองที่รอครูตอบกลับ (ตามขอบเขต)"
+      tags:
+        - contact
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: []
+              properties:
+                limit:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 1
+                  maximum: 200
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: case.record_contact
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 300
+  "/v1/ops/contact.log":
+    post:
+      operationId: contact_log
+      summary: "บันทึกผลการติดต่อ (โทร/LINE/พบตัว) — ติดต่อไม่ได้ก็ต้องบันทึก"
+      tags:
+        - contact
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - student_id
+                - channel
+                - direction
+                - outcome
+                - summary
+                - follow_up_required
+              properties:
+                student_id:
+                  type: string
+                  format: uuid
+                case_id:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                guardian_id:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                channel:
+                  type: string
+                  enum:
+                    - PHONE
+                    - EMAIL
+                    - LINE
+                    - SMS
+                    - IN_PERSON
+                    - OTHER
+                direction:
+                  type: string
+                  enum:
+                    - OUTBOUND
+                    - INBOUND
+                outcome:
+                  type: string
+                  enum:
+                    - REACHED
+                    - NO_ANSWER
+                    - ACKNOWLEDGED
+                    - APPOINTMENT_MADE
+                    - FOLLOW_UP_NEEDED
+                    - WRONG_CONTACT
+                    - ASSISTANCE_PROVIDED
+                summary:
+                  type: string
+                  minLength: 3
+                  maxLength: 2000
+                contacted_at:
+                  type:
+                    - string
+                    - "null"
+                  format: timestamp
+                follow_up_required:
+                  type: boolean
+                next_follow_up_at:
+                  type:
+                    - string
+                    - "null"
+                  format: timestamp
+                handles_contact_id:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: case.record_contact
         mutation: true
         idempotency: REQUIRED
         rate_limit_per_minute: 120
@@ -3699,6 +4697,348 @@ paths:
       x-cwk:
         auth: USER
         permission: leave.withdraw
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/notification.acknowledge":
+    post:
+      operationId: notification_acknowledge
+      summary: "กดรับทราบ หรือขอให้ครูติดต่อกลับ (ผูกกับบัญชีผู้รับจริง)"
+      tags:
+        - notification
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - recipient_id
+                - action
+              properties:
+                recipient_id:
+                  type: string
+                  format: uuid
+                action:
+                  type: string
+                  enum:
+                    - ACKNOWLEDGED
+                    - CALLBACK_REQUESTED
+                note:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 500
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: notification.acknowledge
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/notification.cancel":
+    post:
+      operationId: notification_cancel
+      summary: "ยกเลิกรายการที่ยังรอส่ง (มีเหตุผล)"
+      tags:
+        - notification
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - outbox_id
+                - reason
+              properties:
+                outbox_id:
+                  type: string
+                  format: uuid
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 500
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: notification.resend
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/notification.list":
+    post:
+      operationId: notification_list
+      summary: "การแจ้งเตือนของฉัน (ในแอป) พร้อมสถานะรับทราบ"
+      tags:
+        - notification
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: []
+              properties:
+                unread_only:
+                  type:
+                    - boolean
+                    - "null"
+                limit:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 1
+                  maximum: 200
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: notification.read_own
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 300
+  "/v1/ops/notification.markRead":
+    post:
+      operationId: notification_markRead
+      summary: "ทำเครื่องหมายว่าเปิดอ่านในแอปแล้ว (ไม่ใช่การรับทราบ)"
+      tags:
+        - notification
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - recipient_ids
+              properties:
+                recipient_ids:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  uniqueItems: true
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: notification.read_own
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/notification.monitor":
+    post:
+      operationId: notification_monitor
+      summary: "สถานะคิวส่งแจ้งเตือน (ตามช่องทาง/สถานะ) และรายการส่งไม่สำเร็จ"
+      tags:
+        - notification
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: []
+              properties:
+                state:
+                  type:
+                    - string
+                    - "null"
+                  enum:
+                    - QUEUED
+                    - PROCESSING
+                    - PROVIDER_ACCEPTED
+                    - RETRY_WAIT
+                    - FAILED_FINAL
+                    - CANCELLED
+                    - null
+                channel:
+                  type:
+                    - string
+                    - "null"
+                  enum:
+                    - EMAIL
+                    - LINE
+                    - SMS
+                    - null
+                outbox_id:
+                  type:
+                    - string
+                    - "null"
+                  format: uuid
+                days:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 1
+                  maximum: 400
+                limit:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 1
+                  maximum: 200
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: notification.monitor
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 300
+  "/v1/ops/notification.resend":
+    post:
+      operationId: notification_resend
+      summary: "ส่งรายการที่ล้มเหลวอีกครั้ง: RETRY_SAME = retry เดิม (LINE ใช้ retry key เดิม, ไม่ส่งซ้ำถ้าเคยรับแล้ว) / RESEND_NEW = ส่งใหม่เป็นข้อความใหม่ (อาจซ้ำ)"
+      tags:
+        - notification
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - outbox_id
+                - mode
+                - reason
+              properties:
+                outbox_id:
+                  type: string
+                  format: uuid
+                mode:
+                  type: string
+                  enum:
+                    - RETRY_SAME
+                    - RESEND_NEW
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 500
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: notification.resend
         mutation: true
         idempotency: REQUIRED
         rate_limit_per_minute: 120

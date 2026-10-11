@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+### ชุดที่ 4 — Follow-up, outbox, email/LINE, gateway (2026-10-11) — version 0.4.0
+
+- schema_version 1 (ยังไม่ release): lookup/index เพิ่ม `NotificationOutbox.delivery_state`, `NotificationRecipients.ack_state`, `ContactLogs.direction`, `ContactLogs.supersedes_id`, `WebhookInbox.status`; คำอธิบาย `ContactLogs.supersedes_id` ครอบคลุมการปิดรายการติดต่อเข้า; state machine Case: RECORD_CONTACT จาก IN_PROGRESS ได้
+- API v1: +23 operations (รวม 111) — case.*, contact.log/inbox, appointment.*, notification.list/markRead/acknowledge/monitor/resend/cancel, channel.status/startLineLink/unbind/revokeForUser
+- jobs/ticks: `followup.evaluateDate`, `followup.schedule` (ประเมินรายวัน, เกินกำหนด, หมดเวลารับทราบ), `webhook.retry`, `outbox.dispatch`
+- GAS: MailApp + LINE Messaging API providers, doPost รับเฉพาะ envelope ที่ลงลายเซ็น; Script Property ใหม่ `CWK_LINE_ADD_FRIEND_URL`; Settings เริ่มต้นใหม่ `followup.evaluate_time`, `attendance.rollcall_backdate_days`
+- gateway 0.4.0 (Node 22, firebase-admin 14.4.0): `/line/webhook`, `/v1/identity/verify`, `/v1/identity/revoke`, `/healthz`
+- หน้าจอ: งานติดตามและการติดต่อ, การแจ้งเตือน (+ เชื่อม LINE), ติดตามการส่งแจ้งเตือน
+
 ### ชุดที่ 3 — Daily workflows (2026-10-10) — version 0.3.0
 
 - schema_version 1 (ยังไม่ release — ยังไม่มีการติดตั้งจริง จึงแก้ `0001_init.sql` โดยตรง): lookup/index ใหม่ `AttendanceEvents (student_id, school_date, dedupe_key)` และ `LeaveSegments (leave_request_id, student_id, school_date)`

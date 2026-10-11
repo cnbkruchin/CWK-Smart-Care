@@ -1,0 +1,6 @@
+**/node_modules
+.git
+gas-dist
+tests
+frontend
+database

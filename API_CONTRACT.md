@@ -55,12 +55,14 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
 | EXTERNAL_SERVICE_ERROR | ใช่ | บริการภายนอกขัดข้อง ระบบจะลองใหม่อัตโนมัติ |
 | INTERNAL_ERROR | ใช่ | เกิดข้อผิดพลาดภายในระบบ กรุณาลองใหม่ หากยังพบปัญหาให้แจ้งรหัสอ้างอิงต่อผู้ดูแลระบบ |
 
-## Operations (88)
+## Operations (111)
 
 | operation | auth | permission | mutation | idempotency | rate/min | คำอธิบาย |
 |---|---|---|---|---|---|---|
 | `academicYear.create` | USER | settings.business | ✔ | REQUIRED | 120 | สร้างปีการศึกษา |
 | `app.publicConfig` | PUBLIC | — |  | NONE | 60 | ค่าตั้งค่าสาธารณะสำหรับหน้าเว็บ (ไม่มี secret) |
+| `appointment.create` | USER | case.record_contact | ✔ | REQUIRED | 120 | นัดหมายผู้ปกครอง/นักเรียน |
+| `appointment.update` | USER | case.record_contact | ✔ | REQUIRED | 120 | บันทึกผลนัดหมาย/เลื่อน/ยกเลิก |
 | `assignment.create` | USER | user.manage | settings.business | ✔ | REQUIRED | 120 | กำหนดครูที่ปรึกษา/เวร/สอน/ผู้รักษาการแทน พร้อมช่วงเวลา |
 | `assignment.end` | USER | user.manage | settings.business | ✔ | REQUIRED | 120 | สิ้นสุดขอบเขตงาน |
 | `attachment.download` | USER | attachment.read | attachment.read_sensitive |  | NONE | 60 | ดาวน์โหลดไฟล์ (ตรวจสิทธิ์ทุกครั้ง; เอกสารอ่อนไหวบันทึก audit) |
@@ -78,10 +80,25 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
 | `auth.logout` | IDENTITY | ตาม handler |  | NONE | 300 | ออกจากระบบ (ล้างผลตรวจ token ที่ server cache; client เรียก signOut ของ SDK) |
 | `auth.redeemInvitation` | IDENTITY | ตาม handler | ✔ | REQUIRED | 10 | ใช้รหัสคำเชิญผูกบัญชีผู้ให้บริการยืนยันตัวตนกับผู้ใช้ในระบบ (ครั้งเดียว มีอายุ) |
 | `calendar.set` | USER | settings.business | ✔ | REQUIRED | 120 | กำหนดวันหยุด/วันพิเศษ (ทับค่าเริ่มต้นจันทร์–ศุกร์) |
+| `case.assign` | USER | case.manage | ✔ | REQUIRED | 120 | มอบหมาย/ส่งต่อผู้รับผิดชอบ (ผู้รับต้องมีสิทธิ์ดูแลนักเรียน) |
+| `case.assignable` | USER | case.manage |  | NONE | 300 | รายชื่อผู้ที่รับมอบหมายเรื่องของนักเรียนคนนี้ได้ |
+| `case.close` | USER | case.manage | ✔ | REQUIRED | 120 | ปิดเรื่องพร้อมข้อสรุป (เรื่องที่มาจากกฎจะมีช่วงพักก่อนเปิดใหม่) |
+| `case.create` | USER | case.manage | ✔ | REQUIRED | 120 | ครูเปิดเรื่องติดตามเอง (ระบุเหตุผลเชิงข้อเท็จจริง ไม่ตัดสินพฤติกรรม) |
+| `case.get` | USER | case.read |  | NONE | 300 | รายละเอียดเรื่องติดตาม: หลักฐานที่เข้ากฎ บันทึกการติดต่อ นัดหมาย และประวัติ |
+| `case.list` | USER | case.read |  | NONE | 300 | รายการเรื่องติดตามตามขอบเขต (ของฉัน/ห้องที่ปรึกษา/ทั้งโรงเรียน) |
+| `case.reopen` | USER | case.manage | ✔ | REQUIRED | 120 | เปิดเรื่องที่ปิด/แก้ไขแล้วอีกครั้ง (ต้องมีเหตุผล) |
+| `case.resolve` | USER | case.manage | ✔ | REQUIRED | 120 | บันทึกว่าแก้ไขแล้ว (รอปิดเรื่อง) |
+| `case.update` | USER | case.manage | ✔ | REQUIRED | 120 | ปรับความสำคัญ กำหนดเวลา และสิ่งที่ต้องทำต่อ |
+| `channel.revokeForUser` | USER | guardian.manage | user.manage | ✔ | REQUIRED | 120 | เจ้าหน้าที่ยกเลิกช่องทาง LINE ของผู้ใช้ (เช่น เปลี่ยนผู้ปกครอง/อุปกรณ์หาย) |
+| `channel.startLineLink` | USER | channel.bind | ✔ | REQUIRED | 10 | เริ่มเชื่อม LINE (ต้องเข้าสู่ระบบแล้ว): สร้าง nonce ใช้ครั้งเดียว อายุ 10 นาที แล้วส่งไปหน้ายืนยันของ LINE |
+| `channel.status` | USER | ตาม handler |  | NONE | 300 | ช่องทางแจ้งเตือนของฉัน (อีเมล/LINE) |
+| `channel.unbind` | USER | channel.bind | ✔ | REQUIRED | 120 | ยกเลิกการเชื่อม LINE ของฉัน (ไม่รับข้อความทาง LINE อีก) |
 | `class.create` | USER | settings.business | ✔ | REQUIRED | 120 | สร้างห้องเรียน |
 | `class.list` | USER | ตาม handler |  | NONE | 300 | รายชื่อห้องเรียน (ข้อมูลไม่อ่อนไหว) |
 | `contact.add` | USER | guardian.manage | ✔ | REQUIRED | 120 | เพิ่มช่องทางติดต่อผู้ปกครอง (เจ้าหน้าที่ยืนยัน) |
 | `contact.disable` | USER | guardian.manage | ✔ | REQUIRED | 120 | ยกเลิกช่องทางติดต่อ (มี audit) |
+| `contact.inbox` | USER | case.record_contact |  | NONE | 300 | ข้อความ/คำขอติดต่อจากผู้ปกครองที่รอครูตอบกลับ (ตามขอบเขต) |
+| `contact.log` | USER | case.record_contact | ✔ | REQUIRED | 120 | บันทึกผลการติดต่อ (โทร/LINE/พบตัว) — ติดต่อไม่ได้ก็ต้องบันทึก |
 | `dashboard.summary` | USER | attendance.read |  | NONE | 300 | สรุปวันนี้ตามขอบเขตสิทธิ์ (ใช้ projection เดียวกับรายงาน R01) |
 | `enrollment.change` | USER | student.manage | ✔ | REQUIRED | 120 | ย้ายห้อง เลื่อนชั้น ย้ายออก พ้นสภาพ จบการศึกษา (มีวันที่มีผล) |
 | `guardian.create` | USER | guardian.manage | ✔ | REQUIRED | 120 | เพิ่มผู้ปกครองและช่องทางติดต่อ (เจ้าหน้าที่ยืนยัน) |
@@ -116,6 +133,12 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
 | `leave.resubmit` | USER | leave.submit | ✔ | REQUIRED | 120 | แก้ไขและส่งใบลาที่ถูกส่งกลับ (revision ใหม่; ช่วงเดิมถูกถอน) |
 | `leave.submit` | USER | leave.submit | ✔ | REQUIRED | 30 | ยื่นใบลา (ทั้งวัน/ครึ่งวัน/บางคาบ หลายวัน) พร้อมเอกสาร — ตรวจวันซ้อน วันหยุด และ enrollment |
 | `leave.withdraw` | USER | leave.withdraw | ✔ | REQUIRED | 120 | ถอนคำขอลาที่ยังไม่ได้ข้อยุติ |
+| `notification.acknowledge` | USER | notification.acknowledge | ✔ | REQUIRED | 120 | กดรับทราบ หรือขอให้ครูติดต่อกลับ (ผูกกับบัญชีผู้รับจริง) |
+| `notification.cancel` | USER | notification.resend | ✔ | REQUIRED | 120 | ยกเลิกรายการที่ยังรอส่ง (มีเหตุผล) |
+| `notification.list` | USER | notification.read_own |  | NONE | 300 | การแจ้งเตือนของฉัน (ในแอป) พร้อมสถานะรับทราบ |
+| `notification.markRead` | USER | notification.read_own | ✔ | REQUIRED | 120 | ทำเครื่องหมายว่าเปิดอ่านในแอปแล้ว (ไม่ใช่การรับทราบ) |
+| `notification.monitor` | USER | notification.monitor |  | NONE | 300 | สถานะคิวส่งแจ้งเตือน (ตามช่องทาง/สถานะ) และรายการส่งไม่สำเร็จ |
+| `notification.resend` | USER | notification.resend | ✔ | REQUIRED | 120 | ส่งรายการที่ล้มเหลวอีกครั้ง: RETRY_SAME = retry เดิม (LINE ใช้ retry key เดิม, ไม่ส่งซ้ำถ้าเคยรับแล้ว) / RESEND_NEW = ส่งใหม่เป็นข้อความใหม่ (อาจซ้ำ) |
 | `period.create` | USER | settings.business | ✔ | REQUIRED | 120 | กำหนดคาบเรียนพร้อมวันที่มีผล |
 | `reconciliation.list` | USER | attendance.reconcile |  | NONE | 300 | งานตรวจสอบข้อมูลขัดกัน/ยังไม่ทราบสถานะ ตามขอบเขต |
 | `reconciliation.resolve` | USER | attendance.reconcile | ✔ | REQUIRED | 120 | ปิดงานตรวจสอบพร้อมบันทึกข้อสรุป |
@@ -187,6 +210,94 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
   "additionalProperties": false,
   "required": [],
   "properties": {}
+}
+```
+
+### appointment.create
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "case_id",
+    "scheduled_at"
+  ],
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "scheduled_at": {
+      "type": "string",
+      "format": "timestamp"
+    },
+    "duration_minutes": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 5,
+      "maximum": 600
+    },
+    "location": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200
+    },
+    "attendees_note": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500
+    }
+  }
+}
+```
+
+### appointment.update
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "appointment_id",
+    "status"
+  ],
+  "properties": {
+    "appointment_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "SCHEDULED",
+        "COMPLETED",
+        "NO_SHOW",
+        "CANCELLED",
+        "RESCHEDULED"
+      ]
+    },
+    "outcome_note": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2000
+    },
+    "scheduled_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "timestamp"
+    }
+  }
 }
 ```
 
@@ -869,6 +980,375 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
 }
 ```
 
+### case.assign
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "case_id",
+    "owner_user_id",
+    "reason"
+  ],
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "owner_user_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 500
+    }
+  }
+}
+```
+
+### case.assignable
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "student_id"
+  ],
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### case.close
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "case_id",
+    "resolution_summary"
+  ],
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "resolution_summary": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 2000
+    }
+  }
+}
+```
+
+### case.create
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "student_id",
+    "summary_th",
+    "priority"
+  ],
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "summary_th": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 1000
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "LOW",
+        "NORMAL",
+        "HIGH",
+        "URGENT"
+      ]
+    },
+    "next_action_th": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500
+    },
+    "due_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "timestamp"
+    },
+    "owner_user_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### case.get
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "case_id"
+  ],
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### case.list
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "status": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "OPEN",
+        "IN_PROGRESS",
+        "WAITING_RESPONSE",
+        "RESOLVED",
+        "CLOSED",
+        "ACTIVE",
+        null
+      ]
+    },
+    "mine": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "student_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "overdue_only": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "limit": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 200
+    }
+  }
+}
+```
+
+### case.reopen
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "case_id",
+    "reason"
+  ],
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 1000
+    }
+  }
+}
+```
+
+### case.resolve
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "case_id",
+    "note"
+  ],
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "note": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 1000
+    }
+  }
+}
+```
+
+### case.update
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "case_id"
+  ],
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "priority": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "LOW",
+        "NORMAL",
+        "HIGH",
+        "URGENT",
+        null
+      ]
+    },
+    "due_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "timestamp"
+    },
+    "next_action_th": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500
+    },
+    "note": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1000
+    }
+  }
+}
+```
+
+### channel.revokeForUser
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "user_id",
+    "reason"
+  ],
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 500
+    }
+  }
+}
+```
+
+### channel.startLineLink
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "link_token"
+  ],
+  "properties": {
+    "link_token": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{8,128}$"
+    }
+  }
+}
+```
+
+### channel.status
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+### channel.unbind
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "binding_id"
+  ],
+  "properties": {
+    "binding_id": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
 ### class.create
 
 ```json
@@ -990,6 +1470,122 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
       "type": "string",
       "minLength": 1,
       "maxLength": 300
+    }
+  }
+}
+```
+
+### contact.inbox
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "limit": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 200
+    }
+  }
+}
+```
+
+### contact.log
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "student_id",
+    "channel",
+    "direction",
+    "outcome",
+    "summary",
+    "follow_up_required"
+  ],
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "case_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "guardian_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "PHONE",
+        "EMAIL",
+        "LINE",
+        "SMS",
+        "IN_PERSON",
+        "OTHER"
+      ]
+    },
+    "direction": {
+      "type": "string",
+      "enum": [
+        "OUTBOUND",
+        "INBOUND"
+      ]
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "REACHED",
+        "NO_ANSWER",
+        "ACKNOWLEDGED",
+        "APPOINTMENT_MADE",
+        "FOLLOW_UP_NEEDED",
+        "WRONG_CONTACT",
+        "ASSISTANCE_PROVIDED"
+      ]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 2000
+    },
+    "contacted_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "timestamp"
+    },
+    "follow_up_required": {
+      "type": "boolean"
+    },
+    "next_follow_up_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "timestamp"
+    },
+    "handles_contact_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
     }
   }
 }
@@ -2346,6 +2942,207 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
         "string",
         "null"
       ],
+      "maxLength": 500
+    }
+  }
+}
+```
+
+### notification.acknowledge
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "recipient_id",
+    "action"
+  ],
+  "properties": {
+    "recipient_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "ACKNOWLEDGED",
+        "CALLBACK_REQUESTED"
+      ]
+    },
+    "note": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500
+    }
+  }
+}
+```
+
+### notification.cancel
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "outbox_id",
+    "reason"
+  ],
+  "properties": {
+    "outbox_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 500
+    }
+  }
+}
+```
+
+### notification.list
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "unread_only": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "limit": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 200
+    }
+  }
+}
+```
+
+### notification.markRead
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "recipient_ids"
+  ],
+  "properties": {
+    "recipient_ids": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      }
+    }
+  }
+}
+```
+
+### notification.monitor
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "state": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "QUEUED",
+        "PROCESSING",
+        "PROVIDER_ACCEPTED",
+        "RETRY_WAIT",
+        "FAILED_FINAL",
+        "CANCELLED",
+        null
+      ]
+    },
+    "channel": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "EMAIL",
+        "LINE",
+        "SMS",
+        null
+      ]
+    },
+    "outbox_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "days": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 400
+    },
+    "limit": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 200
+    }
+  }
+}
+```
+
+### notification.resend
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "outbox_id",
+    "mode",
+    "reason"
+  ],
+  "properties": {
+    "outbox_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "RETRY_SAME",
+        "RESEND_NEW"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 3,
       "maxLength": 500
     }
   }

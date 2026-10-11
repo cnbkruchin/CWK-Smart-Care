@@ -333,8 +333,8 @@ export const TABLES = [
     description_th: 'บันทึกการติดต่อ (การกดปุ่มโทรไม่ถือว่าโทรสำเร็จจนบันทึกผล)',
     columns: [id(), fk('student_id', 'Students', R), fk('case_id', 'Cases'), fk('guardian_id', 'Guardians'), en('channel', 'ContactChannel', R), en('direction', 'ContactDirection', R),
       ts('contacted_at', R), fk('contacted_by', 'Users', R), en('outcome', 'ContactOutcome', R), str('summary', 2000), bool('follow_up_required', R), ts('next_follow_up_at'),
-      fk('supersedes_id', 'ContactLogs'), { name: 'operation_id', type: 'uuid', required: true }, ...EVENT_META],
-    lookup: ['student_id', 'case_id'],
+      fk('supersedes_id', 'ContactLogs', { description_th: 'รายการก่อนหน้าที่บันทึกนี้แก้ไขแทน หรือรายการติดต่อเข้า (INBOUND) ที่บันทึกนี้ตอบกลับ/ปิดแล้ว' }), { name: 'operation_id', type: 'uuid', required: true }, ...EVENT_META],
+    lookup: ['student_id', 'case_id', 'supersedes_id', 'direction'],
   },
   {
     name: 'Appointments', group: 'Follow-up', kind: 'ENTITY', partition: 'NONE', sensitivity: 'SENSITIVE', retention: 'ENROLLMENT_PLUS_5Y',
@@ -382,7 +382,7 @@ export const TABLES = [
     description_th: 'ผู้รับ (resolve จากความสัมพันธ์ที่ยืนยันแล้ว) = กล่องแจ้งเตือนในแอป และสถานะการรับทราบ',
     columns: [id(), fk('notification_id', 'Notifications', R), fk('recipient_user_id', 'Users', R), en('recipient_role_context', 'Role', R),
       en('in_app_state', 'InAppState', R), ts('read_at'), bool('ack_required', R), en('ack_state', 'AckState', R), ts('ack_due_at'), ...ENTITY_META],
-    unique: [['notification_id', 'recipient_user_id']], lookup: ['recipient_user_id', 'notification_id'],
+    unique: [['notification_id', 'recipient_user_id']], lookup: ['recipient_user_id', 'notification_id', 'ack_state'],
   },
   {
     name: 'NotificationOutbox', group: 'Notifications', kind: 'ENTITY', partition: 'TERM', partitionColumn: 'created_at', workbook: 'NOTIFY', sensitivity: 'PERSONAL', retention: 'TERM_PLUS_1Y',
@@ -392,7 +392,7 @@ export const TABLES = [
       ts('next_attempt_at'), ts('lease_until'), str('lease_owner', 100), { name: 'retry_key', type: 'uuid', description_th: 'X-Line-Retry-Key ใช้ค่าเดิมตลอดการ retry ของการส่งเดียวกัน' },
       ts('retry_key_created_at'), str('provider_request_id', 200), str('provider_message_id', 200), str('last_error_code', 60), str('last_error_message', 500),
       ts('accepted_at'), fk('resend_of_outbox_id', 'NotificationOutbox'), str('held_reason', 60), bool('replay_blocked', { ...R, default: false, description_th: 'TRUE สำหรับรายการจากการย้ายข้อมูล ห้ามส่งย้อนหลังอัตโนมัติ' }), ...ENTITY_META],
-    unique: [['dedupe_key']], lookup: ['dedupe_key', 'notification_id'], indexes: [['delivery_state', 'next_attempt_at']],
+    unique: [['dedupe_key']], lookup: ['dedupe_key', 'notification_id', 'delivery_state'], indexes: [['delivery_state', 'next_attempt_at']],
   },
   {
     name: 'NotificationAttempts', group: 'Notifications', kind: 'EVENT', partition: 'TERM', partitionColumn: 'started_at', workbook: 'NOTIFY', sensitivity: 'INTERNAL', retention: 'TERM_PLUS_1Y',
@@ -421,7 +421,7 @@ export const TABLES = [
     description_th: 'เหตุการณ์ webhook ที่ผ่านการตรวจลายเซ็นจาก gateway แล้ว บันทึกถาวรก่อนตอบรับ (dedupe ด้วย webhook_event_id)',
     columns: [id(), str('source', 20, R), str('webhook_event_id', 100, R), ts('received_at', R), ts('envelope_ts', R), str('event_type', 40, R), json('payload_json', R),
       en('status', 'WebhookStatus', R), ts('processed_at'), int('attempts', { ...R, min: 0 }), str('last_error', 500), ...ENTITY_META],
-    unique: [['source', 'webhook_event_id']], lookup: ['webhook_event_id'], indexes: [['status']],
+    unique: [['source', 'webhook_event_id']], lookup: ['webhook_event_id', 'status'], indexes: [['status']],
   },
 
   // ───────────────────────── Operations ─────────────────────────

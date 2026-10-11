@@ -1,0 +1,6 @@
+# Cloud Build: build the gateway image from the repository root (docs/GATEWAY_TH.md §4).
+#   gcloud builds submit . --config gateway/cloudbuild.yaml --substitutions=_IMAGE=<registry>/cwk-gateway:<version>
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ['build', '-f', 'gateway/Dockerfile', '-t', '${_IMAGE}', '.']
+images: ['${_IMAGE}']

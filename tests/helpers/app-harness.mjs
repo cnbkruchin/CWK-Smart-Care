@@ -10,15 +10,19 @@ import { runSync } from '../../src/application/runtime.js';
 import { bootstrapInstallation } from '../../src/application/bootstrap.js';
 import { seedDemoData } from '../../src/application/demo-seed.js';
 import { runDueJobs } from '../../src/application/jobs.js';
+import { TICK_TASKS } from '../../src/application/scheduler.js';
 import { AppError } from '../../src/shared/errors.js';
 
 export const PASS = 'test-passphrase-123';
 
-export function makeHarness({ now = '2026-06-15T01:00:00.000Z', env = 'DEV', identity = null, extraPlatform = {} } = {}) {
+export function makeHarness({ now = '2026-06-15T01:00:00.000Z', env = 'DEV', identity = null, extraPlatform = {}, config: configOverrides = {}, secrets = {} } = {}) {
   const store = new MemoryStore();
   const clock = new FixedClock(now);
   const cache = new MemoryCache(clock);
-  const config = { env, authMode: 'DEMO', systemMode: 'NORMAL', timezone: 'Asia/Bangkok', lineEnabled: false };
+  const config = {
+    env, authMode: 'DEMO', systemMode: 'NORMAL', timezone: 'Asia/Bangkok', lineEnabled: false, emailEnabled: true, notifyAllowlist: [], lineRetryWindowHours: 12,
+    ...configOverrides, secret: (k) => (Object.prototype.hasOwnProperty.call(secrets, k) ? secrets[k] : null),
+  };
   const deps = {
     store, mutations: store, clock, ids: nodeIds, crypto: nodeCrypto, cache, config,
     identity: identity || new DemoIdentityVerifier({ env, passphrase: PASS }),
@@ -51,6 +55,12 @@ export function makeHarness({ now = '2026-06-15T01:00:00.000Z', env = 'DEV', ide
     runJobs() {
       return runSync(runDueJobs, deps, JOB_HANDLERS, { deadlineAt: Date.now() + 120000, owner: 'test' });
     },
+    /** Run scheduled tick tasks (all, or those named), like cronTick without the journal recovery. */
+    tick(names = null) {
+      const out = {};
+      for (const t of TICK_TASKS) if (!names || names.includes(t.name)) out[t.name] = runSync(t.run, deps, { deadlineAt: Date.now() + 120000, now: clock.now() });
+      return out;
+    },
   };
   return h;
 }
@@ -64,4 +74,39 @@ export class TokenMapVerifier {
     if (!c) throw new AppError('UNAUTHENTICATED', 'unknown test token');
     return c;
   }
+}
+
+/** Email provider double: records messages; `failWith` makes the next sends return that result. */
+export class FakeEmailProvider {
+  constructor() { this.sent = []; this.queue = []; this.quota = 100; }
+  remainingQuota() { return this.quota; }
+  send(m) {
+    const next = this.queue.shift();
+    if (next === 'THROW') throw new Error('Service invoked too many times');
+    if (next) return next;
+    this.sent.push(m);
+    this.quota--;
+    return { result: 'ACCEPTED', provider_request_id: `mail-${this.sent.length}` };
+  }
+}
+
+/**
+ * LINE Messaging API double with retry-key semantics: a request with an X-Line-Retry-Key that was
+ * already accepted answers 409 (x-line-accepted-request-id) and is NOT delivered twice.
+ */
+export class FakeLineProvider {
+  constructor() { this.accepted = new Map(); this.delivered = []; this.replies = []; this.queue = []; this.linkTokens = []; this.onAccept = null; }
+  push({ to, messages, retryKey }) {
+    if (!retryKey) throw new Error('retry key required');
+    const next = this.queue.shift();
+    if (next) return next;
+    if (this.accepted.has(retryKey)) return { result: 'DUPLICATE_ACCEPTED', http_status: 409, provider_request_id: this.accepted.get(retryKey) };
+    const id = `line-req-${this.accepted.size + 1}`;
+    this.accepted.set(retryKey, id);
+    this.delivered.push({ to, messages, retryKey });
+    if (this.onAccept) this.onAccept();
+    return { result: 'ACCEPTED', http_status: 200, provider_request_id: id };
+  }
+  reply(replyToken, messages) { this.replies.push({ replyToken, messages }); }
+  issueLinkToken(lineUserId) { const t = `LinkTok${this.linkTokens.length + 1}abcdef`; this.linkTokens.push({ lineUserId, token: t }); return t; }
 }

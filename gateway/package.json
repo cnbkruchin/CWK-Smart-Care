@@ -1,0 +1,14 @@
+{
+  "name": "cwk-gateway",
+  "version": "0.4.0",
+  "private": true,
+  "description": "CWK Smart Care gateway: LINE webhook signature verification + Firebase ID token verification for Apps Script (DECISIONS D-003, D-010)",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node src/server.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "14.4.0"
+  }
+}
