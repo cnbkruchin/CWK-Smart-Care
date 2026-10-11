@@ -107,6 +107,17 @@ npx @google/clasp push            # rootDir = gas-dist
 - ทดสอบ restore ไป **environment ใหม่** ด้วยฟังก์ชัน `adminRestoreSnapshot` และ Script Property `CWK_RESTORE_FROM_FOLDER_ID` ตามขั้นตอนใน docs/OPERATIONS_TH.md §4 — ระบบปฏิเสธการ restore ทับ environment ที่มีข้อมูลแล้ว
 - PROD: หน้า "สถานะระบบ" แสดง FAIL ที่ `backup.restore_tested` จนกว่าจะบันทึกผลทดสอบ restore อย่างน้อยหนึ่งครั้ง
 
+### 7.3 ย้ายข้อมูล (portable package)
+
+ทำตาม docs/MIGRATION_RUNBOOK_TH.md — สรุปฟังก์ชันที่เกี่ยวข้อง (รันจาก editor ภายในช่วงเวลา admin):
+
+| ฟังก์ชัน | ใช้ที่ | Script Properties |
+|---|---|---|
+| `adminImportPackage` | **โปรเจกต์ใหม่** ที่ยังไม่รัน adminSetup — นำเข้า package ลง Sheets/Drive ชุดใหม่ (รันซ้ำจนเสร็จ) | `CWK_IMPORT_PACKAGE_FOLDER_ID` (ระบบตั้ง/ลบ `CWK_IMPORT_IN_PROGRESS`, `CWK_IMPORT_ID` เอง) |
+| `adminApplyDelta` | ระบบเดิมตอน rollback — นำการเปลี่ยนแปลงจากระบบใหม่กลับ | `CWK_DELTA_PACKAGE_FOLDER_ID`, `CWK_DELTA_MODE` = `DRY_RUN` (ค่าเริ่มต้น) / `APPLY` |
+
+การส่งออกทำจากหน้า "ศูนย์ส่งออกและย้ายข้อมูล" (ต้องเปิดโหมดอ่านอย่างเดียวก่อน) ไฟล์อยู่ใน `<root>/exports/` แบบ private
+
 ## 8. เขตเวลา
 
 - appsscript.json ตั้ง `Asia/Bangkok`; setup ตั้ง timezone ของทุก spreadsheet เป็น Asia/Bangkok

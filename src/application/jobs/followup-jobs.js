@@ -3,6 +3,7 @@
 //                           a confirmed absence that day (chunked, resumable, idempotent via dedupe keys)
 //   tick: schedule the daily evaluation; remind owners of overdue cases once per due date; mark
 //         unacknowledged required notifications FOLLOW_UP_REQUIRED and open an ACK_TIMEOUT case for guardians.
+import { listAll } from '../queries.js';
 import { createContext, setting, partitionsForDates } from '../context.js';
 import { systemPrincipal } from '../principal.js';
 import { enqueueOnceEver } from '../jobs.js';
@@ -49,7 +50,7 @@ export function* evaluateDateJob(ctx, job, { checkpoint, timeLeftMs }) {
 
 /** CASE_OVERDUE once per (case, due date). */
 function* overdueReminders(ctx, limit = 30) {
-  const cases = (yield ctx.store.list('Cases', { where: { status: { in: ['OPEN', 'IN_PROGRESS', 'WAITING_RESPONSE'] } }, limit: 500 })).items
+  const cases = (yield* listAll(ctx, 'Cases', { where: { status: { in: ['OPEN', 'IN_PROGRESS', 'WAITING_RESPONSE'] } } }))
     .filter((c) => c.due_at && c.due_at < ctx.now && c.owner_user_id);
   let sent = 0;
   for (const c of cases) {

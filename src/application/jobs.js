@@ -19,7 +19,7 @@ export function enqueueJob(cs, ctx, { job_type, payload = {}, dedupe_key = null,
 
 /**
  * Run due jobs until the deadline. `handlers[job_type]` is a generator
- *   function*(ctx, job, { checkpoint(cursor, progress), timeLeftMs() }) → { done: boolean, result?: object }
+ *   function*(ctx, job, { checkpoint(cursor, progress), timeLeftMs() }) → { done: boolean, result?: object, pause?: boolean }
  */
 export function* runDueJobs(deps, handlers, { deadlineAt, owner = 'worker', limit = 5, now = null } = {}) {
   const report = { claimed: 0, succeeded: 0, yielded: 0, failed: 0, retried: 0, skipped: 0 };
@@ -94,8 +94,9 @@ export function* runDueJobs(deps, handlers, { deadlineAt, owner = 'worker', limi
       fin.update('Jobs', latest, { status: 'SUCCEEDED', result_json: outcome.result || {}, lease_until: null, lease_owner: null, finished_at: finCtx.now, last_error: null });
       report.succeeded++;
     } else {
-      // yielded voluntarily (time budget) — continue on next tick without consuming an attempt
-      fin.update('Jobs', latest, { status: 'QUEUED', next_run_at: finCtx.now, lease_until: null, lease_owner: null, attempts: Math.max(0, latest.attempts - 1) });
+      // yielded voluntarily (time budget) — continue on next tick without consuming an attempt;
+      // a handler may also ask to be parked (`pause: true`) until an operator resumes it
+      fin.update('Jobs', latest, { status: outcome && outcome.pause ? 'PAUSED' : 'QUEUED', next_run_at: finCtx.now, lease_until: null, lease_owner: null, attempts: Math.max(0, latest.attempts - 1) });
       report.yielded++;
     }
     try { yield finCtx.mutations.commit(fin.build()); } catch (e) { if (!isAppError(e)) throw e; }

@@ -9,7 +9,7 @@ import { GasSim, topLevelFunctions } from '../gas-sim/gas-sim.mjs';
 
 const DIST = path.resolve(import.meta.dirname, '../../gas-dist');
 const PASS = 'emulator-pass-123';
-const ALLOWED = ['doGet', 'doPost', 'rpc', 'cronTick', 'adminSetup', 'adminSeedDemo', 'adminInstallTriggers', 'adminSelfTest', 'adminSchemaCheck', 'adminRecoverJournal', 'adminRestoreSnapshot'];
+const ALLOWED = ['doGet', 'doPost', 'rpc', 'cronTick', 'adminSetup', 'adminSeedDemo', 'adminInstallTriggers', 'adminSelfTest', 'adminSchemaCheck', 'adminRecoverJournal', 'adminRestoreSnapshot', 'adminImportPackage', 'adminApplyDelta'];
 
 function inTwoHours() { return new Date(Date.now() + 3600 * 1000).toISOString(); }
 
@@ -388,4 +388,65 @@ test('reports on Apps Script: PDF via Docs template (header row pinned), real XL
   assert.equal(found[0].id, someone.id, 'restored environment serves the same data');
   const r2 = ok(env(sim, staff.affairs, 'report.preview', { code: 'R02', filter: { from: '2026-06-15', to: '2026-06-15' } }));
   assert.equal(r2.rows.length, 1, 'term partition workbook restored and catalog re-pointed');
+});
+
+test('portable migration on Apps Script: frozen export to a private Drive package, import into a NEW environment, reconcile, evidence', () => {
+  const now = '2026-06-15T03:30:00.000Z';
+  const { sim, demo } = installed({ now });
+  const staff = Object.fromEntries(demo.staff.map((s) => [s.key, s.user_id]));
+  const ok = (r) => { assert.equal(r.ok, true, JSON.stringify(r.error)); return r.data; };
+  const station = ok(env(sim, staff.duty, 'station.list', {})).items[0];
+  const kids = ok(env(sim, staff.affairs, 'student.search', { q: null, limit: 3 })).items;
+  for (const k of kids) ok(env(sim, staff.duty, 'attendance.recordArrival', { student_id: k.id, station_id: station.id, source: 'SCAN_KEYBOARD' }, { mutation: true }));
+  sim.ctx.adminInstallTriggers();
+  const tick = () => JSON.parse(sim.ctx.cronTick({ triggerUid: sim.triggers[0].getUniqueId() }));
+  // a full snapshot needs the server-side freeze
+  assert.equal(env(sim, staff.admin, 'migration.startExport', { mode: 'FULL_SNAPSHOT', reason: 'ย้ายไป PostgreSQL' }, { mutation: true }).error.code, 'INVALID_STATE');
+  ok(env(sim, staff.admin, 'system.setMode', { mode: 'READ_ONLY', reason: 'freeze ก่อนส่งออก' }, { mutation: true }));
+  assert.equal(env(sim, staff.duty, 'attendance.recordArrival', { student_id: kids[0].id, station_id: station.id, source: 'SCAN_KEYBOARD' }, { mutation: true }).error.code, 'MAINTENANCE_MODE');
+  const st = ok(env(sim, staff.admin, 'migration.startExport', { mode: 'FULL_SNAPSHOT', reason: 'ย้ายไป PostgreSQL' }, { mutation: true }));
+  for (let i = 0; i < 6; i++) tick();
+  let run = ok(env(sim, staff.admin, 'migration.get', { run_id: st.run_id })).run;
+  assert.equal(run.state, 'EXPORTED', JSON.stringify(run.job));
+  assert.equal(run.completeness, 'COMPLETE');
+  assert.equal(run.summary.validation.level, 'INTEGRITY');
+  // the package is a private Drive folder with manifest, checksum, chunks and schema
+  const pkgFolder = sim.folders.find((f) => f.id === run.package_location);
+  assert.ok(pkgFolder);
+  const inPkg = (name) => sim.files.find((f) => !f.trashed && f.name === name && (f.folder === pkgFolder));
+  const manifestText = inPkg('manifest.json').getBlob().getDataAsString();
+  assert.equal(inPkg('manifest.sha256').getBlob().getDataAsString(), `${crypto.createHash('sha256').update(manifestText).digest('hex')}  manifest.json\n`);
+  const manifest = JSON.parse(manifestText);
+  assert.equal(manifest.source.platform, 'GAS_SHEETS');
+  assert.ok(manifest.tables.find((t) => t.name === 'AttendanceEvents').row_count >= 3);
+  assert.ok(sim.files.every((f) => f.sharing === 'PRIVATE'), 'nothing shared');
+  ok(env(sim, staff.admin, 'migration.validate', { run_id: st.run_id }, { mutation: true }));
+  tick();
+  assert.equal(ok(env(sim, staff.admin, 'migration.get', { run_id: st.run_id })).run.state, 'VALIDATED');
+  // ── NEW environment (same Drive owner): import the package ──
+  const sourceProps = { ...sim.props };
+  for (const k of ['CWK_MASTER_SPREADSHEET_ID', 'CWK_DRIVE_ROOT_FOLDER_ID', 'CWK_REPORT_TEMPLATE_DOC_ID', 'CWK_SYSTEM_MODE']) delete sim.props[k];
+  sim.props.CWK_IMPORT_PACKAGE_FOLDER_ID = run.package_location;
+  let out;
+  for (let i = 0; i < 5; i++) { out = sim.ctx.adminImportPackage(); if (out.done) break; }
+  assert.equal(out.ok, true, JSON.stringify(out.errors));
+  assert.equal(out.reconciliation.overall, 'PASS', JSON.stringify(out.reconciliation.failed));
+  assert.equal(out.reconciliation.ready_to_cutover, true);
+  assert.notEqual(sim.props.CWK_MASTER_SPREADSHEET_ID, sourceProps.CWK_MASTER_SPREADSHEET_ID);
+  assert.equal(sim.props.CWK_SYSTEM_MODE, 'READ_ONLY', 'the new environment starts frozen');
+  assert.equal(sim.props.CWK_EMAIL_ENABLED, 'false');
+  assert.equal(sim.props.CWK_LINE_ENABLED, 'false');
+  const found = ok(env(sim, staff.affairs, 'student.search', { q: kids[0].student_code })).items;
+  assert.equal(found[0].id, kids[0].id, 'the new environment serves the same ids');
+  // importing again into an environment that has data is refused
+  sim.props.CWK_IMPORT_PACKAGE_FOLDER_ID = run.package_location;
+  assert.throws(() => sim.ctx.adminImportPackage(), /IMPORT_REFUSED/);
+  // ── back on the source: evidence from the package moves the run forward ──
+  for (const k of Object.keys(sim.props)) delete sim.props[k];
+  Object.assign(sim.props, sourceProps);
+  sim.load(DIST); // a new Apps Script execution of the SOURCE project (fresh per-execution caches)
+  ok(env(sim, staff.admin, 'migration.recordEvidence', { run_id: st.run_id, kind: 'IMPORT' }, { mutation: true }));
+  ok(env(sim, staff.admin, 'migration.recordEvidence', { run_id: st.run_id, kind: 'RECONCILIATION' }, { mutation: true }));
+  run = ok(env(sim, staff.admin, 'migration.get', { run_id: st.run_id })).run;
+  assert.equal(run.state, 'RECONCILED');
 });

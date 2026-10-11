@@ -68,3 +68,28 @@ test('error envelopes never echo credentials or internal messages', () => {
   assert.ok(!text.includes(PASS), 'passphrase not echoed');
   assert.ok(r.error.message_th && !/stack|at \w+ \(/.test(text), 'Thai message only, no stack');
 });
+
+test('internal reads are never silently truncated at the 500-row page size (regression)', async () => {
+  const { h } = setup();
+  const { listAll } = await import('../../src/application/queries.js');
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const station = h.store.list('Stations', { limit: 1 }).items[0];
+  const before = h.store.count('Stations');
+  const rows = Array.from({ length: 650 }, (_, i) => ({ ...station, id: crypto.randomUUID(), code: `S${String(i).padStart(4, '0')}` }));
+  h.store.seed('Stations', rows);
+  const all = runSync(listAll, { store: h.store }, 'Stations');
+  assert.equal(all.length, before + 650);
+  const filtered = runSync(listAll, { store: h.store }, 'Stations', { where: { code: { gte: 'S0600' } } });
+  assert.equal(filtered.length, 50);
+  // a store without the `all` option is paged through its cursor
+  const paging = { list: (t, q) => { const p = h.store.list(t, { ...q, all: undefined }); return p; } };
+  assert.equal(runSync(listAll, { store: paging }, 'Stations').length, before + 650);
+  // the client page size stays capped
+  assert.equal(h.store.list('Stations', { limit: 5000 }).items.length, 500);
+  // no application code asks list() for more than one page and ignores the cursor
+  const offenders = [];
+  const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else if (p.endsWith('.js') && /store\.list\([^)]*limit: \d{4,}/.test(fs.readFileSync(p, 'utf8'))) offenders.push(p); } };
+  walk(path.resolve(import.meta.dirname, '../../src'));
+  assert.deepEqual(offenders, []);
+});

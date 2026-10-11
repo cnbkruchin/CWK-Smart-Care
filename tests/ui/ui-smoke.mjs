@@ -14,6 +14,7 @@ import { makeHarness } from '../helpers/app-harness.mjs';
 import { runSync } from '../../src/application/runtime.js';
 import { dispatch } from '../../src/application/dispatcher.js';
 import { deterministicId } from '../../src/shared/uuid.js';
+import { MemoryPackageStore } from '../../src/adapters/memory/memory-package.js';
 
 async function loadPlaywright() {
   try { return await import('playwright'); } catch (_) { /* fall back to a global install */ }
@@ -41,7 +42,7 @@ if (!pw) {
 }
 
 // ---------- synthetic backend ----------
-const h = makeHarness({ now: NOW });
+const h = makeHarness({ now: NOW, extraPlatform: { packageStore: new MemoryPackageStore() } });
 h.bootstrap();
 const seed = h.seed();
 const ids = Object.fromEntries(seed.staff.map((s) => [s.key, s.user_id]));
@@ -297,6 +298,29 @@ try {
     const e5 = await visit(adm, '#/health', 'สถานะระบบ');
     const panels = await adm.$$eval('main section h2', (hs) => hs.map((x) => x.textContent));
     step('health page shows metrics, backups and retention panels', !e5.length && ['การสำรองข้อมูล', 'ระยะเวลาเก็บบันทึกระบบ'].every((t) => panels.includes(t)), panels.join(', '));
+    // Migration Center: inventory, freeze required, export to COMPLETE, package documentation download
+    const e6 = await visit(adm, '#/migration', 'ศูนย์ส่งออกและย้ายข้อมูล');
+    await adm.click('button:has-text("โหลด inventory")');
+    await adm.waitForSelector('main section h2:has-text("inventory")', { timeout: 10000 });
+    const invRows = await adm.$$eval('main table tbody tr td:first-child', (tds) => tds.map((td) => td.textContent.trim()));
+    step('migration center lists the data inventory with the export policy', !e6.length && invRows.includes('Students') && invRows.includes('MutationJournal'), `${invRows.length} tables`);
+    await adm.fill('main input[name=reason]', 'ซ้อมย้ายจากหน้าจอ');
+    await adm.click('button:has-text("เริ่มส่งออก")');
+    const refused = await toastText(adm);
+    step('a snapshot export is refused until the system is frozen (READ_ONLY)', /อ่านอย่างเดียว/.test(refused), refused);
+    h.ok(ids.admin, 'system.setMode', { mode: 'READ_ONLY', reason: 'freeze สำหรับทดสอบหน้าจอ' });
+    await adm.click('button:has-text("เริ่มส่งออก")');
+    await adm.waitForFunction(() => [...document.querySelectorAll('.toast')].some((t) => t.textContent.includes('เริ่มส่งออกแล้ว')), null, { timeout: 10000 });
+    for (let i = 0; i < 4; i++) h.runJobs();
+    await adm.click('button:has-text("รีเฟรช")');
+    await adm.waitForFunction(() => document.querySelector('main')?.textContent.includes('ส่งออกแล้ว'), null, { timeout: 10000 });
+    const runText = await adm.$eval('main', (m) => m.textContent);
+    step('export runs as a background job and shows EXPORTED / COMPLETE', runText.includes('ส่งออกแล้ว') && runText.includes('ครบถ้วน'), '');
+    await adm.click('button:has-text("รายละเอียด")');
+    await adm.waitForSelector('button:has-text("คู่มือย้ายระบบ")', { timeout: 10000 });
+    const [doc] = await Promise.all([adm.waitForEvent('download', { timeout: 10000 }), adm.click('button:has-text("คู่มือย้ายระบบ")')]);
+    const docText = fs.readFileSync(await doc.path(), 'utf8');
+    step('the runbook matching the package version downloads from the package', doc.suggestedFilename() === 'MIGRATION_RUNBOOK_TH.md' && docText.includes('Migration Runbook'), doc.suggestedFilename());
     await adm.close();
   }
 } catch (e) {

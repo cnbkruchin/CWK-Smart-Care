@@ -63,8 +63,42 @@ export class MemoryStore {
     return [...set].sort().reverse();
   }
 
-  count(table) {
-    return this.tables.get(table).size;
+  /** Row count of a table, or of one partition ('*' = all rows). */
+  count(table, partition = '*') {
+    if (partition === '*' || partition === undefined) return this.tables.get(table).size;
+    let n = 0;
+    for (const p of this.partitionOf.get(table).values()) if (p === partition) n++;
+    return n;
+  }
+
+  // ───────── import contract (portable package → new environment; see application/migration) ─────────
+  /** Selected columns of every row (all partitions) — used to rebuild the import index. */
+  importColumns(table, columns) {
+    return [...this.tables.get(table).values()].map((r) => Object.fromEntries(columns.map((c) => [c, r[c] ?? null])));
+  }
+
+  /** Append already-validated records verbatim (ids, versions, seq preserved). Refuses existing ids. */
+  importAppend(table, partition, records) {
+    getTable(table);
+    const m = this.tables.get(table);
+    for (const r of records) if (m.has(r.id)) throw new AppError('UNIQUE_VIOLATION', `${table} id exists`, { details: { entity: table, existing_id: r.id } });
+    for (const r of records) {
+      m.set(r.id, clone(r));
+      this.partitionOf.get(table).set(r.id, partition);
+      if (table === 'ChangeLog' && r.seq > this.seq) this.seq = r.seq;
+    }
+    return { inserted: records.length };
+  }
+
+  /** Apply newer versions of existing rows (delta/rollback import); expected_version must match. */
+  importUpdate(table, _partition, updates) {
+    const m = this.tables.get(table);
+    for (const u of updates) {
+      const cur = m.get(u.record.id);
+      if (!cur || cur.version !== u.expected_version) throw new AppError('CONFLICT', `${table} version mismatch`, { details: { entity: table, current_version: cur ? cur.version : null, expected_version: u.expected_version } });
+    }
+    for (const u of updates) m.set(u.record.id, clone(u.record)); // partition unchanged (row stays where it was written)
+    return { updated: updates.length };
   }
 
   /** Retention for the Jobs table (same contract as the Sheets store). */

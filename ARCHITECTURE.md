@@ -135,6 +135,18 @@ export function* recordArrival(ctx, input) {
 
 ห้าม dual-write; cutover/rollback ตาม docs/MIGRATION_RUNBOOK_TH.md
 
+### 6.1 ชุดเครื่องมือย้ายข้อมูล (ชุดที่ 6)
+
+```
+ระบบต้นทาง (GAS)                      package (Drive folder / dir / small zip)             ปลายทาง
+migration.startExport ─▶ job export ─▶ manifest.json + .sha256, data/*.jsonl, ─▶ adminImportPackage (Sheets ชุดใหม่)
+ (READ_ONLY + H)          (checkpoint)   attachments/, metadata/, schema/, docs/  ─▶ tools/migrate.mjs (PostgreSQL: staging → merge)
+migration.recordEvidence ◀──────────── reports/import.json, reconciliation.json ◀── reconcile (ยอด R01–R07, สิทธิ์, bytes)
+migration.cutover (archive อ่านอย่างเดียว) · rollback: DELTA ─▶ adminApplyDelta (APPLY_NEWER)
+```
+
+แกนตรวจเดียว `processPackage()` ใช้ร่วมทุกปลายทาง; รูปแบบ docs/PORTABLE_FORMAT.md; การตัดสินใจ D-026–D-030
+
 ## 7. Environments
 
 DEV / STAGING / PROD แยก Apps Script project (หรือ deployment + Script Properties ชุดต่างกัน), spreadsheet, Drive folder, Firebase project (หรือ tenant), gateway secrets, LINE channel และรายชื่อผู้รับทดสอบ (`CWK_NOTIFY_ALLOWLIST` ใช้ได้เฉพาะ DEV/STAGING; PROD ไม่อ่าน allowlist และไม่เปิด DEMO)

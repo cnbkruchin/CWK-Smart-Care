@@ -1,6 +1,7 @@
 // Reports (MASTER_PROMPT §12): catalog, on-screen preview, file runs (CSV/XLSX/PDF) as jobs with
 // progress, secure download (permission re-checked; no secrets in links), lock + revision.
 // Every run stores filter, as_of, schema/rule versions and requester to explain later differences.
+import { listAll } from '../queries.js';
 import { op } from '../dispatcher.js';
 import { obj, S, notFound, assertVersion } from './common.js';
 import { requirePermission, allows, scopeFor } from '../authz.js';
@@ -54,7 +55,7 @@ function filterText(code, filter) {
 }
 
 /** Build the report as `principal` (the requester) — permission scope is applied inside the builder. */
-function* buildDoc(ctx, code, filter) {
+export function* buildDoc(ctx, code, filter) {
   if (!hasGrant(ctx, REPORTS[code].permission)) throw new AppError('FORBIDDEN', `no ${REPORTS[code].permission}`);
   const res = yield* REPORTS[code].build(ctx, filter, HANDLERS);
   let school = null;
@@ -149,7 +150,7 @@ export const reportOps = [
       const where = {};
       if (input.code) where.report_code = input.code;
       if (!all) where.requested_by = ctx.principal.user_id;
-      const runs = (yield ctx.store.list('ReportRuns', { where, limit: 1000 })).items.sort((a, b) => (a.created_at < b.created_at ? 1 : -1)).slice(0, input.limit || 50);
+      const runs = (yield* listAll(ctx, 'ReportRuns', { where })).sort((a, b) => (a.created_at < b.created_at ? 1 : -1)).slice(0, input.limit || 50);
       const users = yield ctx.store.getMany('Users', [...new Set(runs.map((r) => r.requested_by))]);
       return {
         items: runs.map((r) => ({

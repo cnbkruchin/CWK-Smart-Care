@@ -129,7 +129,7 @@ function* r03(ctx, f) {
   const scope = yield* classScope(ctx, f, 'leave.read');
   dateList(f.from, f.to, 400);
   const toEx = addDays(f.to, 1);
-  let reqs = (yield ctx.store.list('LeaveRequests', { where: { start_date: { lt: toEx }, end_date: { gt: f.from } }, limit: 5000 })).items;
+  let reqs = (yield* listAll(ctx, 'LeaveRequests', { where: { start_date: { lt: toEx }, end_date: { gt: f.from } } }));
   if (f.status) reqs = reqs.filter((r) => r.status === f.status);
   if (f.leave_type) reqs = reqs.filter((r) => r.leave_type === f.leave_type);
   const clsAt = yield* classAt(ctx);
@@ -179,7 +179,7 @@ function* r04(ctx, f, { profileHandler }) {
 // ───────────────────────── R05 ─────────────────────────
 function* r05(ctx, f) {
   const scope = yield* classScope(ctx, f, 'case.read');
-  let cases = (yield ctx.store.list('Cases', { where: f.status ? { status: f.status } : { status: { in: ['OPEN', 'IN_PROGRESS', 'WAITING_RESPONSE', 'RESOLVED'] } }, limit: 2000 })).items;
+  let cases = (yield* listAll(ctx, 'Cases', { where: f.status ? { status: f.status } : { status: { in: ['OPEN', 'IN_PROGRESS', 'WAITING_RESPONSE', 'RESOLVED'] } } }));
   const clsAt = yield* classAt(ctx);
   cases = cases.filter((c) => inScope(scope, clsAt(c.student_id, ctx.today)) || (!scope.ids ? true : c.owner_user_id === ctx.principal.user_id));
   if (f.overdue_only) cases = cases.filter((c) => c.due_at && c.due_at < ctx.now && c.status !== 'RESOLVED' && c.status !== 'CLOSED');
@@ -213,9 +213,9 @@ function* r06(ctx, f) {
   const fromTs = localToUtc(f.from, '00:00', ctx.tz);
   const toTs = localToUtc(addDays(f.to, 1), '00:00', ctx.tz);
   const clsAt = yield* classAt(ctx);
-  let logs = (yield ctx.store.list('ContactLogs', { where: { contacted_at: { gte: fromTs, lt: toTs } }, limit: 5000 })).items.filter((l) => inScope(scope, clsAt(l.student_id, l.contacted_at.slice(0, 10))));
+  let logs = (yield* listAll(ctx, 'ContactLogs', { where: { contacted_at: { gte: fromTs, lt: toTs } } })).filter((l) => inScope(scope, clsAt(l.student_id, l.contacted_at.slice(0, 10))));
   if (f.channel) logs = logs.filter((l) => l.channel === f.channel);
-  const appts = (yield ctx.store.list('Appointments', { where: { scheduled_at: { gte: fromTs, lt: toTs } }, limit: 2000 })).items.filter((a) => inScope(scope, clsAt(a.student_id, a.scheduled_at.slice(0, 10))));
+  const appts = (yield* listAll(ctx, 'Appointments', { where: { scheduled_at: { gte: fromTs, lt: toTs } } })).filter((a) => inScope(scope, clsAt(a.student_id, a.scheduled_at.slice(0, 10))));
   const students = yield* studentsById(ctx, [...logs.map((l) => l.student_id), ...appts.map((a) => a.student_id)]);
   const users = yield* usersById(ctx, logs.map((l) => l.contacted_by));
   const guardians = yield ctx.store.getMany('Guardians', [...new Set(logs.map((l) => l.guardian_id).filter(Boolean))]);
@@ -306,20 +306,20 @@ function* r08(ctx, f) {
       if (!sessions.has(c.id)) rows.push({ category: 'ยังไม่เช็กชื่อ', detail: 'ไม่มีการส่งผลเช็กชื่อ', date: d, class_name_th: c.name_th, student: '' });
     }
   }
-  const tasks = (yield ctx.store.list('ReconciliationTasks', { where: { status: 'OPEN' }, limit: 2000 })).items.filter((t) => !t.class_id ? !scope.ids : inScope(scope, t.class_id));
+  const tasks = (yield* listAll(ctx, 'ReconciliationTasks', { where: { status: 'OPEN' } })).filter((t) => !t.class_id ? !scope.ids : inScope(scope, t.class_id));
   const tStudents = yield* studentsById(ctx, tasks.map((t) => t.student_id));
   const cname = new Map(scope.classes.map((c) => [c.id, c.name_th]));
   for (const t of tasks) rows.push({ category: 'ข้อมูลขัดกัน/รอตรวจ', detail: `${th('ReconciliationTaskType', t.task_type)}: ${t.description_th || ''}`, date: t.school_date || '', class_name_th: cname.get(t.class_id) || '', student: t.student_id && tStudents.get(t.student_id) ? studentShortName(tStudents.get(t.student_id)) : '' });
   const clsAt = yield* classAt(ctx);
   const stale = addMinutesIso(ctx.now, -2 * 24 * 60);
-  const leaves = (yield ctx.store.list('LeaveRequests', { where: { status: { in: ['PENDING_GUARDIAN', 'PENDING_SCHOOL', 'CANCELLATION_REQUESTED'] } }, limit: 2000 })).items.filter((r) => r.submitted_at < stale && inScope(scope, clsAt(r.student_id, r.start_date)));
+  const leaves = (yield* listAll(ctx, 'LeaveRequests', { where: { status: { in: ['PENDING_GUARDIAN', 'PENDING_SCHOOL', 'CANCELLATION_REQUESTED'] } } })).filter((r) => r.submitted_at < stale && inScope(scope, clsAt(r.student_id, r.start_date)));
   const lStudents = yield* studentsById(ctx, leaves.map((r) => r.student_id));
   for (const r of leaves) rows.push({ category: 'ใบลาค้างเกิน 2 วัน', detail: th('LeaveStatus', r.status), date: r.submitted_at.slice(0, 10), class_name_th: cname.get(clsAt(r.student_id, r.start_date)) || '', student: lStudents.get(r.student_id) ? studentShortName(lStudents.get(r.student_id)) : '' });
   // guardians of students in scope with no usable contact endpoint
-  const links = (yield ctx.store.list('StudentGuardians', { where: { status: 'ACTIVE' }, limit: 10000 })).items.filter((l) => dateInRange(ctx.today, l.effective_from, l.effective_to) && inScope(scope, clsAt(l.student_id, ctx.today)));
+  const links = (yield* listAll(ctx, 'StudentGuardians', { where: { status: 'ACTIVE' } })).filter((l) => dateInRange(ctx.today, l.effective_from, l.effective_to) && inScope(scope, clsAt(l.student_id, ctx.today)));
   const byGuardian = new Map();
   for (const l of links) { if (!byGuardian.has(l.guardian_id)) byGuardian.set(l.guardian_id, []); byGuardian.get(l.guardian_id).push(l.student_id); }
-  const endpoints = (yield ctx.store.list('ContactEndpoints', { where: { status: 'ACTIVE' }, limit: 20000 })).items;
+  const endpoints = (yield* listAll(ctx, 'ContactEndpoints', { where: { status: 'ACTIVE' } }));
   const withContact = new Set(endpoints.map((e) => e.owner_id));
   const gs = yield ctx.store.getMany('Guardians', [...byGuardian.keys()]);
   const gStudents = yield* studentsById(ctx, links.map((l) => l.student_id));
@@ -347,11 +347,11 @@ function* r09(ctx, f) {
   const parts = partitionsForDates(ctx, [f.from, f.to]);
   const fromTs = localToUtc(f.from, '00:00', ctx.tz);
   const toTs = localToUtc(addDays(f.to, 1), '00:00', ctx.tz);
-  const notes = (yield ctx.store.list('Notifications', { where: { created_at: { gte: fromTs, lt: toTs } }, partitions: parts, limit: 20000 })).items;
+  const notes = (yield* listAll(ctx, 'Notifications', { where: { created_at: { gte: fromTs, lt: toTs } }, partitions: parts }));
   const ids = new Set(notes.map((n) => n.id));
   const typeOf = new Map(notes.map((n) => [n.id, n.notification_type]));
-  const recs = (yield ctx.store.list('NotificationRecipients', { where: { created_at: { gte: fromTs, lt: toTs } }, partitions: parts, limit: 50000 })).items.filter((r) => ids.has(r.notification_id));
-  const outbox = (yield ctx.store.list('NotificationOutbox', { where: { created_at: { gte: fromTs, lt: toTs } }, partitions: parts, limit: 50000 })).items.filter((o) => ids.has(o.notification_id));
+  const recs = (yield* listAll(ctx, 'NotificationRecipients', { where: { created_at: { gte: fromTs, lt: toTs } }, partitions: parts })).filter((r) => ids.has(r.notification_id));
+  const outbox = (yield* listAll(ctx, 'NotificationOutbox', { where: { created_at: { gte: fromTs, lt: toTs } }, partitions: parts })).filter((o) => ids.has(o.notification_id));
   const by = new Map();
   const g = (t) => { if (!by.has(t)) by.set(t, { type: th('NotificationType', t), notifications: 0, recipients: 0, ack_required: 0, acknowledged: 0, pending_ack: 0, follow_up: 0, queued: 0, accepted: 0, retrying: 0, failed: 0, cancelled: 0, retried: 0 }); return by.get(t); };
   for (const n of notes) g(n.notification_type).notifications++;
@@ -442,7 +442,7 @@ function* r11(ctx, f) {
   let ev;
   if (f.student_id) ev = yield ctx.store.findBy('AuditEvents', 'student_id', f.student_id, { partitions: parts });
   else if (f.actor_id) ev = yield ctx.store.findBy('AuditEvents', 'actor_id', f.actor_id, { partitions: parts });
-  else ev = (yield ctx.store.list('AuditEvents', { where: { occurred_at: { gte: fromTs, lt: toTs } }, partitions: parts, limit: 5000 })).items;
+  else ev = (yield* listAll(ctx, 'AuditEvents', { where: { occurred_at: { gte: fromTs, lt: toTs } }, partitions: parts }));
   ev = ev.filter((e) => e.occurred_at >= fromTs && e.occurred_at < toTs && (!f.action || e.action.startsWith(f.action))).sort((a, b) => (a.occurred_at < b.occurred_at ? -1 : 1)).slice(0, 5000);
   const users = yield* usersById(ctx, ev.map((e) => e.actor_id));
   const j = (v) => (v ? JSON.stringify(v).slice(0, 500) : '');

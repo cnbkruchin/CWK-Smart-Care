@@ -1,0 +1,576 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cwk-smart-care.example.com/schema/portable/v1/manifest.schema.json",
+  "title": "CWK portable package manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "format_version",
+    "kind",
+    "export_id",
+    "app_version",
+    "schema_version",
+    "mode",
+    "snapshot",
+    "source",
+    "serialization",
+    "tables",
+    "excluded_tables",
+    "transforms",
+    "attachments",
+    "files",
+    "completeness",
+    "completeness_reasons",
+    "consistency",
+    "created_at"
+  ],
+  "properties": {
+    "format": {
+      "type": "string",
+      "const": "cwk-portable"
+    },
+    "format_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "SNAPSHOT",
+        "DELTA"
+      ]
+    },
+    "export_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "app_version": {
+      "type": "string",
+      "maxLength": 40
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "school": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "code": {
+          "type": "string"
+        },
+        "name_th": {
+          "type": "string"
+        }
+      }
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "FULL_SNAPSHOT",
+        "REHEARSAL",
+        "PARTIAL"
+      ]
+    },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "started_at",
+        "finished_at",
+        "frozen",
+        "high_water_mark",
+        "school_date",
+        "timezone"
+      ],
+      "properties": {
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "finished_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "frozen": {
+          "type": "boolean"
+        },
+        "system_mode_at_start": {
+          "type": "string"
+        },
+        "high_water_mark": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "change_log_seq"
+          ],
+          "properties": {
+            "change_log_seq": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "school_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "timezone": {
+          "type": "string"
+        }
+      }
+    },
+    "delta": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "base_export_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "from_seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "to_seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tombstones": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform",
+        "env"
+      ],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "enum": [
+            "GAS_SHEETS",
+            "MEMORY",
+            "POSTGRES"
+          ]
+        },
+        "env": {
+          "type": "string"
+        }
+      }
+    },
+    "serialization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "encoding",
+        "newline",
+        "canonical_json",
+        "record_hash",
+        "table_digest"
+      ],
+      "properties": {
+        "encoding": {
+          "const": "UTF-8",
+          "type": "string"
+        },
+        "newline": {
+          "const": "LF",
+          "type": "string"
+        },
+        "canonical_json": {
+          "type": "string"
+        },
+        "record_hash": {
+          "type": "string"
+        },
+        "table_digest": {
+          "type": "string"
+        }
+      }
+    },
+    "tables": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "partition_mode",
+          "row_count",
+          "digest_all",
+          "digest_source",
+          "derived_columns",
+          "live",
+          "partitions"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "partition_mode": {
+            "type": "string",
+            "enum": [
+              "TERM",
+              "NONE"
+            ]
+          },
+          "row_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "digest_all": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "digest_source": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "derived_columns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "live": {
+            "type": "boolean"
+          },
+          "partitions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "key",
+                "row_count",
+                "chunks"
+              ],
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                "row_count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "chunks": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "path",
+                      "rows",
+                      "bytes",
+                      "sha256"
+                    ],
+                    "properties": {
+                      "path": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*(\\/[A-Za-z0-9][A-Za-z0-9._-]*)*$",
+                        "maxLength": 240
+                      },
+                      "rows": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "bytes": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "sha256": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                      },
+                      "first_id": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "last_id": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "csv": {
+                        "type": [
+                          "object",
+                          "null"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                          "path": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*(\\/[A-Za-z0-9][A-Za-z0-9._-]*)*$",
+                            "maxLength": 240
+                          },
+                          "sha256": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$"
+                          },
+                          "bytes": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "excluded_tables": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "reason"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "TRANSIENT",
+              "ENVIRONMENT",
+              "NOT_SELECTED"
+            ]
+          },
+          "note_th": {
+            "type": "string"
+          },
+          "metadata_path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "transforms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "table",
+          "column",
+          "rule",
+          "rows_affected"
+        ],
+        "properties": {
+          "table": {
+            "type": "string"
+          },
+          "column": {
+            "type": "string"
+          },
+          "rule": {
+            "type": "string"
+          },
+          "rows_affected": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "note_th": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "attachments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "included",
+        "files",
+        "bytes",
+        "missing"
+      ],
+      "properties": {
+        "included": {
+          "type": "boolean"
+        },
+        "index": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*(\\/[A-Za-z0-9][A-Za-z0-9._-]*)*$",
+              "maxLength": 240
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "files": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "batches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*(\\/[A-Za-z0-9][A-Za-z0-9._-]*)*$",
+                "maxLength": 240
+              },
+              "files": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "missing": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "logical_id",
+              "reason"
+            ],
+            "properties": {
+              "logical_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "reason": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "sha256",
+          "bytes"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*(\\/[A-Za-z0-9][A-Za-z0-9._-]*)*$",
+            "maxLength": 240
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "completeness": {
+      "type": "string",
+      "enum": [
+        "COMPLETE",
+        "PARTIAL",
+        "FAILED"
+      ]
+    },
+    "completeness_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "consistency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checked"
+      ],
+      "properties": {
+        "checked": {
+          "type": "boolean"
+        },
+        "changes_after_hwm": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "non_live_tables_changed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "count_mismatches": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "created_by": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

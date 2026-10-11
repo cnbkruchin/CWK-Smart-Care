@@ -51,3 +51,11 @@ function adminRecoverJournal() {
 function adminRestoreSnapshot() {
   return CWK.admin.restoreSnapshot();
 }
+
+function adminImportPackage() {
+  return CWK.admin.importPackage();
+}
+
+function adminApplyDelta() {
+  return CWK.admin.applyDelta();
+}

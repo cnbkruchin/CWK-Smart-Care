@@ -10,7 +10,7 @@ import { runSync } from '../../src/application/runtime.js';
 import { bootstrapInstallation } from '../../src/application/bootstrap.js';
 import { seedDemoData } from '../../src/application/demo-seed.js';
 import { runDueJobs } from '../../src/application/jobs.js';
-import { TICK_TASKS } from '../../src/application/scheduler.js';
+import { tasksForMode } from '../../src/application/scheduler.js';
 import { AppError } from '../../src/shared/errors.js';
 
 export const PASS = 'test-passphrase-123';
@@ -55,10 +55,10 @@ export function makeHarness({ now = '2026-06-15T01:00:00.000Z', env = 'DEV', ide
     runJobs() {
       return runSync(runDueJobs, deps, JOB_HANDLERS, { deadlineAt: Date.now() + 120000, owner: 'test' });
     },
-    /** Run scheduled tick tasks (all, or those named), like cronTick without the journal recovery. */
+    /** Run scheduled tick tasks (all, or those named) for the current system mode, like cronTick without the journal recovery. */
     tick(names = null) {
       const out = {};
-      for (const t of TICK_TASKS) if (!names || names.includes(t.name)) out[t.name] = runSync(t.run, deps, { deadlineAt: Date.now() + 120000, now: clock.now() });
+      for (const t of tasksForMode(config.systemMode)) if (!names || names.includes(t.name)) out[t.name] = runSync(t.run, deps, { deadlineAt: Date.now() + 120000, now: clock.now() });
       return out;
     },
   };

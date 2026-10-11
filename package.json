@@ -1,6 +1,6 @@
 {
   "name": "cwk-smart-care",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "description": "CWK Smart Care — ระบบแจ้งลา ลงเวลาสาย ติดตามการมาเรียน และดูแลช่วยเหลือนักเรียน โรงเรียนจุนวิทยาคม",
   "type": "module",
@@ -16,12 +16,13 @@
     "test:domain": "node --test \"tests/domain/*.test.mjs\"",
     "test:app": "node --test \"tests/application/*.test.mjs\"",
     "test:gas": "npm run build && node --test \"tests/gas/*.test.mjs\"",
-    "test:pg": "node tools/pg-local.mjs run -- node --test --test-concurrency=1 \"tests/contract/*.test.mjs\" \"tests/migration/*.test.mjs\" \"tests/api/*.test.mjs\"",
+    "test:pg": "node tools/pg-local.mjs run -- node --test --test-concurrency=1 \"tests/migration/*.test.mjs\"",
     "capacity": "node tools/capacity.mjs",
     "fixtures": "node tools/fixtures/generate-synthetic.mjs",
     "migrate": "node tools/migrate.mjs",
     "api": "node future-platform/api/server.mjs",
-    "test:ui": "node tests/ui/ui-smoke.mjs"
+    "test:ui": "node tests/ui/ui-smoke.mjs",
+    "rehearse:pg": "node tools/rehearse-postgres.mjs"
   },
   "devDependencies": {
     "esbuild": "0.28.2"

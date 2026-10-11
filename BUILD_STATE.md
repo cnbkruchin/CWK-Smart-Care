@@ -2,11 +2,11 @@
 
 | รายการ | ค่า |
 |---|---|
-| project version | 0.5.0 (ยังไม่ใช่ release) · gateway 0.4.0 (ไม่เปลี่ยนในชุดที่ 5) |
+| project version | 0.6.0 (ยังไม่ใช่ release) · gateway 0.4.0 (ไม่เปลี่ยนตั้งแต่ชุดที่ 4) · portable format v1 |
 | schema version | 1 (`src/schema/tables.js`, 56 ตาราง) |
-| API version | v1 (125 operations ใน allowlist) · public GAS functions 11 |
+| API version | v1 (139 operations ใน allowlist) · public GAS functions 13 |
 | prompt version | MASTER_PROMPT 1.0 (2026-10-10) |
-| ชุดล่าสุดที่ส่งมอบ | ชุดที่ 5 — รายงานและงานปฏิบัติการ (สำรอง/restore, metrics, retention, security) |
+| ชุดล่าสุดที่ส่งมอบ | ชุดที่ 6 — Portable migration (ส่งออก, ตรวจ, นำเข้า Sheets/PostgreSQL, กระทบยอด, cutover/rollback) |
 | อัปเดตล่าสุด | 2026-10-11 |
 
 ## สมมติฐาน (แยกจากข้อมูลจริง)
@@ -30,7 +30,7 @@
 
 ## Architecture decisions
 
-DECISIONS.md D-001…D-025 (ชุดที่ 5 เพิ่ม D-023 รายงานบนจอ vs ฉบับไฟล์/ล็อก/revision, D-024 snapshot + restore ไป environment ใหม่เท่านั้น, D-025 retention เฉพาะบันทึกระบบ; ชุดที่ 4 เพิ่ม D-020 กฎติดตาม/กันซ้ำ/เปิดใหม่, D-021 การส่งออกใน DEV/STAGING, D-022 ข้อความเข้าและปุ่มตอบกลับทาง LINE; ชุดที่ 3: รายละเอียด implement: DailyAttendance เป็น projection ที่คำนวณใหม่ใน changeset เดียวกับเหตุการณ์, การแก้ไขเป็นเหตุการณ์ใหม่ที่ supersede ของเดิม, config cache ล้างอัตโนมัติเมื่อ commit แตะตารางตั้งค่า)
+DECISIONS.md D-001…D-031 (ชุดที่ 6 เพิ่ม D-026 รูปแบบ package, D-027 snapshot ที่พิสูจน์ความสอดคล้อง, D-028 แกนตรวจเดียว/ปลายทางใหม่เท่านั้น/staging+merge, D-029 reconciliation ด้วยตัวอย่างธุรกิจ, D-030 cutover/rollback, D-031 แก้การอ่านข้อมูลที่ถูกตัดที่ 500 แถว; ชุดที่ 5 เพิ่ม D-023 รายงานบนจอ vs ฉบับไฟล์/ล็อก/revision, D-024 snapshot + restore ไป environment ใหม่เท่านั้น, D-025 retention เฉพาะบันทึกระบบ; ชุดที่ 4 เพิ่ม D-020 กฎติดตาม/กันซ้ำ/เปิดใหม่, D-021 การส่งออกใน DEV/STAGING, D-022 ข้อความเข้าและปุ่มตอบกลับทาง LINE; ชุดที่ 3: รายละเอียด implement: DailyAttendance เป็น projection ที่คำนวณใหม่ใน changeset เดียวกับเหตุการณ์, การแก้ไขเป็นเหตุการณ์ใหม่ที่ supersede ของเดิม, config cache ล้างอัตโนมัติเมื่อ commit แตะตารางตั้งค่า)
 
 ## File inventory
 
@@ -45,7 +45,7 @@ DECISIONS.md D-001…D-025 (ชุดที่ 5 เพิ่ม D-023 ราย
 | `src/application/jobs/attendance-jobs.js` openDay, recomputeStudent, recomputeDate, unknownCheck + tick `attendance.schedule` | ✔ ชุดที่ 3 |
 | `frontend/src/screens/` dashboard, gate, rollcall, leave, leave-detail, approvals, profile (+ extra.js routes) | ✔ ชุดที่ 3 |
 | `frontend/src/offline.js` (IndexedDB คิวลงเวลาออฟไลน์ ≤ 24 ชม.), `frontend/src/lib/dates.js` (วันที่ตามเขตเวลาโรงเรียน) | ✔ ชุดที่ 3 |
-| `gas-dist/` Code.js (~763 KB), Entrypoints.js (11 public functions), App.html (~250 KB), appsscript.json, BUILD_INFO.json | ✔ built (`npm run build`) |
+| `gas-dist/` Code.js (974 KB), Entrypoints.js (13 public functions), App.html (275 KB), appsscript.json, BUILD_INFO.json | ✔ built (`npm run build`) |
 | `tests/application/daily.test.mjs` (16 tests), `tests/gas/gas-runtime.test.mjs` (+ daily flows on Sheets), `tests/ui/ui-smoke.mjs` (Chromium) | ✔ ชุดที่ 3 |
 | `docs/USER_GUIDE_DAILY_TH.md` | ✔ ชุดที่ 3 |
 | `src/domain/followup.js` (นับตามกฎ, หน้าต่างวันเรียน, cooldown) | ✔ ชุดที่ 4 |
@@ -71,7 +71,15 @@ DECISIONS.md D-001…D-025 (ชุดที่ 5 เพิ่ม D-023 ราย
 | `frontend/src/screens/reports.js` (catalog, ตัวกรอง, ดูบนจอ, สร้างไฟล์, ดาวน์โหลด, ล็อก, ฉบับใหม่), health.js (+ metrics, สำรอง, retention) | ✔ ชุดที่ 5 |
 | `tests/application/` reports (7), operations (5), security (5); GAS emulator +1 (PDF/XLSX/CSV + backup + restore drill); GasSim: DocumentApp/Docs API/Drive export/makeCopy/getAs | ✔ ชุดที่ 5 |
 | THREAT_MODEL.md, docs/OPERATIONS_TH.md, docs/REPORTS_TH.md, docs/PRIVACY_NOTICE_DRAFT_TH.md (ร่าง), INSTALL_GAS_TH §7.1–7.2, ScriptProperties.example (`CWK_RESTORE_FROM_FOLDER_ID`) | ✔ ชุดที่ 5 |
-| API_CONTRACT.md, openapi.yaml, DATA_DICTIONARY.md, 0001_init.sql | ✔ regenerated (schema ไม่เปลี่ยนในชุดที่ 5) |
+| `src/application/migration/` format (นโยบายส่งออก, transforms, canonical/digest, manifest schema), export (job + inventory + พิสูจน์ความสอดคล้อง), process (แกนตรวจ/นำเข้า resumable), sinks, import, reconcile, samples (ยอด R01–R07 + fingerprint สิทธิ์), delta (rollback), docs-bundle (generated) | ✔ ชุดที่ 6 |
+| `src/application/ops/migration.js` migration.inventory/startExport/runs/get/packageDoc/pause/resume/cancel/validate/recordEvidence/checklist/markReady/cutover/rollback + jobs `migration.export`, `migration.validate` | ✔ ชุดที่ 6 |
+| `src/adapters/gas/drive-package.js`, `src/adapters/node/fs-package.js`, `src/adapters/node/fs-storage.js`, `src/adapters/memory/memory-package.js`; store import contract (`importColumns`, `importAppend`, `importUpdate`) ใน MemoryStore และ SheetsStore | ✔ ชุดที่ 6 |
+| GAS: `adminImportPackage`, `adminApplyDelta` (public functions 13); platform packageStore/journalStatus/maxChangeSeq | ✔ ชุดที่ 6 |
+| `tools/migrate.mjs` (validate/plan/import --dry-run/--apply/reconcile/pack), `tools/lib/pg-target.mjs` (staging + merge + reconcile target), `tools/lib/zip.mjs`, `tools/rehearse-postgres.mjs`, `tools/fixtures/generate-synthetic.mjs`, `tools/gen/portable.mjs`, `docker-compose.yml` | ✔ ชุดที่ 6 |
+| `frontend/src/screens/migration.js` (ศูนย์ส่งออกและย้ายข้อมูล) | ✔ ชุดที่ 6 |
+| `tests/migration/` portable (6), import-reconcile (5), corruption (9), cutover (5), postgres (5, ต้องมี PostgreSQL); GAS emulator +1; security +1 (กันการอ่านถูกตัด); `tests/helpers/migration-fixture.mjs`, `package-tools.mjs` | ✔ ชุดที่ 6 |
+| docs/PORTABLE_FORMAT.md, docs/MIGRATION_RUNBOOK_TH.md, schema/portable/*.schema.json, THREAT_MODEL T12, INSTALL_GAS_TH §7.3, OPERATIONS_TH §7.1, ARCHITECTURE §6.1, README_TH | ✔ ชุดที่ 6 |
+| API_CONTRACT.md, openapi.yaml, DATA_DICTIONARY.md, 0001_init.sql | ✔ regenerated (schema ไม่เปลี่ยนในชุดที่ 6) |
 
 ## Completed requirements (สะสม)
 
@@ -95,28 +103,35 @@ DECISIONS.md D-001…D-025 (ชุดที่ 5 เพิ่ม D-023 ราย
 - §16 envelope/response/error contract, idempotency, expected_version, stale response guard, OpenAPI
 - §12 รายงาน R01–R12: ดูบนจอ + CSV (UTF-8 BOM, กันสูตร) + XLSX (export จริง) + PDF (Docs template, หัวตารางซ้ำทุกหน้า, ช่องลงนาม); สร้างด้วยสิทธิ์ผู้ขอ ณ เวลาสร้าง; เก็บตัวกรอง/as_of/schema/rule versions/ผู้สร้าง; งานเบื้องหลัง + สถานะ + ล้มเหลวแสดงเหตุผล; ดาวน์โหลดตรวจสิทธิ์ + checksum + audit; ล็อก + revision; R01 ตรงกับ dashboard (ทดสอบ); R07 ตัวหาร = วัน-คน
 - §14 operations: metrics → OperationMetrics (p50/p95 ต่อ operation), สำรองประจำคืนแบบ consistent + manifest + prune, restore drill ไป environment ใหม่ + บันทึกผล, retention เฉพาะบันทึกระบบ (ตาม partition) + Jobs, health checks เพิ่ม; security: envelope ≤ 8 MB, page cap, rate limit ต่อ operation/ผู้ใช้, upload validation, error ไม่ echo ความลับ
+- §15 ศูนย์ส่งออกและย้ายข้อมูล: inventory, ส่งออก FULL_SNAPSHOT/REHEARSAL/PARTIAL เป็นงานเบื้องหลังมี checkpoint (หยุดชั่วคราว/ทำต่อ/ยกเลิก), package ตาม PORTABLE_FORMAT (manifest + sha256, JSONL canonical, CSV กันสูตร + data dictionary, ไฟล์แนบ bytes จริง + index, metadata, schema, docs), freeze ที่ server + high-water mark + พิสูจน์ความสอดคล้อง, ไม่มี secrets, outbox `replay_blocked`, ตรวจ package (FULL/INTEGRITY), นำเข้า Sheets ชุดใหม่ (adminImportPackage) และ PostgreSQL (CLI: staging + merge transaction เดียว, resume, idempotent, conflict ไม่เขียนทับ, ปฏิเสธ schema ไม่รองรับ, ZIP ปลอดภัย, role cwk_migrator), reconciliation ครบ §15.6 (จำนวน/ID/checksum แยก derived/partition/ช่วงวัน+พ.ศ./ความสัมพันธ์/outbox/ไฟล์แนบ/ยอด R01–R07/สิทธิ์ตัวอย่าง/FK SQL), state machine + หลักฐาน + readiness checklist + cutover (archive อ่านอย่างเดียว) + rollback (DELTA + APPLY_NEWER ไม่ทิ้งข้อมูลใหม่)
+- §10.3/§14 งานตามเวลาใน READ_ONLY รันเฉพาะงานบำรุงรักษา; การอ่านทั้งหมดฝั่ง server ไม่ถูกตัดที่ 500 แถว (D-031)
 - §17 คู่มือติดตั้งฉบับแรก, คู่มือใช้งานประจำวัน, คู่มือ gateway, คู่มืองานติดตาม/แจ้งเตือน, คู่มือปฏิบัติการ (OPERATIONS_TH), นิยามรายงาน (REPORTS_TH), THREAT_MODEL, ร่างประกาศความเป็นส่วนตัว
 
 ## Pending requirements (ชุดถัดไป)
 
-ชุดที่ 6: portable export (manifest + JSONL ต่อตาราง + ไฟล์แนบ + checksum, freeze/high-water mark), restore จาก portable package, `tools/migrate.mjs` (validate/plan/import --dry-run/--apply ผ่าน staging schema/reconcile) กับ PostgreSQL จริง, corruption tests, หน้าจอศูนย์ส่งออก/ย้ายข้อมูล, MIGRATION_RUNBOOK_TH, `replay_blocked` บน outbox ที่นำเข้า
-ชุดที่ 7–8 ตาม MASTER_PROMPT §20
+ชุดที่ 7: `future-platform/api` (REST backend อ้างอิง Node + PostgreSQL: Postgres TableStore/MutationStore, `/v1/rpc` + `/v1/ops/*`, healthz/readyz, jobs ด้วย FOR UPDATE SKIP LOCKED), `HttpApiAdapter` ใน GAS (`CWK_SERVICE_BACKEND=REST`), `future-platform/web` starter (login/profile/record arrival), contract tests ชุดเดียวกันบน memory/Sheets(emulator)/PostgreSQL, delta export จาก PostgreSQL (rollback), docker-compose service ของ API
+ชุดที่ 8: UAT_CHECKLIST_TH, LIMITATIONS.md, load test, README/BUILD_STATE ฉบับสุดท้าย, inventory การส่งมอบ
 
 ## Test results (Node 22.22.0, 2026-10-11)
 
 | ชุดทดสอบ | คำสั่ง | ผล |
 |---|---|---|
 | domain + shared + purity + generated-freshness | `npm run test:domain` | automated pass |
-| application (memory adapter): daily 16, followup 6, outbox 7, webhook 5, reports 7, operations 5, security 5 + foundation/imports | `npm run test:app` | automated pass |
+| application (memory adapter): daily 16, followup 6, outbox 7, webhook 5, reports 7, operations 5, security 6 + foundation/imports | `npm run test:app` | automated pass |
+| migration (memory): portable 6, import-reconcile 5, corruption 9, cutover/rollback 5 | `node --test tests/migration/` | automated pass (25) |
+| migration กับ PostgreSQL 16 จริง (cluster ชั่วคราวจาก `tools/pg-local.mjs`): CLI validate→plan→dry-run→apply→reconcile PASS, นำเข้าซ้ำไม่เพิ่มข้อมูล, package เสีย/ไม่รองรับหยุดก่อนเขียน (exit 4/3), ZIP traversal, role cwk_migrator/cwk_reporting ตาม roles.sql, conflict ไม่เขียนทับ (exit 5), resume หลัง crash | `CWK_PG_PORT=… npm run test:pg` | **30/30 automated pass** (25 memory + 5 PostgreSQL) — ใน `npm test` ปกติ 5 รายการ PostgreSQL แสดงเป็น **skipped** (ไม่มี DATABASE_URL) |
+| ซ้อมย้ายครบขั้นด้วยข้อมูลสังเคราะห์ | `DATABASE_URL=… node tools/rehearse-postgres.mjs --init-schema` | manual verified (2026-10-11, PG 16 local): 6 ขั้น exit 0 — เวลาบนเครื่องพัฒนา ไม่ใช่ตัวแทนของโรงเรียน |
+| docker compose (postgres + migrate) | `docker compose run --rm migrate` | **not run** — ไม่มี Docker ใน environment พัฒนา |
 | gateway (node:http จริงบน localhost; Firebase แทนด้วยตัวทดสอบ; GAS แทนด้วย intake จริงบน memory store) | `node --test tests/gateway/` | automated pass (5) |
-| GAS bundle บน emulator (14 tests รวม MailApp, doPost envelope → account link, LINE push + retry key, รายงาน PDF จาก Docs template + หัวตารางปักหมุด, XLSX export, CSV, backup snapshot + restore drill) | `npm run test:gas` | automated pass **(emulator — ไม่ใช่ Apps Script จริง; Docs/Drive export จำลองพฤติกรรมเท่านั้น ไม่ได้ตรวจหน้าตา PDF/XLSX จริง)** |
-| รวม | `npm test` | **137 pass / 0 fail** |
-| UI smoke (gas-dist/App.html ใน Chromium 141 headless, dispatcher จริงบน memory store) | `npm run test:ui` | **29/29 automated pass** — ชุดที่ 5 เพิ่ม: R01 บนจอมีแถวรวมตรงกับ dashboard ทุกช่อง, ดาวน์โหลด CSV (BOM + หัวคอลัมน์ไทย), หน้าสถานะระบบแสดง metrics/สำรอง/retention |
-| PostgreSQL DDL | `tools/pg-local.mjs` + psql | manual verified (2026-10-11, PG 16): `0001_init.sql` + `roles.sql` บน cluster ใหม่ — 57 ตาราง (ไฟล์ไม่เปลี่ยนในชุดที่ 5 — `gen-docs --check` ยืนยัน) |
+| GAS bundle บน emulator (15 tests รวม ส่งออก portable package ใน Drive (freeze, INTEGRITY), adminImportPackage ลงโปรเจกต์ใหม่ + reconcile PASS + ปฏิเสธนำเข้าซ้ำ, หลักฐานกลับต้นทาง → RECONCILED, MailApp, doPost envelope → account link, LINE push + retry key, รายงาน PDF จาก Docs template + หัวตารางปักหมุด, XLSX export, CSV, backup snapshot + restore drill) | `npm run test:gas` | automated pass **(emulator — ไม่ใช่ Apps Script จริง; Docs/Drive export จำลองพฤติกรรมเท่านั้น ไม่ได้ตรวจหน้าตา PDF/XLSX จริง)** |
+| รวม | `npm test` | **164 pass / 0 fail / 5 skipped (PostgreSQL — รันด้วย npm run test:pg)** |
+| UI smoke (gas-dist/App.html ใน Chromium 141 headless, dispatcher จริงบน memory store) | `npm run test:ui` | **33/33 automated pass** — ชุดที่ 6 เพิ่ม: ศูนย์ย้ายข้อมูลแสดง inventory, ปฏิเสธส่งออกก่อน freeze, ส่งออกเป็นงานเบื้องหลังจนส่งออกแล้ว/ครบถ้วน, ดาวน์โหลด RUNBOOK จาก package; ชุดที่ 5 เพิ่ม: R01 บนจอมีแถวรวมตรงกับ dashboard ทุกช่อง, ดาวน์โหลด CSV (BOM + หัวคอลัมน์ไทย), หน้าสถานะระบบแสดง metrics/สำรอง/retention |
+| PostgreSQL DDL | `tools/pg-local.mjs` + psql และ test:pg | automated (ชุดที่ 6): `0001_init.sql` + `roles.sql` ติดตั้งบนฐานข้อมูลใหม่ทุกครั้งที่ทดสอบ (PG 16) |
 | firebase-admin 14.4.0 API (initializeApp/getApps/applicationDefault, getAuth().verifyIdToken/revokeRefreshTokens/tenantManager) | ติดตั้งใน scratchpad + node -e | manual verified (มีฟังก์ชันจริง; token ผิดรูปแบบได้ code `auth/argument-error`) — **ยังไม่ได้ตรวจ token จริงกับโปรเจกต์ Firebase** |
 | Apps Script จริง / Firebase จริง / LINE จริง / Cloud Run จริง | — | **not run** — blocked by configuration (ยังไม่มีบัญชีโรงเรียน, โปรเจกต์ Firebase, LINE OA) — ทำตาม docs/GATEWAY_TH.md §9 |
+| ส่งออก/นำเข้า/กระทบยอดบน Apps Script + Drive จริง (เวลา, ขนาด package, โควตา), ดาวน์โหลดโฟลเดอร์ Drive เป็น ZIP แล้วนำเข้า PostgreSQL ของโรงเรียน | — | **not run** — blocked by configuration (ต้องใช้บัญชี Google ของโรงเรียน) — ทำตาม docs/MIGRATION_RUNBOOK_TH.md §3 |
 | PDF ภาษาไทย/เลขหน้า/หัวตารางซ้ำบน Google Docs จริง, XLSX ที่เปิดใน Excel, เวลาสร้างรายงาน/สำรองบน Apps Script จริง, restore drill จริง | — | **not run** — blocked by configuration (ต้องใช้บัญชี Google ของโรงเรียน) — รายการตรวจใน docs/OPERATIONS_TH.md §4 และ docs/REPORTS_TH.md |
-| generated files / gas-dist freshness | `npm run check:gen`, `node tools/build-gas.mjs --check` | automated pass (66 files; gas-dist up to date) |
+| generated files / gas-dist freshness | `npm run check:gen`, `node tools/build-gas.mjs --check` | automated pass (69 files; gas-dist up to date) |
 | secret scan ของไฟล์ที่เปลี่ยน (API key รูปแบบ Google, private key, token, อีเมลจริง) | grep patterns | manual verified — ไม่พบ |
 | กล้อง/เครื่องสแกน/IndexedDB บนอุปกรณ์โรงเรียน, screen reader, มือถือจริง | — | **not run** |
 
@@ -137,7 +152,13 @@ DECISIONS.md D-001…D-025 (ชุดที่ 5 เพิ่ม D-023 ราย
 - สำรองประจำคืนไม่คัดลอกไฟล์แนบ (เก็บเพียงรายการพร้อม sha256) — ชุดส่งออกแบบ portable (ชุดที่ 6) รวมไฟล์แนบ
 - metrics บน CacheService เป็น best effort (อาจหายเมื่อ cache ถูกล้างก่อน flush)
 - ยังไม่มี workflow ลบข้อมูลส่วนบุคคลตามนโยบายโรงเรียน (ไม่ส่งมอบในระยะแรก — D-025)
+- **แก้แล้วในชุดที่ 6 (D-031):** ชุดที่ 3–5 อ่านข้อมูลบางจุดด้วย `list(..., limit ≥ 1000)` ซึ่งถูกตัดที่ 500 แถวโดยไม่แจ้ง (รายงาน R03/R05/R06/R08/R09/R11, งานแจ้งเตือนเกินกำหนด, monitor, health, retention, backup manifest) — ผลของรุ่นก่อน 0.6.0 อาจนับขาดเมื่อข้อมูลเกิน 500 รายการ
+- การตรวจ package บน Apps Script เป็นระดับ INTEGRITY (checksum/canonical/schema/digest) — การตรวจ ID ซ้ำ/unique/FK ทั้งชุดทำใน Node (`tools/migrate.mjs validate`) และขณะนำเข้า (ปลายทางเป็น index)
+- reconcile บน Apps Script (adminImportPackage) อ่านทุกตารางในหน่วยความจำและไม่แบ่ง execution — ชุดข้อมูลใหญ่อาจเกิน 6 นาที: ใช้ `tools/migrate.mjs reconcile` แทน; เวลาจริงยังไม่ได้วัด
+- reconcile ฝั่ง PostgreSQL โหลดข้อมูลกลับเข้าหน่วยความจำเพื่อคำนวณยอดรายงาน — ใช้หน่วยความจำตามขนาดข้อมูลของโรงเรียน (ยังไม่ได้วัดกับข้อมูลจริง)
+- DELTA export จาก PostgreSQL (rollback หลังใช้ backend ใหม่) ต้องใช้ Postgres TableStore ของชุดที่ 7 — ฟังก์ชัน `exportDelta` ทดสอบบน memory store แล้ว
+- Code.js 974 KB: ขีดจำกัดขนาดโปรเจกต์ Apps Script ยังไม่ได้ตรวจกับ deployment จริง
 
 ## Next exact task
 
-ชุดที่ 6 — `docs/PORTABLE_FORMAT.md` + `schema/portable/manifest.schema.json`; export job (`migration.export`: freeze ด้วย READ_ONLY หรือ high-water mark จาก ChangeLog seq, JSONL แบ่ง chunk ต่อตาราง + sha256, ไฟล์แนบ + manifest) บน GAS และ memory; restore จาก portable package ไป Sheets ใหม่; `tools/migrate.mjs` (validate, plan, import --dry-run/--apply ผ่าน staging schema ใน PostgreSQL, reconcile นับแถว/checksum/FK) ทดสอบกับ PostgreSQL จริงผ่าน `tools/pg-local.mjs`; corruption tests (checksum ผิด, ไฟล์หาย, FK ขาด, schema version ไม่รองรับ); outbox ที่นำเข้าตั้ง `replay_blocked`; หน้าจอศูนย์ส่งออก/ย้ายข้อมูล; `docs/MIGRATION_RUNBOOK_TH.md`
+ชุดที่ 7 — `src/adapters/postgres/` (TableStore/MutationStore บน pg: transaction เดียวต่อ commit, version check, unique/FK จาก constraint, ChangeLog sequence, idempotency, READ_ONLY) ผ่าน contract tests ชุดเดียวกับ MemoryStore; `future-platform/api/server.mjs` (node:http: `POST /v1/rpc`, `POST /v1/ops/{operation}`, `GET /healthz`, `/readyz`, auth ผ่าน IdentityVerifier, CORS จำกัด origin, worker jobs ด้วย `FOR UPDATE SKIP LOCKED`); `src/adapters/http/http-api-adapter.js` + GAS `CWK_SERVICE_BACKEND=REST` (ส่ง credential ของผู้ใช้ ไม่ dual-write); `future-platform/web` starter (login, profile, record arrival); DELTA export จาก PostgreSQL; docker-compose เพิ่ม service api; tests/contract + tests/api กับ PostgreSQL จริง

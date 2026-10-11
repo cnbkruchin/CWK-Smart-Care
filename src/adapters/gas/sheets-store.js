@@ -7,7 +7,7 @@
 import { TABLES, getTable, uniqueKeys } from '../../schema/index.js';
 import { AppError } from '../../shared/errors.js';
 import { applyListQuery, evalUniquePredicate, matchesWhere, encodeCursor, decodeCursor, pageSize } from '../../shared/query.js';
-import { encodeRow, decodeRow, headerOf } from './sheets-codec.js';
+import { encodeRow, decodeRow, decodeCell, headerOf } from './sheets-codec.js';
 import { schoolDateOf } from '../../shared/time.js';
 import { partitionKeyForDate } from '../../domain/calendar.js';
 
@@ -259,6 +259,64 @@ export class SheetsStore {
   count(table, partition) {
     const sh = this._sheet(table, partition);
     return sh ? Math.max(0, sh.getLastRow() - 1) : 0;
+  }
+
+  // ───────── import contract (portable package → new environment; see application/migration) ─────────
+  /** Selected columns of every row in every partition; reads one column range per column. */
+  importColumns(table, columns) {
+    const out = [];
+    for (const p of this.partitions(table)) {
+      const sh = this._sheet(table, p);
+      if (!sh) continue;
+      const last = sh.getLastRow();
+      if (last < 2) continue;
+      const defs = columns.map((c) => getTable(table).columns.find((x) => x.name === c));
+      const cols = columns.map((c) => sh.getRange(2, this._colIndex(table, c), last - 1, 1).getValues().map((v) => v[0]));
+      const ids = cols[columns.indexOf('id')];
+      for (let i = 0; i < ids.length; i++) {
+        if (ids[i] === '' || ids[i] === null) continue;
+        const row = {};
+        columns.forEach((c, k) => { row[c] = decodeCell(defs[k], cols[k][i]); });
+        out.push(row);
+      }
+    }
+    return out;
+  }
+
+  /** Append already-validated records verbatim into one partition (provisioned on demand), under the lock. */
+  importAppend(table, partition, records) {
+    if (!records.length) return { inserted: 0 };
+    return this.withLock(() => {
+      this._catalog = null;
+      this._sheets.clear();
+      this._ensurePartition(table, partition);
+      this._appendRows(table, partition, records);
+      G().SpreadsheetApp.flush();
+      return { inserted: records.length };
+    });
+  }
+
+  /** Apply newer versions of existing rows (delta/rollback import); expected_version must match. */
+  importUpdate(table, partition, updates) {
+    return this.withLock(() => {
+      this._catalog = null;
+      this._sheets.clear();
+      const located = [];
+      for (const u of updates) {
+        // the row stays in the partition where it was first written (may differ from the sender's view)
+        let hit = null;
+        let where = null;
+        for (const p of [partition, ...this.partitions(table).filter((x) => x !== partition)]) {
+          hit = this._locate(table, p, u.record.id);
+          if (hit) { where = p; break; }
+        }
+        if (!hit || hit.rec.version !== u.expected_version) throw new AppError('CONFLICT', `${table} version mismatch`, { details: { entity: table, current_version: hit ? hit.rec.version : null, expected_version: u.expected_version } });
+        located.push([where, hit.row, u.record]);
+      }
+      for (const [p, row, rec] of located) this._sheet(table, p).getRange(row, 1, 1, headerOf(table).length).setValues([encodeRow(table, rec)]);
+      G().SpreadsheetApp.flush();
+      return { updated: updates.length };
+    });
   }
 
   // ───────── MutationStore ─────────

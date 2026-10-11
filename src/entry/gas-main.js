@@ -15,12 +15,15 @@ import { runSync } from '../application/runtime.js';
 import { runDueJobs } from '../application/jobs.js';
 import { bootstrapInstallation } from '../application/bootstrap.js';
 import { seedDemoData } from '../application/demo-seed.js';
-import { TICK_TASKS } from '../application/scheduler.js';
+import { tasksForMode } from '../application/scheduler.js';
 import { AppError, toErrorEnvelope } from '../shared/errors.js';
 import { SCHEMA_VERSION } from '../schema/index.js';
 import { gasPlatformExtras } from '../adapters/gas/extras.js';
 import { GasReportRenderer, ensureReportTemplate } from '../adapters/gas/report-renderer.js';
 import { GasBackup, restoreSnapshot } from '../adapters/gas/backup.js';
+import { DrivePackageStore, DrivePackageHandle } from '../adapters/gas/drive-package.js';
+import { importIntoStore, reconcileStore } from '../application/migration/import.js';
+import { applyDelta } from '../application/migration/delta.js';
 
 const G = () => globalThis;
 let deps = null;
@@ -49,6 +52,13 @@ export function buildDeps() {
       health: () => platformHealth(config, store),
       reportRenderer: config.driveRootFolderId ? new GasReportRenderer({ rootFolderId: config.driveRootFolderId, templateDocId: config.reportTemplateDocId }) : null,
       backup: store && config.driveRootFolderId ? new GasBackup({ store, rootFolderId: config.driveRootFolderId, crypto: gasCrypto, env: config.env }) : null,
+      // portable migration: packages in private Drive folders; the export proves consistency against the
+      // journal and the ChangeLog high-water mark read under the script lock
+      packageStore: config.driveRootFolderId ? new DrivePackageStore({ rootFolderId: config.driveRootFolderId }) : null,
+      packageVerifyLevel: 'INTEGRITY', // FULL validation (all IDs in memory) runs in tools/migrate.mjs and in imports
+      platformName: 'GAS_SHEETS',
+      journalStatus: () => store.journalStatus(),
+      maxChangeSeq: () => store.withLock(() => store._nextSeq() - 1),
       ...gasPlatformExtras(() => deps),
     },
     rawStore: store,
@@ -158,7 +168,7 @@ export function cronTick(e) {
   const report = { tasks: {} };
   if (!d.rawStore) return 'NOT_INSTALLED';
   try { report.recovery = d.rawStore.withLock(() => d.rawStore.recoverPending()); } catch (err) { report.recovery = { error: err.code || String(err.message) }; }
-  for (const task of TICK_TASKS) {
+  for (const task of tasksForMode(d.config.systemMode)) {
     if (Date.now() > deadlineAt - 30000) break;
     try {
       report.tasks[task.name] = runSync(task.run, d, { deadlineAt, now: d.clock.now() });
@@ -243,6 +253,73 @@ export const admin = {
     deps = null;
     console.log(JSON.stringify(res, null, 2));
     return res;
+  },
+  /**
+   * Import a portable package into a NEW environment (run in the NEW project with
+   * CWK_IMPORT_PACKAGE_FOLDER_ID = package folder id). Resumable: run again until it reports done.
+   * The new environment stays READ_ONLY with e-mail/LINE off until an administrator has checked it.
+   */
+  importPackage() {
+    assertEditorContext();
+    const props = G().PropertiesService.getScriptProperties();
+    const folderId = props.getProperty('CWK_IMPORT_PACKAGE_FOLDER_ID');
+    if (!folderId) throw new Error('Set Script Property CWK_IMPORT_PACKAGE_FOLDER_ID to the portable package folder id first');
+    const inProgress = props.getProperty('CWK_IMPORT_IN_PROGRESS');
+    if (props.getProperty('CWK_MASTER_SPREADSHEET_ID') && inProgress !== folderId) throw new Error('IMPORT_REFUSED: this environment already has data — import only into a NEW project/environment');
+    props.setProperties({ CWK_SYSTEM_MODE: 'READ_ONLY', CWK_EMAIL_ENABLED: 'false', CWK_LINE_ENABLED: 'false' });
+    if (!inProgress) {
+      const env = props.getProperty('CWK_ENV') || 'DEV';
+      provisionMaster({ env, ids: gasIds, clock: gasClock });
+      ensureReportTemplate(props.getProperty('CWK_DRIVE_ROOT_FOLDER_ID'), env);
+      props.setProperty('CWK_IMPORT_IN_PROGRESS', folderId);
+      props.setProperty('CWK_IMPORT_ID', gasIds.uuid());
+      recordSchemaVersion(adminDeps().rawStore, { ids: gasIds, clock: gasClock, appliedBy: 'import' });
+    }
+    const d = adminDeps();
+    const importId = props.getProperty('CWK_IMPORT_ID');
+    const handle = new DrivePackageHandle(folderId);
+    const stateFile = `reports/import-state-${importId.slice(0, 8)}.json`;
+    const checkpoint = { *load() { const t = handle.readText(stateFile); return t ? JSON.parse(t) : null; }, *save(st) { handle.writeText(stateFile, JSON.stringify(st)); } };
+    const res = runSync(importIntoStore, d, handle, { importId, target: 'sheets', checkpoint, deadlineAt: Date.now() + 240000 });
+    let out;
+    if (!res.done) out = { done: false, progress: res.report.tables, next_th: 'ยังไม่เสร็จ — รัน adminImportPackage อีกครั้งเพื่อทำต่อจาก checkpoint' };
+    else if (!res.report.ok) out = { done: true, ok: false, errors: res.report.errors.slice(0, 20), next_th: 'นำเข้าไม่สำเร็จ — ห้ามใช้ environment นี้ ลบทิ้งแล้วแก้ package ก่อนเริ่มใหม่ในโปรเจกต์ใหม่' };
+    else {
+      const rec = runSync(reconcileStore, d, handle, { target: 'sheets' });
+      handle.remove(stateFile);
+      ['CWK_IMPORT_IN_PROGRESS', 'CWK_IMPORT_PACKAGE_FOLDER_ID', 'CWK_IMPORT_ID'].forEach((k) => props.deleteProperty(k));
+      out = {
+        done: true, ok: true, rows_inserted: res.report.rows_inserted, attachments: res.report.attachments, reconciliation: { overall: rec.overall, ready_to_cutover: rec.ready_to_cutover, failed: rec.checks.filter((c) => c.status === 'FAIL').map((c) => c.key) },
+        next_th: 'รายงาน import.json และ reconciliation.json อยู่ในโฟลเดอร์ reports/ ของ package — บันทึกเป็นหลักฐานที่ระบบต้นทาง (ศูนย์ย้ายข้อมูล) ระบบนี้ยังอ่านอย่างเดียวและปิดอีเมล/LINE จนกว่าผู้ดูแลจะตรวจเสร็จ',
+      };
+    }
+    deps = null;
+    console.log(JSON.stringify(out, null, 2));
+    return out;
+  },
+  /**
+   * Rollback path: apply a DELTA package (changes made on the new system after cutover) to THIS system.
+   * CWK_DELTA_PACKAGE_FOLDER_ID = delta folder; CWK_DELTA_MODE = DRY_RUN (default) | APPLY. Resumable.
+   */
+  applyDelta() {
+    assertEditorContext();
+    const props = G().PropertiesService.getScriptProperties();
+    const folderId = props.getProperty('CWK_DELTA_PACKAGE_FOLDER_ID');
+    if (!folderId) throw new Error('Set Script Property CWK_DELTA_PACKAGE_FOLDER_ID to the delta package folder id first');
+    const dryRun = (props.getProperty('CWK_DELTA_MODE') || 'DRY_RUN') !== 'APPLY';
+    const d = adminDeps();
+    if (!d.rawStore) throw new Error('this environment has no data to apply a delta to');
+    const handle = new DrivePackageHandle(folderId);
+    const stateFile = dryRun ? null : 'reports/delta-state.json';
+    const checkpoint = stateFile ? { *load() { const t = handle.readText(stateFile); return t ? JSON.parse(t) : null; }, *save(st) { handle.writeText(stateFile, JSON.stringify(st)); } } : null;
+    const res = runSync(applyDelta, d, handle, { dryRun, checkpoint, deadlineAt: Date.now() + 240000, importId: gasIds.uuid(), targetName: 'source-sheets' });
+    const out = res.done
+      ? { done: true, mode: dryRun ? 'DRY_RUN' : 'APPLY', ok: res.report.ok, inserted: res.report.rows_inserted, updated: res.report.rows_updated, identical: res.report.rows_identical, errors: res.report.errors.slice(0, 20) }
+      : { done: false, next_th: 'ยังไม่เสร็จ — รัน adminApplyDelta อีกครั้ง' };
+    if (res.done && stateFile) { handle.remove(stateFile); if (res.report.ok) props.deleteProperty('CWK_DELTA_PACKAGE_FOLDER_ID'); }
+    deps = null;
+    console.log(JSON.stringify(out, null, 2));
+    return out;
   },
   recoverJournal() {
     assertEditorContext();

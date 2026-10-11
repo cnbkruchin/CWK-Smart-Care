@@ -133,3 +133,7 @@ fieldset { border: 1px solid var(--line); border-radius: 8px; }
 .kv { display: grid; grid-template-columns: minmax(90px, 30%) 1fr; gap: 4px 12px; margin: 8px 0; }
 .kv dt { color: var(--muted); font-weight: 700; }
 .kv dd { margin: 0; overflow-wrap: anywhere; }
+/* Migration Center */
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .85em; overflow-wrap: anywhere; }
+.danger-zone { border: 2px solid var(--danger); border-radius: 8px; padding: 12px; margin: 16px 0; }
+.danger-zone h4 { color: var(--danger); margin-top: 0; }

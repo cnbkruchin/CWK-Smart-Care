@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+### ชุดที่ 6 — Portable migration (2026-10-11) — version 0.6.0
+
+- **portable format v1** (docs/PORTABLE_FORMAT.md, schema/portable/*.schema.json): manifest + manifest.sha256, JSONL canonical ต่อตาราง/partition/chunk, CSV สำหรับคน, ไฟล์แนบ bytes จริง + attachment-index.jsonl, metadata (config ที่ไม่ลับ, storage mapping, archive partitions, rule versions, ยอดรายงานตัวอย่าง, สิทธิ์ตัวอย่าง), schema/, docs/; table digest = ผลรวม SHA-256 mod 2²⁵⁶ (แยก source/derived); ไม่ส่งออก MutationJournal/IdempotencyRecords/StorageCatalog/StorageObjectMappings/SchemaVersions; transforms: redact คำเชิญ, ล้าง nonce LINE, `replay_blocked` ให้ outbox ที่ยังไม่ส่ง
+- schema_version 1 (ไม่เปลี่ยนโครงสร้าง): ใช้ `MigrationRuns`, `MigrationCheckpoints` ที่มีอยู่; Settings key ใหม่ `migration.cutover_active`
+- API v1: +14 operations (รวม 139) — migration.inventory/startExport/runs/get/packageDoc/pause/resume/cancel/validate/recordEvidence/checklist/markReady/cutover/rollback; `system.setMode` ปฏิเสธ NORMAL ขณะ cutover ACTIVE
+- jobs: `migration.export` (freeze + high-water mark + พิสูจน์ความสอดคล้อง + checkpoint), `migration.validate`; job handler ขอ "พักงาน" ได้ (`{pause: true}` → PAUSED)
+- GAS: public function ใหม่ `adminImportPackage`, `adminApplyDelta` (รวม 13); Script Properties `CWK_IMPORT_PACKAGE_FOLDER_ID`, `CWK_DELTA_PACKAGE_FOLDER_ID`, `CWK_DELTA_MODE`; cronTick ในโหมด READ_ONLY รันเฉพาะงานบำรุงรักษา (`tasksForMode`)
+- CLI `tools/migrate.mjs` (validate/plan/import --dry-run/--apply/reconcile/pack) + staging schema ใน PostgreSQL + merge transaction เดียว; อ่าน `MIGRATION_DATABASE_URL`/`DATABASE_URL` จาก environment เท่านั้น; exit codes 0/1/2/3/4/5/6/10; `tools/rehearse-postgres.mjs`, `tools/fixtures/generate-synthetic.mjs`, `docker-compose.yml`
+- **แก้ข้อบกพร่อง (D-031):** การอ่านฝั่ง server ที่ขอ `limit ≥ 1000` ถูกตัดเงียบ ๆ ที่ 500 แถว → `listAll()` (all/cursor) ในรายงาน R03/R05/R06/R08/R09/R11, งานเกินกำหนด, monitor แจ้งเตือน, health, retention, backup manifest
+- หน้าจอ: ศูนย์ส่งออกและย้ายข้อมูล
+- เอกสาร: PORTABLE_FORMAT, MIGRATION_RUNBOOK_TH, THREAT_MODEL T12, DECISIONS D-026–D-031
+
 ### ชุดที่ 5 — รายงานและงานปฏิบัติการ (2026-10-11) — version 0.5.0
 
 - schema_version 1 (ไม่เปลี่ยนโครงสร้าง): ใช้ `ReportRuns`, `BackupRuns`, `OperationMetrics` ที่มีอยู่แล้ว; Settings เริ่มต้นใหม่ `backup.nightly_time` (01:30), `backup.retention_days` (30)

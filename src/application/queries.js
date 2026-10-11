@@ -3,6 +3,22 @@ import { findEffectiveEnrollment, rosterForClass } from '../domain/enrollment.js
 import { dayInfo, periodsFor } from '../domain/calendar.js';
 import { AppError } from '../shared/errors.js';
 
+/**
+ * Every row matching a list query. Stores that support `all` return one page; otherwise the cursor is
+ * followed (TableStore pages are capped at 500). Throws instead of silently truncating above `max`.
+ */
+export function* listAll(ctx, table, q = {}, max = 200000) {
+  const out = [];
+  let cursor = null;
+  do {
+    const page = yield ctx.store.list(table, { ...q, all: true, limit: 500, cursor });
+    for (const r of page.items) out.push(r);
+    if (out.length > max) throw new AppError('PAYLOAD_TOO_LARGE', `${table} result exceeds ${max}`, { messageTh: 'ข้อมูลมีจำนวนมากเกินกว่าที่ประมวลผลได้ในครั้งเดียว — ใช้ตัวกรองให้แคบลง' });
+    cursor = page.next_cursor;
+  } while (cursor);
+  return out;
+}
+
 function memo(ctx, key) {
   ctx._memo = ctx._memo || new Map();
   return ctx._memo;
@@ -35,8 +51,7 @@ export function* rosterOf(ctx, classId, date) {
 export function* allCalendar(ctx) {
   const m = memo(ctx);
   if (!m.has('calendar')) {
-    const page = yield ctx.store.list('SchoolCalendar', { limit: 500, where: { calendar_date: { gte: shiftYear(ctx.today, -1), lt: shiftYear(ctx.today, 1) } } });
-    m.set('calendar', page.items);
+    m.set('calendar', yield* listAll(ctx, 'SchoolCalendar', { where: { calendar_date: { gte: shiftYear(ctx.today, -1), lt: shiftYear(ctx.today, 1) } } }));
   }
   return m.get('calendar');
 }
@@ -55,7 +70,7 @@ export function* calendarFor(ctx, dates) {
 
 export function* allPeriods(ctx) {
   const m = memo(ctx);
-  if (!m.has('periods')) m.set('periods', (yield ctx.store.list('Periods', { limit: 500 })).items);
+  if (!m.has('periods')) m.set('periods', yield* listAll(ctx, 'Periods'));
   return m.get('periods');
 }
 

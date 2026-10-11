@@ -76,8 +76,13 @@ export function pageSize(limit) {
   return Math.min(n, MAX_PAGE_SIZE);
 }
 
-/** Offset pagination over a fully sorted list; cursor carries the last id to detect shifts. */
-export function paginate(sorted, { limit, cursor }) {
+/**
+ * Offset pagination over a fully sorted list; cursor carries the last id to detect shifts.
+ * `all: true` returns every matching row in one page (internal reads through listAll(); never exposed
+ * to clients, whose page size stays capped at MAX_PAGE_SIZE).
+ */
+export function paginate(sorted, { limit, cursor, all }) {
+  if (all === true && !cursor) return { items: sorted, next_cursor: null };
   const size = pageSize(limit);
   let start = 0;
   const c = decodeCursor(cursor);

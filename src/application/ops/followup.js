@@ -5,7 +5,7 @@ import { op } from '../dispatcher.js';
 import { obj, S, notFound, assertVersion } from './common.js';
 import { requirePermission, allows, scopeFor, studentClassIds } from '../authz.js';
 import { commit } from '../context.js';
-import { requireStudent } from '../queries.js';
+import { requireStudent, listAll } from '../queries.js';
 import { loadFacts } from '../principal.js';
 import { emitNotification, studentShortName } from '../services/notify.js';
 import { stageNewCase, caseEvent, cooldownUntil, currentClassOf } from '../services/followup.js';
@@ -330,7 +330,7 @@ export const followupOps = [
       let allowedStudents = null;
       if (!scope.all) allowedStudents = yield* studentsOfClasses(ctx, scope.classIds || []);
       const visible = inbound.filter((c) => !allowedStudents || allowedStudents.has(c.student_id));
-      const handled = visible.length ? new Set((yield ctx.store.list('ContactLogs', { where: { supersedes_id: { in: visible.map((c) => c.id) } }, limit: 1000 })).items.map((r) => r.supersedes_id)) : new Set();
+      const handled = visible.length ? new Set((yield* listAll(ctx, 'ContactLogs', { where: { supersedes_id: { in: visible.map((c) => c.id) } } })).map((r) => r.supersedes_id)) : new Set();
       const pending = visible.filter((c) => !handled.has(c.id));
       pending.sort((a, b) => (a.contacted_at < b.contacted_at ? -1 : 1));
       const students = yield ctx.store.getMany('Students', [...new Set(pending.map((c) => c.student_id))]);

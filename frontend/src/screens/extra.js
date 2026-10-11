@@ -10,6 +10,7 @@ import { renderProfile } from './profile.js';
 import { renderCases } from './cases.js';
 import { renderNotifications, renderLineLink, renderNotifyMonitor } from './notifications.js';
 import { renderReports } from './reports.js';
+import { renderMigration } from './migration.js';
 
 export const EXTRA_ROUTES = [
   { path: 'dashboard', position: 'top', title_th: 'ภาพรวมวันนี้', icon: '📊', anyOf: ['attendance.read'], render: renderDashboard },
@@ -20,6 +21,7 @@ export const EXTRA_ROUTES = [
   { path: 'notifications', position: 'top', title_th: 'การแจ้งเตือน', icon: '🔔', anyOf: ['notification.read_own'], render: renderNotifications },
   { path: 'cases', title_th: 'งานติดตามและการติดต่อ', icon: '📞', anyOf: ['case.read', 'case.record_contact'], render: renderCases },
   { path: 'reports', title_th: 'รายงาน', icon: '📈', anyOf: ['report.view', 'notification.monitor', 'audit.read', 'system.health'], render: renderReports },
+  { path: 'migration', position: 'admin', title_th: 'ศูนย์ส่งออกและย้ายข้อมูล', icon: '🚚', anyOf: ['migration.export'], render: renderMigration },
   { path: 'notify-monitor', position: 'admin', title_th: 'ติดตามการส่งแจ้งเตือน', icon: '📮', anyOf: ['notification.monitor'], render: renderNotifyMonitor },
   { path: 'line-link', hidden: true, title_th: 'เชื่อมบัญชี LINE', icon: '💬', render: renderLineLink },
   { path: 'profile', hidden: true, title_th: 'ประวัตินักเรียน', icon: '👤', anyOf: ['student.read', 'student.read_basic'], render: renderProfile },

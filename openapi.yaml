@@ -107,6 +107,20 @@ components:
             - leave.resubmit
             - leave.submit
             - leave.withdraw
+            - migration.cancel
+            - migration.checklist
+            - migration.cutover
+            - migration.get
+            - migration.inventory
+            - migration.markReady
+            - migration.packageDoc
+            - migration.pause
+            - migration.recordEvidence
+            - migration.resume
+            - migration.rollback
+            - migration.runs
+            - migration.startExport
+            - migration.validate
             - notification.acknowledge
             - notification.cancel
             - notification.list
@@ -4860,6 +4874,707 @@ paths:
       x-cwk:
         auth: USER
         permission: leave.withdraw
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/migration.cancel":
+    post:
+      operationId: migration_cancel
+      summary: "ยกเลิกงาน (ไฟล์ที่ส่งออกแล้วยังอยู่ แต่ใช้ย้ายระบบไม่ได้)"
+      tags:
+        - migration
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - run_id
+                - reason
+              properties:
+                run_id:
+                  type: string
+                  format: uuid
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 500
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: migration.export
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/migration.checklist":
+    post:
+      operationId: migration_checklist
+      summary: "บันทึก readiness checklist ก่อนสลับระบบ"
+      tags:
+        - migration
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - run_id
+                - items
+              properties:
+                run_id:
+                  type: string
+                  format: uuid
+                items:
+                  type: object
+                  additionalProperties:
+                    type: boolean
+                  maxProperties: 20
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: migration.cutover
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/migration.cutover":
+    post:
+      operationId: migration_cutover
+      summary: "สลับระบบ: ระบบนี้กลายเป็น archive อ่านอย่างเดียวถาวร (ห้าม dual-write) — routing ไประบบใหม่ทำตาม RUNBOOK"
+      tags:
+        - migration
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - run_id
+                - reason
+                - confirm
+              properties:
+                run_id:
+                  type: string
+                  format: uuid
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 500
+                confirm:
+                  type: string
+                  const: CUTOVER
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: migration.cutover
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/migration.get":
+    post:
+      operationId: migration_get
+      summary: "รายละเอียดงาน: checkpoint ผลตรวจ package หลักฐานนำเข้า/กระทบยอด และ checklist"
+      tags:
+        - migration
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - run_id
+              properties:
+                run_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: migration.export
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 300
+  "/v1/ops/migration.inventory":
+    post:
+      operationId: migration_inventory
+      summary: "รายการข้อมูลทั้งหมด: ตาราง partition จำนวนรายการ ไฟล์แนบ schema version ขนาดประมาณการ และตารางที่ไม่ส่งออก"
+      tags:
+        - migration
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: []
+              properties: {}
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: migration.export
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 300
+  "/v1/ops/migration.markReady":
+    post:
+      operationId: migration_markReady
+      summary: "ยืนยันพร้อมสลับระบบ (ต้องกระทบยอดผ่าน + checklist ครบ + package ครบถ้วน)"
+      tags:
+        - migration
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - run_id
+              properties:
+                run_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: migration.cutover
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/migration.packageDoc":
+    post:
+      operationId: migration_packageDoc
+      summary: "ดาวน์โหลดคู่มือที่แนบใน package (ตรงกับ schema/app version ของ package นั้น)"
+      tags:
+        - migration
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - run_id
+                - name
+              properties:
+                run_id:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+                  enum:
+                    - PORTABLE_FORMAT.md
+                    - MIGRATION_RUNBOOK_TH.md
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: migration.export
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 300
+  "/v1/ops/migration.pause":
+    post:
+      operationId: migration_pause
+      summary: "หยุดงานส่งออกชั่วคราวอย่างปลอดภัย (หยุดหลัง chunk ปัจจุบัน)"
+      tags:
+        - migration
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - run_id
+              properties:
+                run_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: migration.export
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/migration.recordEvidence":
+    post:
+      operationId: migration_recordEvidence
+      summary: "อ่านหลักฐานจากปลายทางใน package (reports/import.json → STAGED, reports/reconciliation.json → RECONCILED เมื่อผ่านทุกหัวข้อ)"
+      tags:
+        - migration
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - run_id
+                - kind
+              properties:
+                run_id:
+                  type: string
+                  format: uuid
+                kind:
+                  type: string
+                  enum:
+                    - IMPORT
+                    - RECONCILIATION
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: migration.import
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/migration.resume":
+    post:
+      operationId: migration_resume
+      summary: "ทำงานส่งออกต่อจาก checkpoint ล่าสุด"
+      tags:
+        - migration
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - run_id
+              properties:
+                run_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: migration.export
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/migration.rollback":
+    post:
+      operationId: migration_rollback
+      summary: "ย้อนกลับมาใช้ระบบนี้: กรณีไม่มีข้อมูลใหม่ หรือมีข้อมูลใหม่ที่นำ delta กลับมาแล้ว (ตรวจหลักฐาน) — ไม่ทิ้งข้อมูลใหม่"
+      tags:
+        - migration
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - run_id
+                - case
+                - reason
+              properties:
+                run_id:
+                  type: string
+                  format: uuid
+                case:
+                  type: string
+                  enum:
+                    - NO_NEW_DATA
+                    - NEW_DATA_RETURNED
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 500
+                delta_location:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 300
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: migration.cutover
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/migration.runs":
+    post:
+      operationId: migration_runs
+      summary: "งานส่งออก/ย้ายข้อมูลทั้งหมด พร้อมสถานะงานเบื้องหลัง"
+      tags:
+        - migration
+      security:
+        - bearer: []
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: []
+              properties:
+                limit:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 1
+                  maximum: 200
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: migration.export
+        mutation: false
+        idempotency: NONE
+        rate_limit_per_minute: 300
+  "/v1/ops/migration.startExport":
+    post:
+      operationId: migration_startExport
+      summary: "เริ่มส่งออก portable package (งานเบื้องหลัง): ภาพรวมทั้งระบบ/ซ้อมย้าย ต้องเปิดโหมดอ่านอย่างเดียวก่อน; บางส่วนระบุตาราง (ใช้ย้ายระบบทั้งชุดไม่ได้)"
+      tags:
+        - migration
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - mode
+                - reason
+              properties:
+                mode:
+                  type: string
+                  enum:
+                    - FULL_SNAPSHOT
+                    - REHEARSAL
+                    - PARTIAL
+                tables:
+                  type:
+                    - array
+                    - "null"
+                  maxItems: 80
+                  uniqueItems: true
+                  items:
+                    type: string
+                    maxLength: 60
+                include_attachments:
+                  type: boolean
+                include_csv:
+                  type: boolean
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 500
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: migration.export
+        mutation: true
+        idempotency: REQUIRED
+        rate_limit_per_minute: 120
+  "/v1/ops/migration.validate":
+    post:
+      operationId: migration_validate
+      summary: "ตรวจ package ซ้ำ (checksum, schema, ข้อมูล) เป็นงานเบื้องหลัง → ผ่าน = VALIDATED"
+      tags:
+        - migration
+      security:
+        - bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: false
+          description: expected_version
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - run_id
+              properties:
+                run_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: "Envelope response"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Response"
+      x-cwk:
+        auth: USER
+        permission: migration.validate
         mutation: true
         idempotency: REQUIRED
         rate_limit_per_minute: 120

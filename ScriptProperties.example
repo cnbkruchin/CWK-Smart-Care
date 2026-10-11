@@ -46,3 +46,8 @@ CWK_TICK_MINUTES=1                            # 1 | 5 | 10 ความถี่
 
 # ── Restore drill (ตั้งเฉพาะใน environment ใหม่ตอนทดสอบ restore แล้วระบบลบให้เองหลังรัน adminRestoreSnapshot) ──
 CWK_RESTORE_FROM_FOLDER_ID=                   # id โฟลเดอร์สำรอง (backup-YYYYMMDD-HHMM) — ระบบปฏิเสธถ้า CWK_MASTER_SPREADSHEET_ID มีค่าแล้ว (docs/OPERATIONS_TH.md §4)
+
+# ── Portable migration (docs/MIGRATION_RUNBOOK_TH.md) ──
+CWK_IMPORT_PACKAGE_FOLDER_ID=                 # โปรเจกต์ใหม่เท่านั้น: id โฟลเดอร์ package → รัน adminImportPackage (ระบบลบค่าให้เมื่อเสร็จ)
+CWK_DELTA_PACKAGE_FOLDER_ID=                  # rollback: id โฟลเดอร์ DELTA package → รัน adminApplyDelta
+CWK_DELTA_MODE=DRY_RUN                        # DRY_RUN (ตรวจอย่างเดียว) | APPLY

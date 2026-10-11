@@ -162,6 +162,41 @@
 - ล้างเป็น**ทั้ง partition ภาคเรียน**ที่ครบระยะของตารางบันทึกระบบ (IdempotencyRecords 30 วัน, MutationJournal 30, WebhookInbox 90, OperationMetrics 365, NotificationAttempts 365 — นับจากวันสิ้นภาคเรียน) และงาน `Jobs` ที่เสร็จแล้วเกิน 90 วัน — ต้องกดยืนยันโดย SYSTEM_ADMIN และบันทึก audit; ไม่ลบทีละแถวกระจัดกระจายใน Sheets
 - ข้อมูลนักเรียน/ผู้ปกครอง/การมาเรียน/การลา/การติดตาม/Audit **ไม่ลบอัตโนมัติ** จนกว่าโรงเรียนจะอนุมัตินโยบายการลบ (workflow ลบข้อมูลส่วนบุคคลยังไม่ส่งมอบ — LIMITATIONS)
 
+## D-026 Portable package: JSONL canonical เป็นแหล่งความจริง (ชุดที่ 6)
+
+- ข้อมูลอยู่ใน `data/<Table>/<partition>/part-NNNNN.jsonl` (≤ 1,000 แถว/chunk) แบบ canonical JSON; CSV มีไว้ให้คนเปิดตรวจเท่านั้น (กันสูตร) ไม่ใช้นำเข้า
+- checksum ทุกไฟล์จาก bytes จริง, `manifest.sha256` แบบ sha256sum (ไม่มี hash อ้างตัวเอง); digest ต่อตาราง = ผลรวม SHA-256 ของ record mod 2²⁵⁶ — ไม่ขึ้นกับลำดับหรือการแบ่ง chunk จึงเทียบกับปลายทางที่เรียงต่างกันได้ และคำนวณสะสมข้าม execution ของ Apps Script ได้; แยก `digest_source` (ไม่รวม derived columns) จาก `digest_all`
+- ไม่ส่งออก: MutationJournal/IdempotencyRecords (ชั่วคราว), StorageCatalog/StorageObjectMappings/SchemaVersions (เฉพาะ environment → สรุปใน metadata/) — transforms ที่ประกาศ: redact hash คำเชิญ + ยกเลิกคำเชิญค้าง, ล้าง nonce LINE, `replay_blocked` ให้ outbox ที่ยังไม่ส่ง
+- ไฟล์แนบเป็น bytes จริงแบ่ง batch ตามขนาด + index ที่อ้าง logical file ID และ entity — ปลายทางสร้าง mapping ใหม่หลังตรวจ hash
+
+## D-027 Snapshot ที่พิสูจน์ความสอดคล้องได้
+
+- FULL_SNAPSHOT/REHEARSAL ต้องเปิด READ_ONLY ที่ server (store ปฏิเสธการเขียน) และ journal ว่าง → บันทึก ChangeLog high-water mark H (อ่านใต้ script lock) + จำนวนแถวทุก partition → ส่งออกเป็น job มี checkpoint → พิสูจน์ก่อนเรียก COMPLETE: ChangeLog หลัง H แตะได้เฉพาะ LIVE_TABLES (บันทึกงานส่งออกเอง) และจำนวนแถวตรงกับที่นับไว้ — ไม่ผ่าน = FAILED (ไม่ใช้ `updated_at` เพราะพลาดเวลาเท่ากัน/การลบ)
+- ระหว่าง READ_ONLY งานตามเวลาที่ไม่ใช่งานบำรุงรักษาไม่รัน (`tasksForMode`) — metrics/backup ยังทำงาน (maintenance write)
+- `migration.cutover` ปฏิเสธเมื่อมีการเปลี่ยนข้อมูลธุรกิจหลัง H (package ไม่ตรงกับระบบแล้ว)
+
+## D-028 การนำเข้า: แกนตรวจเดียว ปลายทางใหม่เท่านั้น
+
+- `processPackage()` ตัวเดียวทำการตรวจทุกชั้น (ไฟล์ → checksum → canonical → schema → ID/unique/FK → digest → ไฟล์แนบ) ให้ทั้ง validate (index ในหน่วยความจำ), นำเข้า memory/Sheets (ใช้ปลายทางเป็น index จึงทำต่อข้าม execution ได้) และ PostgreSQL — chunk ที่มีข้อผิดพลาดไม่ถูกเขียนแม้บางส่วน
+- PostgreSQL: โหลดเข้า `staging.<table>` พร้อม checkpoint ใน transaction เดียวต่อ chunk แล้วรวมเข้าตารางจริงใน transaction เดียว (FK แบบ deferred ตรวจตอนท้าย) — ล้มกลางทาง = ไม่มีอะไรถูกเขียน; ใช้ role `cwk_migrator` ได้
+- นโยบายชนกันค่าเริ่มต้น REJECT (แถวเหมือนเดิมข้าม = นำเข้าซ้ำได้, ต่างกัน = CONFLICT ไม่เขียนทับ); APPLY_NEWER ใช้กับ DELTA เท่านั้น
+- Sheets: `adminImportPackage` ในโปรเจกต์ใหม่เท่านั้น (ปฏิเสธเมื่อมีข้อมูล) ปลายทางเริ่มที่ READ_ONLY และปิดอีเมล/LINE
+
+## D-029 Reconciliation ใช้ตัวอย่างทางธุรกิจที่ต้นทางคำนวณไว้
+
+- ตอนส่งออก ต้นทางเลือกวันตัวอย่างจากกรณีซับซ้อน (การแก้ไขย้อนหลัง ลาบางช่วง ย้ายห้อง) คำนวณยอด R01–R07 และ fingerprint สิทธิ์ผู้ใช้ตัวอย่างทุกบทบาท (ผู้ปกครองหลายบุตรก่อน) เก็บใน metadata/ — ปลายทางคำนวณซ้ำด้วยวัน ตัวกรอง และนาฬิกาเดียวกันบนข้อมูลของตัวเอง (PostgreSQL: อ่านกลับมาแล้วรันตัวสร้างรายงานเดียวกัน)
+- READY_TO_CUTOVER เฉพาะเมื่อทุกหัวข้อ PASS และ package เป็น FULL_SNAPSHOT ที่ COMPLETE; ผล FAIL ไม่ทำให้สถานะงานถอยหรือผ่าน (คงที่ STAGED จนกระทบยอดผ่าน)
+
+## D-030 Cutover และ rollback
+
+- cutover ตั้งเครื่องหมาย `migration.cutover_active` + READ_ONLY: ระบบเดิมเป็น archive (system.setMode ปฏิเสธ NORMAL) จนกว่าจะบันทึก rollback — ไม่มี dual-write
+- rollback กรณีมีข้อมูลใหม่ต้องมีหลักฐาน `reports/delta-apply.json` ของ DELTA ที่อ้างงานส่งออกนี้ — delta ไม่รวมบันทึกเฉพาะระบบ (ChangeLog, Jobs, MigrationRuns, metrics, backups) และไม่มี tombstone (แอปไม่ลบถาวร); แถวที่ถูกแก้ทั้งสองฝั่งหยุดเป็น CONFLICT
+
+## D-031 การอ่านข้อมูลทั้งหมดในฝั่ง server (แก้ข้อบกพร่องจากชุดที่ 3–5)
+
+- พบว่าหลายจุด (รายงาน R03/R05/R06/R08/R09/R11, งานติดตามเกินกำหนด, monitor แจ้งเตือน, ตรวจสุขภาพ, retention, backup manifest) เรียก `store.list(..., { limit: ≥1000 })` แต่ TableStore จำกัดหน้าละ 500 แถว จึง**ตัดข้อมูลเงียบ ๆ** เมื่อเกิน 500 รายการ
+- แก้เป็น `listAll()` (`src/application/queries.js`): ขอทั้งหมดด้วย `all: true` เมื่อ store รองรับ หรือไล่ cursor จนครบ และ throw `PAYLOAD_TOO_LARGE` แทนการตัดเกินเพดาน — มีการทดสอบกันถดถอย (security test) ที่สแกนซอร์สหา `store.list` ที่ขอเกินหนึ่งหน้า; ขนาดหน้าของ client ยังจำกัด 500
+
 ---
 
 ## เอกสารทางการที่ตรวจ (2026-10-10)

@@ -6,7 +6,7 @@ import { projectDailyAttendance, projectionChanged } from '../../domain/attendan
 import { findEffectiveEnrollment } from '../../domain/enrollment.js';
 import { deterministicId } from '../../shared/uuid.js';
 import { partitionsForDates, ruleFor } from '../context.js';
-import { getClass, enrollmentsOf, dayInfoFor, periodsOfDay } from '../queries.js';
+import { getClass, enrollmentsOf, dayInfoFor, periodsOfDay, listAll } from '../queries.js';
 
 /** All attendance events for the student on the date (incl. superseded), partition-hinted. */
 export function* eventsFor(ctx, studentId, date) {
@@ -101,16 +101,7 @@ export function staffClassScope(ctx) {
  * instead of several lookups per student — essential on Sheets.
  * Returns overrides per student usable with computeDay/refreshDay.
  */
-export function* listAll(ctx, table, query) {
-  let items = [];
-  let cursor = null;
-  do {
-    const page = yield ctx.store.list(table, { ...query, limit: 500, cursor });
-    items = items.concat(page.items);
-    cursor = page.next_cursor;
-  } while (cursor);
-  return items;
-}
+export { listAll };
 
 export function* preloadDay(ctx, date, studentIds) {
   const parts = partitionsForDates(ctx, [date]);

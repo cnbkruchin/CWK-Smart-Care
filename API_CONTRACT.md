@@ -55,7 +55,7 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
 | EXTERNAL_SERVICE_ERROR | ใช่ | บริการภายนอกขัดข้อง ระบบจะลองใหม่อัตโนมัติ |
 | INTERNAL_ERROR | ใช่ | เกิดข้อผิดพลาดภายในระบบ กรุณาลองใหม่ หากยังพบปัญหาให้แจ้งรหัสอ้างอิงต่อผู้ดูแลระบบ |
 
-## Operations (125)
+## Operations (139)
 
 | operation | auth | permission | mutation | idempotency | rate/min | คำอธิบาย |
 |---|---|---|---|---|---|---|
@@ -136,6 +136,20 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
 | `leave.resubmit` | USER | leave.submit | ✔ | REQUIRED | 120 | แก้ไขและส่งใบลาที่ถูกส่งกลับ (revision ใหม่; ช่วงเดิมถูกถอน) |
 | `leave.submit` | USER | leave.submit | ✔ | REQUIRED | 30 | ยื่นใบลา (ทั้งวัน/ครึ่งวัน/บางคาบ หลายวัน) พร้อมเอกสาร — ตรวจวันซ้อน วันหยุด และ enrollment |
 | `leave.withdraw` | USER | leave.withdraw | ✔ | REQUIRED | 120 | ถอนคำขอลาที่ยังไม่ได้ข้อยุติ |
+| `migration.cancel` | USER | migration.export | ✔ | REQUIRED | 120 | ยกเลิกงาน (ไฟล์ที่ส่งออกแล้วยังอยู่ แต่ใช้ย้ายระบบไม่ได้) |
+| `migration.checklist` | USER | migration.cutover | ✔ | REQUIRED | 120 | บันทึก readiness checklist ก่อนสลับระบบ |
+| `migration.cutover` | USER | migration.cutover | ✔ | REQUIRED | 120 | สลับระบบ: ระบบนี้กลายเป็น archive อ่านอย่างเดียวถาวร (ห้าม dual-write) — routing ไประบบใหม่ทำตาม RUNBOOK |
+| `migration.get` | USER | migration.export |  | NONE | 300 | รายละเอียดงาน: checkpoint ผลตรวจ package หลักฐานนำเข้า/กระทบยอด และ checklist |
+| `migration.inventory` | USER | migration.export |  | NONE | 300 | รายการข้อมูลทั้งหมด: ตาราง partition จำนวนรายการ ไฟล์แนบ schema version ขนาดประมาณการ และตารางที่ไม่ส่งออก |
+| `migration.markReady` | USER | migration.cutover | ✔ | REQUIRED | 120 | ยืนยันพร้อมสลับระบบ (ต้องกระทบยอดผ่าน + checklist ครบ + package ครบถ้วน) |
+| `migration.packageDoc` | USER | migration.export |  | NONE | 300 | ดาวน์โหลดคู่มือที่แนบใน package (ตรงกับ schema/app version ของ package นั้น) |
+| `migration.pause` | USER | migration.export | ✔ | REQUIRED | 120 | หยุดงานส่งออกชั่วคราวอย่างปลอดภัย (หยุดหลัง chunk ปัจจุบัน) |
+| `migration.recordEvidence` | USER | migration.import | ✔ | REQUIRED | 120 | อ่านหลักฐานจากปลายทางใน package (reports/import.json → STAGED, reports/reconciliation.json → RECONCILED เมื่อผ่านทุกหัวข้อ) |
+| `migration.resume` | USER | migration.export | ✔ | REQUIRED | 120 | ทำงานส่งออกต่อจาก checkpoint ล่าสุด |
+| `migration.rollback` | USER | migration.cutover | ✔ | REQUIRED | 120 | ย้อนกลับมาใช้ระบบนี้: กรณีไม่มีข้อมูลใหม่ หรือมีข้อมูลใหม่ที่นำ delta กลับมาแล้ว (ตรวจหลักฐาน) — ไม่ทิ้งข้อมูลใหม่ |
+| `migration.runs` | USER | migration.export |  | NONE | 300 | งานส่งออก/ย้ายข้อมูลทั้งหมด พร้อมสถานะงานเบื้องหลัง |
+| `migration.startExport` | USER | migration.export | ✔ | REQUIRED | 120 | เริ่มส่งออก portable package (งานเบื้องหลัง): ภาพรวมทั้งระบบ/ซ้อมย้าย ต้องเปิดโหมดอ่านอย่างเดียวก่อน; บางส่วนระบุตาราง (ใช้ย้ายระบบทั้งชุดไม่ได้) |
+| `migration.validate` | USER | migration.validate | ✔ | REQUIRED | 120 | ตรวจ package ซ้ำ (checksum, schema, ข้อมูล) เป็นงานเบื้องหลัง → ผ่าน = VALIDATED |
 | `notification.acknowledge` | USER | notification.acknowledge | ✔ | REQUIRED | 120 | กดรับทราบ หรือขอให้ครูติดต่อกลับ (ผูกกับบัญชีผู้รับจริง) |
 | `notification.cancel` | USER | notification.resend | ✔ | REQUIRED | 120 | ยกเลิกรายการที่ยังรอส่ง (มีเหตุผล) |
 | `notification.list` | USER | notification.read_own |  | NONE | 300 | การแจ้งเตือนของฉัน (ในแอป) พร้อมสถานะรับทราบ |
@@ -3026,6 +3040,343 @@ Response ผิดพลาด: `{ "ok": false, "error": { "code", "message_th",
         "null"
       ],
       "maxLength": 500
+    }
+  }
+}
+```
+
+### migration.cancel
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "reason"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 500
+    }
+  }
+}
+```
+
+### migration.checklist
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "items"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "items": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "boolean"
+      },
+      "maxProperties": 20
+    }
+  }
+}
+```
+
+### migration.cutover
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "reason",
+    "confirm"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 500
+    },
+    "confirm": {
+      "type": "string",
+      "const": "CUTOVER"
+    }
+  }
+}
+```
+
+### migration.get
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### migration.inventory
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+### migration.markReady
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### migration.packageDoc
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "name"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "name": {
+      "type": "string",
+      "enum": [
+        "PORTABLE_FORMAT.md",
+        "MIGRATION_RUNBOOK_TH.md"
+      ]
+    }
+  }
+}
+```
+
+### migration.pause
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### migration.recordEvidence
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "kind"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "IMPORT",
+        "RECONCILIATION"
+      ]
+    }
+  }
+}
+```
+
+### migration.resume
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### migration.rollback
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "case",
+    "reason"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "case": {
+      "type": "string",
+      "enum": [
+        "NO_NEW_DATA",
+        "NEW_DATA_RETURNED"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 500
+    },
+    "delta_location": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 300
+    }
+  }
+}
+```
+
+### migration.runs
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "limit": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 200
+    }
+  }
+}
+```
+
+### migration.startExport
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mode",
+    "reason"
+  ],
+  "properties": {
+    "mode": {
+      "type": "string",
+      "enum": [
+        "FULL_SNAPSHOT",
+        "REHEARSAL",
+        "PARTIAL"
+      ]
+    },
+    "tables": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "maxItems": 80,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "maxLength": 60
+      }
+    },
+    "include_attachments": {
+      "type": "boolean"
+    },
+    "include_csv": {
+      "type": "boolean"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 500
+    }
+  }
+}
+```
+
+### migration.validate
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "format": "uuid"
     }
   }
 }

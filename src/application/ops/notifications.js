@@ -1,5 +1,6 @@
 // Notifications (MASTER_PROMPT §11): my in-app notifications, read/acknowledge/callback, the delivery
 // monitor (dead-letter view) with permission-checked retry/resend/cancel, and LINE channel binding.
+import { listAll } from '../queries.js';
 import { op } from '../dispatcher.js';
 import { obj, S, notFound, assertVersion, EMPTY } from './common.js';
 import { requirePermission, allows } from '../authz.js';
@@ -106,14 +107,14 @@ export const notificationOps = [
       }
       const counts = {};
       for (const st of ENUMS.DeliveryState.values) {
-        const rows = (yield ctx.store.list('NotificationOutbox', { where: { delivery_state: st }, partitions: parts, limit: 5000 })).items;
+        const rows = (yield* listAll(ctx, 'NotificationOutbox', { where: { delivery_state: st }, partitions: parts }));
         for (const r of rows) {
           counts[r.channel] = counts[r.channel] || {};
           counts[r.channel][st] = (counts[r.channel][st] || 0) + 1;
         }
       }
       const state = input.state || 'FAILED_FINAL';
-      let rows = (yield ctx.store.list('NotificationOutbox', { where: { delivery_state: state }, partitions: parts, limit: 1000 })).items;
+      let rows = (yield* listAll(ctx, 'NotificationOutbox', { where: { delivery_state: state }, partitions: parts }));
       if (input.channel) rows = rows.filter((r) => r.channel === input.channel);
       rows.sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1));
       rows = rows.slice(0, input.limit || 100);

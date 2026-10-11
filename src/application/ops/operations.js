@@ -2,6 +2,7 @@
 // OperationMetrics, retention of operational logs by expired term partition (plus finished Jobs), a
 // read-only view of the school's attachment retention setting (nothing deletes attachments
 // automatically), and the operations tick. Everything here is audited.
+import { listAll } from '../queries.js';
 import { op } from '../dispatcher.js';
 import { obj, S, notFound, EMPTY } from './common.js';
 import { requirePermission } from '../authz.js';
@@ -51,6 +52,7 @@ export function* flushMetrics(deps) {
       rows++;
     }
   }
+  cs.maintenanceAllowed = true; // operational metrics keep flowing while the system is frozen (READ_ONLY)
   if (rows) yield ctx.mutations.commit(cs.build({ result: {} }));
   return { buckets: buckets.length, rows };
 }
@@ -66,7 +68,7 @@ export function* backupSnapshotJob(ctx, job) {
     yield ctx.mutations.commit(cs.build({ result: {} }));
     return { done: true, result: { failed: 'NO_BACKUP_PORT' } };
   }
-  const attachments = (yield ctx.store.list('Attachments', { limit: 100000 })).items.filter((a) => a.status !== 'DELETED').map((a) => ({ id: a.id, sha256: a.sha256, size_bytes: a.size_bytes, classification: a.classification }));
+  const attachments = (yield* listAll(ctx, 'Attachments')).filter((a) => a.status !== 'DELETED').map((a) => ({ id: a.id, sha256: a.sha256, size_bytes: a.size_bytes, classification: a.classification }));
   const retentionDays = Number(yield* setting(ctx, 'backup.retention_days', 30));
   let res;
   try {
@@ -105,7 +107,7 @@ function* retentionCandidates(ctx) {
       const term = ctx.terms.find((t) => t.code === p);
       if (!term) continue;
       const age = diffDays(term.end_date, ctx.today);
-      const rows = (yield ctx.store.list(table, { partitions: [p], limit: 200000 })).items.length;
+      const rows = ctx.store.count ? yield ctx.store.count(table, p) : (yield* listAll(ctx, table, { partitions: [p] })).length;
       out.push({ table, partition: p, term_end: term.end_date, keep_days: days, eligible: age > days, rows });
     }
   }
@@ -118,7 +120,7 @@ export const operationsOps = [
     input: obj({ limit: S.limit }),
     *handler(ctx, input) {
       try { yield* requirePermission(ctx, 'backup.manage'); } catch (e) { if (e.code !== 'FORBIDDEN') throw e; yield* requirePermission(ctx, 'system.health'); }
-      const items = (yield ctx.store.list('BackupRuns', { limit: 1000 })).items.sort((a, b) => (a.started_at < b.started_at ? 1 : -1)).slice(0, input.limit || 30);
+      const items = (yield* listAll(ctx, 'BackupRuns')).sort((a, b) => (a.started_at < b.started_at ? 1 : -1)).slice(0, input.limit || 30);
       const ok = items.filter((b) => b.status === 'SUCCEEDED');
       return { items, last_success_at: ok.length ? ok[0].finished_at : null, restore_tested: items.some((b) => !!b.restore_tested_at) };
     },
@@ -160,7 +162,7 @@ export const operationsOps = [
     *handler(ctx, input) {
       yield* requirePermission(ctx, 'system.health');
       const since = addMinutesIso(ctx.now, -60 * (input.hours || 24));
-      const rows = (yield ctx.store.list('OperationMetrics', { where: { bucket_start: { gte: since } }, partitions: partitionsForDates(ctx, [since.slice(0, 10), ctx.today]), limit: 20000 })).items;
+      const rows = (yield* listAll(ctx, 'OperationMetrics', { where: { bucket_start: { gte: since } }, partitions: partitionsForDates(ctx, [since.slice(0, 10), ctx.today]) }));
       const by = new Map();
       for (const r of rows) {
         if (!by.has(r.operation)) by.set(r.operation, { operation: r.operation, count: 0, errors: 0, p95_max: 0, p50_weighted: 0, lock_p95_max: 0, buckets: 0 });
@@ -183,7 +185,7 @@ export const operationsOps = [
       const items = yield* retentionCandidates(ctx);
       const attachmentPolicy = yield* setting(ctx, 'retention.attachment_days', null);
       const jobCutoff = addMinutesIso(ctx.now, -JOBS_KEEP_DAYS * 24 * 60);
-      const oldJobs = (yield ctx.store.list('Jobs', { where: { status: { in: ['SUCCEEDED', 'FAILED', 'CANCELLED'] } }, limit: 100000 })).items.filter((j) => (j.finished_at || j.updated_at) < jobCutoff).length;
+      const oldJobs = (yield* listAll(ctx, 'Jobs', { where: { status: { in: ['SUCCEEDED', 'FAILED', 'CANCELLED'] } } })).filter((j) => (j.finished_at || j.updated_at) < jobCutoff).length;
       return {
         items, attachment_policy: attachmentPolicy, jobs: { keep_days: JOBS_KEEP_DAYS, eligible_rows: oldJobs },
         not_automated_th: ['ข้อมูลนักเรียน การมาเรียน ใบลา เรื่องติดตาม และ Audit ไม่ถูกลบอัตโนมัติ — ต้องมีนโยบายและการอนุมัติของโรงเรียน (docs/OPERATIONS_TH.md)', 'ข้อมูลที่ลบแล้วยังอยู่ในสำเนาสำรองจนกว่าสำเนานั้นหมดอายุ'],
@@ -233,6 +235,7 @@ operationsOps.push(op({
 /** Nightly backup (setting backup.nightly_time) + metrics flush every tick. */
 export const OPS_TICK = {
   name: 'ops.schedule',
+  readOnlySafe: true, // metrics + nightly backup are maintenance writes, allowed while frozen
   *run(deps) {
     const out = { metrics: yield* flushMetrics(deps) };
     const ctx = yield* sysCtx(deps, 'tick.ops');
